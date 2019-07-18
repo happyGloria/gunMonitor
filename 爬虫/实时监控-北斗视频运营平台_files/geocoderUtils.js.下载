@@ -1,0 +1,576 @@
+/**
+ * 
+ */
+function GeocoderUtils(){
+	this.MAP_TYPE_DEFAULT = 0; //默认解析
+	this.MAP_TYPE_GOOGLE = 1; //谷歌地图
+	this.MAP_TYPE_BAIDU = 2; //百度地图
+	this.MAP_TYPE_GAODE = 3; //高德地图
+	this.MAP_TYPE_SIWEI = 4; //四维地图
+	this.MAP_TYPE_BING = 9; //BING地图
+	
+	this.mapType = 0; //地图类型  0谷歌 3百度
+	this.geocoderType = 0; //解析类型
+	this.defaultGeocoderType = 0; //默认解析类型
+	
+	this.isLoadedGoogle = false; //是否已加载谷歌
+	this.isLoadedBaidu = false; //是否已加载百度
+	this.isLoadedGaode = false; //是否已加载高德
+	this.isLoadedSiWei = false; //是否已加载四维
+	
+	this.loadSiWeiJSCount = 0; //加载四维JS数目
+
+	this.lstAnalysisPoint = [];//待解析的
+	this.lstAnalysisPointPriority = [];//优先解析
+	
+	this.mapAnalysisPoint = new  Hashtable();
+	this.gaodeKey = "18c93171e34ea9baed59359a076bde33";
+	this.token = 0;//限流
+
+};
+
+var geocoderUtils = null; //解析地理位置的类
+
+
+GeocoderUtils.prototype.getGeocoderType = function() {
+	return this.geocoderType;
+}
+
+GeocoderUtils.prototype.setBaiDuWebAPIKey = function(baiduKey) {
+	if(baiduKey != null && baiduKey != '') {
+		this.baiduKey = baiduKey;
+	}
+}
+
+GeocoderUtils.prototype.setGoogleWebAPIKey = function(googleKey) {
+	if(googleKey != null && googleKey != '') {
+		this.googleKey = googleKey;
+	}
+}
+
+GeocoderUtils.prototype.setGaoDeWebAPIKey = function(gaodeKey) {
+	if(gaodeKey != null && gaodeKey != '') {
+		this.gaodeKey = gaodeKey;
+	}
+}
+
+GeocoderUtils.prototype.setSiWeiWebAPIKey = function(siweiKey) {
+	if(siweiKey != null && siweiKey != '') {
+		this.siweiKey = siweiKey;
+	}
+}
+
+GeocoderUtils.prototype.isDefaultMap = function() {
+	return this.geocoderType == this.MAP_TYPE_DEFAULT && this.defaultGeocoderType == this.MAP_TYPE_DEFAULT;
+}
+
+GeocoderUtils.prototype.isBaidu = function(toMap) {
+    if(toMap && toMap == this.MAP_TYPE_BAIDU) {
+        return true;
+    }
+    return false;
+}
+
+GeocoderUtils.prototype.isGaoDe = function(toMap) {
+    if(toMap && toMap == this.MAP_TYPE_GAODE) {
+        return true;
+    }
+    return false;
+}
+
+GeocoderUtils.prototype.isSiWei = function(toMap) {
+    if(toMap && toMap == this.MAP_TYPE_SIWEI) {
+        return true;
+    }
+    return false;
+}
+
+GeocoderUtils.prototype.isGoogle = function(toMap) {
+    if(toMap && toMap == this.MAP_TYPE_GOOGLE) {
+        return true;
+    }
+    return false;
+}
+
+GeocoderUtils.prototype.initialize = function(mapType, geocoderType, defaultGeocoderType) {
+	this.mapType = mapType;
+	if(geocoderType != null) {
+		this.geocoderType = geocoderType;
+	}
+	if(defaultGeocoderType != null) {
+		this.defaultGeocoderType = defaultGeocoderType;
+	}
+	if(this.mapType == 3 && (this.isDefaultMap() || this.isBaidu())) {
+		this.isLoadedBaidu = true;
+	}else if(this.mapType == 4 && (this.isDefaultMap() || this.isGaoDe())) {
+		this.isLoadedGaode = true;
+	}else if(this.mapType != 3 && (this.isDefaultMap() || this.isGoogle())) {
+		this.isLoadedGoogle = true;
+	}
+	
+	var that = this;
+	if(this.mapType == 3 && this.isBaidu() && !this.isLoadedBaidu) {
+		/*var url = "http://api.map.baidu.com/api?v=2.0&services=false&ak="+ this.baiduKey +"&callback=bmapinit";
+        if(isHttps == 1){
+            url = "https://api.map.baidu.com/api?v=2.0&services=false&ak="+ this.baiduKey +"&callback=bmapinit";
+        }
+		// bmapinit为回调函数
+		loadScript(url, function() {
+		/!*loadScript(mapConfig.baiduMapUrl, function() {*!/
+			that.isLoadedBaidu = true;
+			//bmapinit();
+		} );*/
+	}else if(this.isGaoDe() && !this.isLoadedGaode) {
+		var url = "http://webapi.amap.com/maps?v=1.3&key="+ this.gaodeKey +"&plugin=AMap.Geocoder";
+		if(_getRootFrameElement().mapConfig.isHttps == 1){
+			url = "https://webapi.amap.com/maps?v=1.3&key="+ this.gaodeKey +"&plugin=AMap.Geocoder";
+		}
+		loadScript(url, function() {
+			that.isLoadedGaode = true;
+		} );
+	}else if(this.isSiWei() && !this.isLoadedSiWei) {
+		/*this.loadSiWeiJSCount = 0;
+		var url = "http://c.map.icttic.cn:81/SE_JSAPI?v=ol&uid="+ this.siweiKey;
+		if(_getRootFrameElement().mapConfig.isHttps == 1){
+			url = "https://c.map.icttic.cn:81/SE_JSAPI?v=ol&uid="+ this.siweiKey;
+		}
+		loadScript(url, function() {
+			that.loadSiWeiJSCount++;
+			if(that.loadSiWeiJSCount == 2) {
+				that.isLoadedSiWei = true;
+			}
+		} );
+		var url = "http://c.map.icttic.cn:81/SE_JSLIB?service=true&uid="+ this.siweiKey;
+		if(isHttps == 1){
+			url = "https://c.map.icttic.cn:81/SE_JSLIB?service=true&uid="+ this.siweiKey;
+		}
+		loadScript(url, function() {
+			that.loadSiWeiJSCount++;
+			if(that.loadSiWeiJSCount == 2) {
+				that.isLoadedSiWei = true;
+			}
+		} );*/
+	}else if(this.isGoogle()) {
+		/*var url = "http://ditu.google.cn/maps/api/js?key="+ this.googleKey +"&sensor=false";
+		if(isHttps == 1){
+			url = "https://ditu.google.cn/maps/api/js?key="+ this.googleKey +"&sensor=false";
+		}*/
+		var url = _getRootFrameElement().mapConfig.getGeocodeUrl('google');
+        // var url = "http://ditu.google.cn/maps/api/js?key="+ this.googleKey +"&sensor=false";
+		loadScript(url, function() {
+			that.isLoadedGoogle = true;
+		} );
+	}
+	
+	if(typeof this.timeOutObj == 'undefined'){
+		this.timeOutObj = setInterval(this.parseAnalysisAddress, 50);
+	}
+	
+}
+
+GeocoderUtils.prototype.getBaiDuGeocoder = function() {
+	if(this.baiDuGeocoder == null) {
+		this.baiDuGeocoder = new BMap.Geocoder();
+	}
+	return this.baiDuGeocoder;
+}
+
+GeocoderUtils.prototype.getGaoDeGeocoder = function() {
+	if(this.gaoDeGeocoder == null) {
+		this.gaoDeGeocoder = new AMap.Geocoder();
+	}
+	return this.gaoDeGeocoder;
+}
+
+GeocoderUtils.prototype.getSiWeiGeocoder = function() {
+	if(this.siWeiGeocoder == null) {
+		var map_ = new EV.Map("xxxxx");
+		this.siWeiGeocoder = new EV.ServiceGC(map_);
+	}
+	return this.siWeiGeocoder;
+}
+
+GeocoderUtils.prototype.getGoogleGeocoder = function() {
+	if(this.googleGeocoder == null) {
+		this.googleGeocoder = new google.maps.Geocoder();
+	}
+	return this.googleGeocoder;
+}
+
+
+GeocoderUtils.prototype.isBing = function(toMap) {
+    if(toMap && toMap == this.MAP_TYPE_BING) {
+		return true;
+    }
+    return false;
+}
+
+GeocoderUtils.prototype.getParsePoint = function(jingdu, weidu,toMap) {
+	var point = null;
+	try{
+		if(this.isBaidu(toMap)) {
+			point = new BMap.Point(jingdu, weidu);
+		}else if(this.isGaoDe(toMap)) {
+			point = [jingdu,weidu];
+		}else if(this.isSiWei(toMap)) {
+			//1 地标 2道路 3地标和道路
+			point = {'location': new EV.LngLat(jingdu,weidu), 'type': 11};
+		}/*else if(this.isBing(toMap)){
+			point = new Microsoft.Maps.Location(weidu, jingdu);
+		}*/else if(this.isGoogle(toMap)) {
+			point = {"address":weidu+","+jingdu};
+		}
+	}catch(e) {}
+	return point;
+}
+/**
+ * 开始解析位置
+ * @param jingdu
+ * @param weidu
+ * @param callback
+ */
+GeocoderUtils.prototype.startAnalysisAddress = function(jingdu, weidu, key, callback, userdata) {
+	try{
+		var toMap = null;
+        if(userdata && userdata.mapType){
+            toMap =  userdata.mapType;
+        } else if(this.mapType){
+			if (this.mapType == 0) {//高德 谷歌解析经纬度一致
+				toMap = 1;	//
+			} else if(this.mapType == 4) {
+				toMap = 3;
+			} else if(this.mapType == 9) {
+				toMap = 9;
+			}  else {
+				toMap = 2;
+			}
+		}
+        //经纬度纠偏
+        var point = this.getParsePoint(jingdu, weidu,toMap);
+		if(this.isBaidu(toMap)) {
+			var _callback = function(result, userData_, geocoderUtils_, key_){
+				geocoderUtils_.token--;
+                var city = "";
+                var address = "";
+                if (result != null) {
+                    // address = result.formatted_address;
+                    address = result.formatted_address + result.sematic_description;
+                    city = result.addressComponent.city;
+                }
+                try{
+                    var ret = {};
+                    ret.address = address;
+                    ret.city = city;
+                    if(ret.address){
+                    	geocoderUtils_.mapAnalysisPoint.put(key_, ret);
+                    }
+                    callback(address, city, userData_);
+                }catch(e) {
+
+                }
+            }
+			this.getBaiduAddress(jingdu,weidu,_callback, userdata, geocoderUtils, key);
+	/*		this.getBaiDuGeocoder().getLocation(point, function(result){
+				geocoderUtils.token--;
+				var city = "";
+				var address = "";
+				if (result != null) {
+					var address  = result.formatted_address +""+ result.sematic_description;
+					if (result.addressComponents != null) {
+						city = result.addressComponents.city;
+					}
+				}
+				try{
+					var ret = {};
+					ret.address = address;
+					ret.city = city;
+					 if(ret.address){
+	                    	geocoderUtils.mapAnalysisPoint.put(key, ret);
+	                    	geocoderUtils.mapAnalysisPointBaiDu.put(key, ret);
+                    }
+//					geocoderUtils.mapAnalysisPoint.put(key, ret);
+					callback(address, city, userdata);
+				}catch(e) {
+
+				}
+			});*/
+		}else if(this.isGaoDe(toMap)) {
+			//这里不执行解析
+			this.getGaoDeGeocoder().getAddress(point, function(status, result) {
+				geocoderUtils.token--;
+				var city = "";
+				var address = "";
+	            if (status === 'complete' && result != null && result.info === 'OK' 
+	            	&& result.regeocode != null) {
+	            	address = result.regeocode.formattedAddress;
+	            }else{
+	            }
+	            try{
+	            	var ret = {};
+					ret.address = address;
+					ret.city = city;
+					if(ret.address){
+						geocoderUtils.mapAnalysisPoint.put(key, ret);
+					}
+					callback(address, city, userdata);
+				}catch(e) {}
+	        });
+		}else if(this.isSiWei(toMap)) {
+			this.getSiWeiGeocoder().rgcEncoding(point, function(result) {
+				geocoderUtils.token--;
+				var city = "";
+				var address = "";
+				if (result != null) {
+					 address = result.district_text.replaceAll(">", "") + result.address;
+				}
+				try{
+					var ret = {};
+					ret.address = address;
+					ret.city = city;
+					if(ret.address){
+						geocoderUtils.mapAnalysisPoint.put(key, ret);
+					}
+					callback(address, city, userdata);
+				}catch(e) {}
+	        });
+		}else if(this.isGoogle(toMap)) {
+
+            /*var _callback = function(results, status){
+                var city = "";
+                var address = "";
+                if (status == google.maps.GeocoderStatus.OK) {
+                    address = results[0].formatted_address;
+                    var address_components = results[0].address_components;
+                    for (var i = 0; i < address_components.length; ++ i) {
+                        if (address_components[i].types[0] == "locality" && address_components[i].types[1] == "political") {
+                            city = address_components[i].long_name;
+                            break;
+                        }
+                    }
+                }
+                try {
+                    var ret = {};
+                    ret.address = address;
+                    ret.city = city;
+                    geocoderUtils.mapAnalysisPoint.put(key, ret);
+                    geocoderUtils.token--;
+                    callback(address, city, userdata);
+                }catch(e) {
+
+                }
+            }
+
+            this.getGoogleAddress(point,_callback);*/
+
+			this.getGoogleGeocoder().geocode(point, function(results, status) {
+				geocoderUtils.token--;
+				var city = "";
+				var address = "";
+				if (status == google.maps.GeocoderStatus.OK) {
+					address = results[0].formatted_address;
+					if(address.indexOfNotCase('unnamed') >= 0) { // 包含无名路
+                        address = results[1].formatted_address; // 用第二项
+					}
+					var address_components = results[0].address_components;
+					for (var i = 0; i < address_components.length; ++ i) {
+						if (address_components[i].types[0] == "locality" && address_components[i].types[1] == "political") {
+							city = address_components[i].long_name;
+							break;
+						}
+					}
+				}
+			
+				try {
+					var ret = {};
+					ret.address = address;
+					ret.city = city;
+					
+					if(ret.address){
+						geocoderUtils.mapAnalysisPoint.put(key, ret);
+					}
+					callback(address, city, userdata);
+				}catch(e) {
+				}
+			});
+		}
+    }catch (e) {
+        geocoderUtils.token--;
+        callback('', '', userdata);
+    }
+}
+
+
+
+//var geocoder = new BMap.Geocoder();
+//var geocoder = new google.maps.Geocoder();
+//调用googleAPI进行地址解析
+//调用googleAPI进行地址解析
+GeocoderUtils.prototype.getBaiduAddress = function (jingdu,weidu,callback, userData, geocoderUtils, key){
+	var _this = this;
+    var geo = _getRootFrameElement().mapConfig.getGeocodeUrl('baidu');
+    // var ajaxUrl = "http://api.map.baidu.com/geocoder/v2/?ak=A5XwmfizKyOvbYyvmxDLTZYi&output=json&pois=0&location=" + weidu + "," + jingdu + "&&callback=getData";
+	// 每次解析随机取一个Key
+    var baiduApiUrl = _getRootFrameElement().mapConfig.getGeocodeUrl('baidu');
+    var ajaxUrl = baiduApiUrl.geoUrl + "&location=" + weidu + "," + jingdu + "&callback=getData";
+    var _currentKey = baiduApiUrl.mapKey.key;
+    $.ajax({
+        url: ajaxUrl,
+        type: "GET",
+        dataType: "jsonp",  //指定服务器返回的数据类型
+//        jsonpCallback: "getData",  //指定回调函数名称
+        success: function (data) {
+            if (data.status == 0) {
+                callback(data.result, userData, geocoderUtils, key);
+            } else {
+            	geocoderUtils.token--;
+            	// 如果无效
+            	// 设置 mapConfig baiduGeoKeyList数组对象的key为无效
+               /* var _geoKeyList = _getRootFrameElement().mapConfig.baiduGeoKeyList;
+                for(var _geo in _geoKeyList ) {
+                	if(_geo && _currentKey == _geo.key) {
+                        _geo.mapKey.valid = false;
+					}
+				}*/
+            }
+        },
+        error:function(XMLHttpRequest, textStatus, errorThrown){
+        	geocoderUtils.token--;
+		}
+    });
+}
+
+/**
+ * 谷歌地理位置前端解析 （跨域）
+ * @param jingdu
+ * @param weidu
+ * @param callback
+ */
+GeocoderUtils.prototype.getGoogleAddress = function (point,callback){
+    // var ajaxUrl = "https://maps.google.cn/maps/api/geocode/json?sensor=true&latlng=22.554939,113.940299&key=AIzaSyCbr8JFsfY-I_Ii82kszK_Ymbk9S-Rb7mo&language=zh_CN";
+    // 每次解析随机取一个Key
+    var googleApiUrl = _getRootFrameElement().mapConfig.getGeocodeUrl('google');
+    var ajaxUrl = googleApiUrl + "&latlng=" + point.address;
+
+   
+}
+
+/**
+ * 样式设置key
+ */
+GeocoderUtils.prototype.formatGeoKey = function (jingdu, weidu, toMap) {
+	return jingdu + "-" + weidu+ "-" + toMap;
+}
+
+/**
+ * 定时器
+ */
+GeocoderUtils.prototype.parseAnalysisAddress = function() {
+	//lstAnalysisPointPriority
+	if(geocoderUtils.lstAnalysisPointPriority && geocoderUtils.lstAnalysisPointPriority.length > 0){
+//		if(geocoderUtils.token < 20){// 桶最大装20  超过就等待  token = 2
+			geocoderUtils.token ++;
+			var analysisPoint =	geocoderUtils.lstAnalysisPointPriority[0];
+			geocoderUtils.lstAnalysisPointPriority.splice(0,1);//删除第一个元素，数组元素位置自动前移，返回被删除的元素 
+			if(analysisPoint.jingdu && analysisPoint.weidu && analysisPoint.jingdu != "" && analysisPoint.weidu != ""){
+				// 有可能是解过的，这时候不能让他再解
+				var toMap = null;
+				//解析类型
+				if(analysisPoint.userdata &&  analysisPoint.userdata.mapType){
+					toMap =  analysisPoint.userdata.mapType;
+				}
+            	var find  = geocoderUtils.mapAnalysisPoint.get(analysisPoint.key);
+                if(find != null && find.address && find.address != ""){//已解析的
+//                	console.log("内存返回查询: "+analysisPoint.key);
+                	geocoderUtils.token--;
+                    try {
+                        analysisPoint.callback(find.address, find.city, analysisPoint.userdata);
+                    }catch(e) {}
+                  
+                }else {//未解析的
+            	  try {
+            		  geocoderUtils.startAnalysisAddress(analysisPoint.jingdu , analysisPoint.weidu, analysisPoint.key ,analysisPoint.callback, analysisPoint.userdata);
+            	  }catch(e) {
+            		  geocoderUtils.token--;
+            	  }  
+                }
+			}else{
+				geocoderUtils.token--;
+			}
+//		}
+	}else  if(geocoderUtils.lstAnalysisPoint && geocoderUtils.lstAnalysisPoint.length > 0){
+		if(geocoderUtils.token < 3){// 桶最大装20  超过就等待
+			geocoderUtils.token ++;
+			var analysisPoint =	geocoderUtils.lstAnalysisPoint[0];
+			geocoderUtils.lstAnalysisPoint.splice(0,1);//删除第一个元素，数组元素位置自动前移，返回被删除的元素 
+			if(analysisPoint.jingdu && analysisPoint.weidu && analysisPoint.jingdu != "" && analysisPoint.weidu != ""){
+				// 有可能是解过的，这时候不能让他再解
+				var toMap = null;
+				//解析类型
+				if(analysisPoint.userdata &&  analysisPoint.userdata.mapType){
+					toMap =  analysisPoint.userdata.mapType;
+				}
+            	var find  = geocoderUtils.mapAnalysisPoint.get(analysisPoint.key);
+                if(find != null && find.address && find.address != ""){//已解析的
+//                	console.log("内存返回查询: "+analysisPoint.key);
+                	geocoderUtils.token--;
+                    try {
+                        analysisPoint.callback(find.address, find.city, analysisPoint.userdata);
+                    }catch(e) {}
+                  
+                }else {//未解析的
+            	  try {
+            		  geocoderUtils.startAnalysisAddress(analysisPoint.jingdu , analysisPoint.weidu, analysisPoint.key ,analysisPoint.callback, analysisPoint.userdata);
+            	  }catch(e) {
+            		  geocoderUtils.token--;
+            	  }  
+                }
+			}else{
+				geocoderUtils.token--;
+			}
+		}
+	}
+}
+
+//获取当前优先解析的数目
+GeocoderUtils.prototype.getAnalysisPointPriorityLength = function(){
+	if(this.lstAnalysisPointPriority){
+		return this.lstAnalysisPointPriority.length;
+	}
+	return 0;
+}
+
+
+GeocoderUtils.prototype.parseAddress = function(jingdu, weidu, callback, userdata) {
+	//离线地图时不解析地理位置
+	if (_getRootFrameElement().mapConfig.isOffLineMap()) {
+		return;
+	}
+		
+	var toMap = null;
+	//解析类型
+	if(userdata && userdata.mapType){
+		toMap = userdata.mapType;
+	}
+	var key = this.formatGeoKey(jingdu, weidu, toMap);
+	var find  = this.mapAnalysisPoint.get(key);
+	if(find != null){//已解析的
+		try {
+			callback(find.address, find.city, userdata);
+		}catch(e) {}
+	}else{//未解析的
+		var point = {};
+		point.jingdu = jingdu;
+		point.weidu = weidu;
+		point.callback = callback;
+		point.key  = key;
+		point.userdata = userdata;
+		if(userdata && userdata.topLeave){
+			this.lstAnalysisPointPriority.push(point);//装入链表
+		}else{
+			this.lstAnalysisPoint.push(point);//装入链表
+		}
+		if(typeof this.timeOutObj == 'undefined'){
+			this.timeOutObj = setInterval(this.parseAnalysisAddress, 50);
+		}
+	}
+}

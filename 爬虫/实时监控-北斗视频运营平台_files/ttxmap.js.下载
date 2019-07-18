@@ -1,0 +1,1788 @@
+
+var readyScriptUrl = 0;
+var isMapReady = false;
+var scriptUrl = [];
+var mapExtendUrl = "";
+
+// index.js
+var rootParent = _getRootFrameElement();
+// 上级页面
+var parentPage = parent;
+
+var lang = null;
+var isBeginLoadMap = false;
+var GFRAME = null;
+var initZoom = null;
+var initJingDu = null;
+var initWeiDu = null;
+var initMapType = null;
+var initParseAddress = true;
+var isChrome = false;
+var mapAddress = new Hashtable();
+
+var rectSearchType = 1;	//1表示查找当前车辆，2表示查找历史车辆 ,3表示表示物流公司查询生产仓储企业,4表示查询应急救援点，5表示交通交警查询物流企业
+var pointAddType = 1; //1表示添加点，2表示危化添加导航线路
+var addMapAreaType = 1; //1表示 我的地图添加区域 2表示禁行区域添加区域
+var myMap = null;  //我的地图类对象 
+var chemicalMap = null;  //危化地图类对象
+var mapIndex = getUrlParameter("mapIndex"); //地图索引
+var phone = getUrlParameter("phone"); //是否手机版本
+var isPolice = getUrlParameter("isPolice"); //是否警员
+// 地图配置
+var mapConfig = rootParent.getMapConfig();
+
+var mapRectMyCar;
+var mapRectHisCar;
+
+$(document).ready(function () {
+    loadReadPage();
+});
+
+function loadScript(src, callback) {
+	var otherJScipt = null;
+	if(src.endWith(".css")) {
+		otherJScipt = document.createElement("link");
+		otherJScipt.setAttribute("type", "text/css");
+		otherJScipt.setAttribute("rel", "stylesheet");
+		otherJScipt.setAttribute("href", src);
+	}else {
+		otherJScipt = document.createElement("script");
+		otherJScipt.setAttribute("type", "text/javascript");
+		otherJScipt.setAttribute("src", src);
+	}
+	var heads = document.getElementsByTagName("head");
+	if(heads.length) {
+		heads[0].appendChild(otherJScipt);
+	}else {
+    	doc.documentElement.appendChild(otherJScipt);
+    }
+	//判断服务器 
+	if(typeof otherJScipt.onreadystatechange != 'undefined') {
+		otherJScipt.onreadystatechange = function () { 
+			//IE下的判断，判断是否加载完成 
+			if (otherJScipt && (otherJScipt.readyState == "loaded" || otherJScipt.readyState == "complete")) { 
+				otherJScipt.onreadystatechange = null; 
+				if (callback != null) {
+					callback(); 
+				}
+			} 
+		}; 
+	}else if(typeof otherJScipt.onload != 'undefined') {
+		otherJScipt.onload = function () { 
+			otherJScipt.onload = null;
+			if (callback != null) {
+				callback(); 
+			}
+		};
+	}else {
+		if (callback != null) {
+			callback(); 
+		}
+	}
+}
+
+function isBaiduMap() {
+	var mapType = parentPage.getMapType();
+
+	if(mapType == 3){
+        return true;
+	} else {
+		return false;
+	}
+}
+
+function isGaoDeMap() {
+	var mapType = parentPage.getMapType();
+    if(mapType == 4){
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function isBingMap() {
+	var mapType = parentPage.getMapType();
+    if(mapType == 9){
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function loadReadPage() {
+
+	if(typeof rootParent.lang == "undefined"){
+        setTimeout(loadReadPage, 50);
+	}else{
+		lang = rootParent.lang;
+		mapRectMyCar = rootParent.lang.mapRectMyIdno;
+		mapRectHisCar = rootParent.lang.mapRectHisIdno;
+        if(rootParent.myPageStyle &&
+            typeof rootParent.myPageStyle.initCommonStyle == 'function') {
+            //初始化样式
+            var doc_ = null;
+            if(typeof doc != 'undefined') {
+                doc_ = doc;
+            }
+            rootParent.myPageStyle.initCommonStyle("ttxMap", function() {
+                loadPage();
+            }, document, doc_);
+        }else {
+            loadPage();
+        }
+	}
+}
+
+
+
+function loadPage() {
+	if(!phone) {
+		$('body').attr('onresize', 'setPanelWidth()');
+//		$(window).resize(setPanelWidth);
+	}
+	
+	var mapType = parentPage.getMapType();
+	/*
+	#define MAP_TYPE_GOOGLE				0
+	#define MAP_TYPE_MAPINFO			1
+	#define MAP_TYPE_GOOGLE_HTTPS		2
+	#define MAP_TYPE_BAIDU				3	
+	*/
+	var mapSelect = [];
+	var currentMap = "";
+	if (isBaiduMap()) {
+		//百度地图
+		//mapScriptUrl = "http://api.map.baidu.com/api?v=2.0&services=false&ak=BCa2d508d2c567acd009eb09765f5797&callback=map_init";
+		mapScriptUrl = mapConfig.baiduMapUrl;
+		scriptUrl.push("../ttxmap/baidu/js/mapframe.js");
+		scriptUrl.push("../ttxmap/baidu/js/GeoUtils.js");
+		scriptUrl.push("../ttxmap/baidu/js/DistanceTool.js");
+		scriptUrl.push("../ttxmap/baidu/js/DrawingManager.js");
+		scriptUrl.push("../ttxmap/baidu/js/function.js");
+		scriptUrl.push("../ttxmap/baidu/js/mapmarker.js");
+		scriptUrl.push("../ttxmap/baidu/js/popupmarker.js");
+		scriptUrl.push("../ttxmap/baidu/js/namemarker.js");
+		scriptUrl.push("../ttxmap/baidu/js/RectangleZoom.js");
+		scriptUrl.push("../ttxmap/baidu/js/TextIconOverlay.js");
+		scriptUrl.push("../ttxmap/baidu/js/MarkerClusterer.js");
+		scriptUrl.push("../ttxmap/baidu/js/TrafficControl_min.js");
+		scriptUrl.push("../ttxmap/css/TrafficControl_min.css");
+		
+		currentMap = lang.mapBaidu;
+		var map = {};
+		map.type = 0;
+		map.name = lang.mapGoogle;
+		mapSelect.push(map);
+		mapSelect.push({type:9, name: lang.mapBing});
+//		 var Gmap = {};
+//		 Gmap.type = 4;
+//		 Gmap.name = lang.mapAutonavi;
+//		 mapSelect.push(Gmap);
+
+        mapConfig.currentMapType = 2;
+
+	} else if(isGaoDeMap()){
+		//高德地图
+		// mapScriptUrl = "http://webapi.amap.com/maps?v=1.3&key=18c93171e34ea9baed59359a076bde33&plugin=AMap.MouseTool,AMap.Geocoder,AMap.MarkerClusterer,AMap.AdvancedInfoWindow&callback=map_init";
+        mapScriptUrl = mapConfig.gaodeMapUrl;
+		scriptUrl.push("../ttxmap/gaodeMap/js/main.js");//实时路况
+		scriptUrl.push("../ttxmap/gaodeMap/js/mapframe.js");
+		scriptUrl.push("../ttxmap/gaodeMap/js/function.js");
+		scriptUrl.push("../ttxmap/gaodeMap/js/mapmarker.js");
+		scriptUrl.push("../ttxmap/gaodeMap/js/popupmarker.js");
+		scriptUrl.push("../ttxmap/gaodeMap/js/namemarker.js");
+		scriptUrl.push("../ttxmap/gaodeMap/js/MarkerClusterer.js");
+		var map = {};
+		map.type = 0;
+		map.name = lang.mapGoogle;
+		mapSelect.push(map);
+		//百度地图
+		currentMap =  lang.mapAutonavi;
+		var bMap = {};
+		bMap.type = 3;
+		bMap.name = lang.mapBaidu;
+		mapSelect.push(bMap);
+        mapConfig.currentMapType = 3; // 3 高德
+        
+	}else if(isBingMap()){
+		//高德地图
+		// mapScriptUrl = "http://webapi.amap.com/maps?v=1.3&key=18c93171e34ea9baed59359a076bde33&plugin=AMap.MouseTool,AMap.Geocoder,AMap.MarkerClusterer,AMap.AdvancedInfoWindow&callback=map_init";
+        mapScriptUrl = mapConfig.bingMapUrl;
+        
+    	//判断是不是远古浏览器
+//		if(!isBrowseIE8() && !isBrowseIE7() && location.href.indexOf("isMapv")>-1){
+//			scriptUrl.push("../ttxmap/bingMap/js/mapframe_mapv.js");
+//		} else {
+//		}
+		scriptUrl.push("../ttxmap/mapv.js");
+		scriptUrl.push("../ttxmap/bingMap/js/mapframe.js");
+		scriptUrl.push("../ttxmap/bingMap/js/function.js");
+		scriptUrl.push("../ttxmap/bingMap/js/popupmarker.js");
+		scriptUrl.push("../ttxmap/bingMap/js/mapmarker.js");
+		scriptUrl.push("../ttxmap/bingMap/js/namemarker.js");
+//		scriptUrl.push("../ttxmap/bingMap/js/MarkerClusterer.js");
+		var map = {};
+		map.type = 0;
+		map.name = lang.mapGoogle;
+		mapSelect.push(map);
+//		mapSelect.push({type:3, name:lang.mapBaidu});
+		//百度地图
+		currentMap =  lang.mapBing;
+		var bMap = {};
+		bMap.type = 3;
+		bMap.name = lang.mapBaidu;
+		mapSelect.push(bMap);
+        mapConfig.currentMapType = 9; // 3 高德
+    	$("#liDistance").hide();
+		$("#liZoomIn").hide();
+		$("#liZoomOut").hide();
+	}else{
+		//谷歌地图
+		if (rootParent.langIsChinese()) {
+			//mapScriptUrl = "http://ditu.google.cn/maps/api/js?key=AIzaSyA_Iu-hDvzx-KTDNrGaN3LccFaiujVmgog&sensor=false&libraries=drawing&callback=map_init";
+			mapScriptUrl = mapConfig.googleMapUrl; // 国内地址
+		} else {
+			//mapScriptUrl = "http://maps.googleapis.com/maps/api/js?key=AIzaSyA_Iu-hDvzx-KTDNrGaN3LccFaiujVmgog&sensor=false&libraries=drawing&callback=map_init";
+            mapConfig.isOutSea = 1; // 是海外用户
+			mapScriptUrl = mapConfig.googleMapUrlOutSea; // 海外地址
+		}
+
+		if(mapConfig.isOffLineMap()) { // lazy
+			scriptUrl.push(mapConfig.googleDrawingJs);
+			scriptUrl.push(mapConfig.googleGeometryJs);
+			scriptUrl.push(mapConfig.googleMaplabelJs);
+			scriptUrl.push(mapConfig.googlePlacesJs);
+			scriptUrl.push(mapConfig.googleVisualizationJs);
+		}
+		scriptUrl.push("../ttxmap/google/js/mapframe.js");
+		scriptUrl.push("../ttxmap/google/js/function.js");
+		scriptUrl.push("../ttxmap/google/js/popupmarker.js");
+		scriptUrl.push("../ttxmap/google/js/namemarker.js");
+		scriptUrl.push("../ttxmap/google/js/mapmarker.js");
+		scriptUrl.push("../ttxmap/google/js/TextIconOverlay.js");
+		scriptUrl.push("../ttxmap/google/js/MarkerClusterer.js");
+		
+		currentMap = lang.mapGoogle;
+		var map = {};
+		map.type = 3;
+		map.name = lang.mapBaidu;
+		mapSelect.push(map);
+		mapSelect.push({type:9, name:lang.mapBing});
+		// var Gmap = {};
+		// Gmap.type = 4;
+		// Gmap.name =  lang.mapAutonavi;
+		// mapSelect.push(Gmap);
+
+        mapConfig.currentMapType = 1;
+
+		$("#liDistance").hide();
+		$("#liZoomIn").hide();
+		$("#liZoomOut").hide();
+	}
+	$("#currentMap").html(currentMap + "<i class=\"icon icon_xia\"></i>");
+	
+	
+	isBeginLoadMap = false;
+	readyScriptUrl = 0;
+	loadScript( mapScriptUrl, function () {
+        // 如果是离线地图，则需要手动在地图加载完成后加载回调函数
+        if (mapConfig.isOffLineMap()) {
+            map_init();
+		}
+	} );
+
+	//增加地图选择
+	for (var i = 0; i < mapSelect.length; ++ i) {
+		var map = mapSelect[i];
+		$('#mapSelect ul').append('<li data-id= "'+map.type+'">'+ '<i class="icon icon_celiang"></i>' + map.name+'</li>');
+	}
+	
+	var mapSelectFlag = getUrlParameter("mapSelect");
+	
+	if(mapSelectFlag == 1) {
+		setSwitchMap(false);
+		hideMapBtn(true);
+	}
+	
+	$('#mapSelect li').each(function() {
+		$(this).on('click',function() {
+				switchMap($(this).attr('data-id'));
+		});	
+	});
+	//地图弹出框
+	$(".map_select").hover(
+		function(){
+			$(this).find("ul").show();
+			},
+		function(){
+			$(this).find("ul").hide();
+	});
+	//
+	$("#search_box").hide();
+	//全屏
+	//地图全屏
+	$(".big_box").click(function(){
+		
+		if($(this).find("i").hasClass("icon_bigMap")){
+			$(this).find("i").removeClass("icon_bigMap").addClass("icon_s_re");
+			doMapFullScreen(true);
+			_getRootFrameElement().$("#coverWeather").hide();
+			_getRootFrameElement().$("#weatherForecast").hide();
+			
+			$("#changemap_box").hide();
+			$("#map_toolbox").hide();
+			$("#rect_searchbox").hide();
+		}else{
+			$(this).find("i").removeClass("icon_s_re").addClass("icon_bigMap");
+			doMapFullScreen(false);
+			//功能菜单占时隐藏处理  全屏地图  css 调整处理不来
+			$("#changemap_box").show();
+			$("#map_toolbox").show();
+			$("#rect_searchbox").show();
+			var GetHTML = _getRootFrameElement().location.href;
+			var isChineseLanguage = GetHTML.indexOf("lang=zh");
+			var screenWidth = window.screen.availWidth;
+			if(isChineseLanguage >0 && screenWidth > 1024 ){
+				_getRootFrameElement().$("#coverWeather").show();
+				_getRootFrameElement().$("#weatherForecast").show();
+			}
+		};
+	});
+	//加载语言
+	loadLanguage();
+	//点击事件，为了上层拖动窗体
+	$(document).bind("click mouseup",function(e){
+		doMapDocumentMouseClick();
+	});
+	$(document).mousemove(function(e){
+		doMapDocumentMouseMove(e);
+	});
+	//
+	loadToolbar();
+}
+
+function setTooltip(id, tltle) {
+	$( id ).attr("title", tltle);
+	$( id ).tooltip();
+}
+
+function loadToolbar() {
+	var showRect = getUrlParameter("rectSearch");
+	if (showRect != "" && showRect == "1" ) {
+	} else {
+		$("#rect_searchbox").hide();
+	}
+	var hideMapBox = getUrlParameter("hideMapBox"); //隐藏地图选择
+	if(hideMapBox) {
+		$('#changemap_box').hide();
+	}
+	$("#rect_search_mycar").click(function () {
+		rectSearchType = 1;
+		if (4 != GFRAME.addMarkerType) {
+			searchVehi();
+		}
+	});
+	$("#rect_search_hiscar").click(function () {
+		rectSearchType = 2;
+		if (4 != GFRAME.addMarkerType) {
+			searchVehi();
+		}
+	});
+	$("#tool_move").click(function () {
+		GFRAME.resetDrawMarker();
+	});
+	$("#tool_distance").click(function () {
+		if (14 != GFRAME.addMarkerType) {
+			onDistance();
+		}
+	});
+	$("#tool_zoom_in").click(function () {
+		if (12 != GFRAME.addMarkerType) {
+			onZoomIn();
+		}
+	});
+	$("#tool_zoom_out").click(function () {
+		if (13 != GFRAME.addMarkerType) {
+			onZoomOut();
+		}
+	});
+	$("#tool_save").click(function () {
+		saveMapLocation();
+	});
+	$("#drawMove").click(function() {
+		resetDrawMarker();
+	});
+	$("#drawPoint").click(function() {
+		pointAddType = 1;
+		addMarkerPoint();
+	});
+	$("#drawCircle").click(function() {
+		addMarkerCircle();
+	});
+	$("#drawRectangle").click(function() {
+		addMarkerRectangle();
+	});
+	$("#drawPolygon").click(function() {
+		addMarkerPolygon();
+	});
+	$("#drawLine").click(function() {
+		addMarkerLine();
+	});
+	setTooltip("#drawMove", lang.mapMove);
+	setTooltip("#drawPoint", lang.addPoint);
+	setTooltip("#drawCircle", lang.tipAddCircle);
+	setTooltip("#drawRectangle", lang.addRectangle);
+	setTooltip("#drawPolygon", lang.addPolygon);
+	setTooltip("#drawLine", lang.addLine);
+	
+	var drawing = getUrlParameter("drawing");
+	if (drawing != "" && drawing == "1" ) {
+//		$("#draw_box").show();
+		$("#drawMove").hide();
+		$("#drawPoint").show();
+		$("#drawCircle").show();
+		$("#drawRectangle").show();
+		$("#drawPolygon").show();
+		$("#drawLine").show();
+	} else {
+//		$("#draw_box").hide();
+		$("#drawMove").hide();
+		$("#drawPoint").hide();
+		$("#drawCircle").hide();
+		$("#drawRectangle").hide();
+		$("#drawPolygon").hide();
+		$("#drawLine").hide();
+	}
+}
+
+function doMapFullScreen(isFullscreen) {
+	if (typeof parent.ttxMapFullScreen == "function") {
+		parent.ttxMapFullScreen(isFullscreen);
+	}
+}
+
+function doMapDocumentMouseClick() {
+	if (typeof parent.ttxMapDocumentMouseClick == "function") {
+		parent.ttxMapDocumentMouseClick();
+	}
+}
+
+function doMapDocumentMouseMove(e) {
+	if (typeof parent.ttxMapDocumentMouseMove == "function") {
+		parent.ttxMapDocumentMouseMove(e);
+	}
+}
+
+//给保存按钮添加事件
+function doMapBtnSaveClick() {
+	if (typeof parent.ttxMapBtnSave == "function") {
+		parent.ttxMapBtnSave();
+	}
+}
+
+function map_init() {
+	for (var i = 0; i < scriptUrl.length; ++ i) {
+		//$.getScript( scriptUrl[i] ).complete(function(){
+		loadScript( scriptUrl[i], function(){
+			++ readyScriptUrl;
+			doLoadMapScriptSuc();
+		});
+	}
+	/*var loadScriptFail = null;
+	if (typeof BMap == 'undefined') {
+		loadScriptFail = true;
+	}
+	var loadScripSuccessCallBack = function () {
+		for (var i = 0; i < scriptUrl.length; ++ i) {
+			//$.getScript( scriptUrl[i] ).complete(function(){
+			loadScript( scriptUrl[i], function(){
+				++ readyScriptUrl;
+				doLoadMapScriptSuc();
+			});
+		}
+	};
+	while (loadScriptFail) { // 当加载失败
+		if (typeof BMap != 'undefined') { // 一直判断该函数是否存在
+			loadScripSuccessCallBack();
+			loadScriptFail = false;
+		} 
+	}*/
+}
+
+function doLoadMapScriptSuc() {
+	if (readyScriptUrl == scriptUrl.length) {
+		if (!isBeginLoadMap) {
+			isBeginLoadMap = true;
+			if(typeof rootParent.getInitZoom == 'function') {
+				initZoom = rootParent.getInitZoom();
+			}
+			if(typeof rootParent.getInitJingDu == 'function') {
+				initJingDu = rootParent.getInitJingDu();
+			}
+			if(typeof rootParent.getInitWeiDu == 'function') {
+				initWeiDu = rootParent.getInitWeiDu();
+			}
+			if(typeof rootParent.getInitMapType == 'function') {
+				initMapType = rootParent.getInitMapType();
+			}
+			//转换经纬度
+			if(initMapType != null) {
+				var gps_ = null;
+				if(initMapType == 3 && !isBaiduMap()) {//百度转谷歌或者高德
+					gps_ = convertBaiduGoogle(initWeiDu, initJingDu, 1);
+				}else if(initMapType != 3 && isBaiduMap()) {//谷歌或者高德转百度
+					gps_ = convertBaiduGoogle(initWeiDu, initJingDu, 2);
+				}
+				if(gps_ != null) {
+					initJingDu = gps_.lng;
+					initWeiDu = gps_.lat;
+				}
+			}
+			setPanelWidth();
+			GFRAME = new mapframe();
+			GFRAME.createMap(false);
+			
+			//加载解析地理位置的类
+			geocoderUtils = new GeocoderUtils();
+			if(rootParent.myUserRole && typeof rootParent.myUserRole.getBaiDuWebAPIKey == 'function') {
+				geocoderUtils.setBaiDuWebAPIKey(rootParent.myUserRole.getBaiDuWebAPIKey());
+				geocoderUtils.setGoogleWebAPIKey(rootParent.myUserRole.getGoogleWebAPIKey());
+				geocoderUtils.setGaoDeWebAPIKey(rootParent.myUserRole.getGaoDeWebAPIKey());
+				geocoderUtils.setSiWeiWebAPIKey(rootParent.myUserRole.getSiWeiWebAPIKey());
+				// geocoderUtils.initialize(parentPage.getMapType(), rootParent.getGeocoderMapType(), rootParent.getDefaultGeocoderMapType());
+
+				geocoderUtils.initialize(rootParent.getMapType(), null, null);
+			}
+		}
+	}
+}
+
+/**
+ *设置页面大小
+ */
+function setPanelWidth() {
+	var wndWidth = document.documentElement.clientWidth;
+	var wndHeight = document.documentElement.clientHeight;
+	$(".dm_map").css("width", wndWidth);
+	$(".dm_map").css("height", wndHeight);
+	$("#mapcanvas").css("width", wndWidth);
+	$("#mapcanvas").css("height", wndHeight - 39);
+}
+
+/*
+ * 设置语言信息
+*/
+function loadLanguage() {
+	$("#maptoolname").html("<i class=\"icon icon_tool\"></i>" + lang.mapTool + "<i class=\"icon icon_xia\"></i>");
+	$("#fullScreen").html("<i class=\"icon icon_bigMap\"></i><label>"+ lang.fullScreen +"</label>");
+	$("#rect_searchname").html("<i class=\"icon icon_lak\"></i>" + lang.mapRectSearch + "<i class=\"icon icon_xia\"></i>");
+	$("#rect_search_mycar").text(mapRectMyCar);
+	$("#rect_search_hiscar").text(mapRectHisCar);
+	$("#tool_move").text(lang.mapTipMove);
+	$("#tool_distance").text(lang.tipDistance);
+	$("#tool_zoom_in").text(lang.tipZoomIn);
+	$("#tool_zoom_out").text(lang.tipZoomOut);
+	$("#tool_save").text(lang.tipMapSave);
+}
+
+/**
+ * 设置启用地图点聚合参数
+ */
+function setMarkerClusterParam(enable, maxZoom_, minSize_, addVehicleFunc, delVehicleFunc){
+	if(enable) {//启用点聚合
+		GFRAME.useMarkerClusterer = true;
+		//先删除地图所有车辆
+		if(typeof addVehicleFunc == 'function') {
+			delVehicleFunc();
+		}
+		//初始化点聚合对象
+		if(GFRAME.markerClusterer == null) {
+			if(typeof MarkerClusterer != "undefined") {
+				GFRAME.markerClusterer = new MarkerClusterer(GFRAME.map, {maxZoom: maxZoom_, minClusterSize: minSize_});
+			}
+		}else {
+			//处理点聚合事件
+			GFRAME.markerClusterer.removeEventListener();
+			GFRAME.markerClusterer.initEventListener();
+			//设置点聚合参数
+			GFRAME.markerClusterer.setClusterZoomAndSize(maxZoom_, minSize_);
+		}
+		//再添加车辆到地图
+		if(typeof addVehicleFunc == 'function') {
+			addVehicleFunc();
+		}
+	}else {//取消启用
+		if(GFRAME.markerClusterer != null) {
+			//先删除地图所有车辆
+			if(typeof addVehicleFunc == 'function') {
+				delVehicleFunc();
+			}
+			//删除点聚合事件
+			GFRAME.markerClusterer.removeEventListener();
+			//清除点聚合
+			GFRAME.markerClusterer.clearMarkers();
+			GFRAME.useMarkerClusterer = false;
+			GFRAME.markerClusterer = null;
+			//再添加车辆到地图
+			if(typeof addVehicleFunc == 'function') {
+				addVehicleFunc();
+			}
+		}
+	}
+};
+
+/*
+ * 切换地图 
+*/
+function switchMap(type) {
+	//如果是多地图
+	if (typeof parentPage.ttxMapReload == "function") {
+        parentPage.ttxMapReload(type);
+	}
+}
+
+
+
+//地图切换车辆事件
+function doMapSwitchVehicle() {
+	if(typeof parentPage.switchVehicle == 'function') {
+        parentPage.switchVehicle(mapIndex);
+	}
+}
+
+/**
+ * 完全隐藏工具栏
+ * @param hide
+ */
+function hideToolbarDiv(hide){
+	if(hide){
+		$('.dm_map .map_btn').hide();
+		$('#mapcanvas').height('100%');
+	}
+}
+
+/*
+ * 显示或者隐藏工具栏
+ */
+function hideToolbar(hide) {
+	var lstBox = [];
+	lstBox.push("#flllscreen_box");
+	lstBox.push("#changemap_box");
+	lstBox.push("#rect_searchbox");
+	lstBox.push("#map_toolbox");
+	lstBox.push("#draw_box");
+	for (var i = 0; i < lstBox.length; ++ i) {
+		if (hide) {
+			$(lstBox[i]).hide();
+		} else {
+			$(lstBox[i]).show();
+		}
+	}
+	//隐藏我的地图
+	if(myMap) {
+		myMap.hideMyMap(hide);
+	}
+	//隐藏危化地图
+	if(chemicalMap) {
+		chemicalMap.hideChemicalMap(hide);
+	}
+}
+
+/*
+ * 启用我的地图
+ */
+function enableMyMap(enable) {
+	if(enable) {
+		//我的地图
+		myMap = new monitorMyMap();
+		myMap.setRoleCls(rootParent.myUserRole);
+		myMap.initialize();
+	}else {
+		myMap.hideMyMap(true);
+	}
+}
+
+//是否启用切换地图
+function enableChangeMap(show) {
+	if(show) {
+		$('#changemap_box').show();
+	}else {
+		$('#changemap_box').hide();
+	}
+}
+
+
+//是否启用地图工具按钮栏目
+function enableButtonMap(show) {
+	if(show) {
+		$('.map_btn').show();
+	}else {
+		$('.map_btn').hide();
+	}
+}
+
+//是否启用地图工具
+function enableMapTool(show) {
+	if(show) {
+		$('#map_toolbox').show();
+	}else {
+		$('#map_toolbox').hide();
+	}
+}
+
+//是否启用画点操作
+function enableDrawPoint(show) {
+	if(show) {
+		$('#drawPoint').show();
+	}else {
+		$("#drawPoint").hide();
+	}
+}
+
+//是否启用画线操作
+function enableDrawLine(enable) {
+	if(enable) {
+		$('#drawLine').show();
+	}else {
+		$("#drawLine").hide();
+	}
+}
+
+/*
+ * 是否启用地图全屏
+ * @param show
+ */
+function enableMapFull(show) {
+	if(show) {
+		$('#flllscreen_box').show();
+	}else {
+		$("#flllscreen_box").hide();
+	}
+}
+
+/*
+ * 删除地理位置
+ */
+function deletePositionTip() {
+	$("#overVehicleAddress").html("");
+}
+
+/*
+ * 是否可切换地图
+ * @param hide
+ */
+function setSwitchMap(show) {
+	if(show) {
+		$('#mapSelect').show();
+	}else {
+		$('#mapSelect').hide();
+	}
+}
+
+/*
+ * 是否启用拉框查找
+ * @param hide
+ */
+function enableSearchbox(show) {
+	if(show) {
+		$('#selectSearchbox').show();
+	}else {
+		$('#selectSearchbox').hide();
+	}
+}
+
+/**
+ * 隐藏地图导航栏
+ * @param hide
+ */
+function hideMapBtn(hide) {
+	if(hide) {
+		$('.map_btn').hide();
+	}else {
+		$('.map_btn').show();
+	}
+}
+
+/**
+ * 是否启用切换车辆
+ * @param enable
+ */
+function enableSwitchVehicle(enable) {
+	if(enable) {
+		//<!-- 切换车辆 -->
+		if(!$('#switchVehicle').get(0)) {
+			$('body').append('<div id="switchVehicle" style="display: none;">'+lang.map_switchVehicle+'</div>');
+			//切换车辆事件
+			$('#switchVehicle').on('click', doMapSwitchVehicle);
+		}
+		$('#switchVehicle').show();
+	}else {
+		$('#switchVehicle').hide();
+	}
+}
+
+/**
+ * 圆，面和线 改变事件
+ */
+function markerLineupdate() {
+	if(typeof parent.markerLineupdate == 'function') {
+		parent.markerLineupdate();
+	}
+}
+
+//设置地图全屏按钮样式
+function doSetMapFullIcon(isFull) {
+	if(isFull) {
+		$('#fullScreen .icon').removeClass('icon_bigMap').addClass('icon_s_re');
+	}else {
+		$('#fullScreen .icon').removeClass('icon_s_re').addClass('icon_bigMap');
+	}
+}
+
+//设置地图全屏按钮文字
+function doSetMapFullTitle(title) {
+	$('#fullScreen label').text(title);
+}
+
+//显示地图导航栏保存按钮
+function enableMapMoreBtnAdd(enable){
+	if(enable) {
+		//地图导航栏添加按钮
+		if(!$('#mapMoreBtn').get(0)) {
+			$('.map_btn').append('<div id="mapMoreBtn" class="left dh map_select"><span id="btnSave" style="display: none;">'+lang.save+'</span></div>');
+			//给保存按钮添加事件
+			$('#mapMoreBtn #btnSave').on('click', doMapBtnSaveClick);
+		}
+		$("#mapMoreBtn #btnSave").show();
+	}else {
+		$("#mapMoreBtn #btnSave").hide();
+	}
+}
+
+/**
+ * 添加按钮和事件到地图导航栏
+ * @param enable 是否启用
+ */
+function addBtnToMapTool(enable, divId, title, callback) {
+	if(!$('#'+divId).get(0)) {
+		$('.map_btn').append('<div id="'+ divId +'" class="left dh map_select" style="display: none;"><span>'+title+'</span></div>');
+		//给保存按钮添加事件
+		if(typeof callback == "function") {
+			$('#'+divId).on('click', callback);
+		}
+		
+		setTooltip('#'+divId+' span', title);
+	}
+	if(enable) {
+		$('#'+divId).show();
+	}else {
+		$('#'+divId).hide();
+	}
+}
+
+/**
+ * 添加复选框和事件到地图导航栏
+ * @param enable 是否启用
+ */
+function addCheckBoxToMapTool(enable, divId, title, checked, callback) {
+	if(!$('#'+divId).get(0)) {
+		var checkedStr = "";
+		if(checked) {
+			checkedStr = "checked";
+		}
+		$('.map_btn').append('<div id="'+ divId +'" class="left dh map_select" style="display: none;"></div>');
+		$('#'+divId).append('<input type="checkbox" id="'+ divId +'_check" name="'+ divId +'_name" '+checkedStr+'>');
+		$('#'+divId).append('<label for="'+ divId +'_check">'+title+'</lable>');
+		//添加事件
+		if(typeof callback == "function") {
+			$('#'+divId + ' input').on('click', function() {
+				callback(this);
+			});
+		}
+		
+		setTooltip('#'+divId, title);
+	}
+	if(enable) {
+		$('#'+divId).show();
+	}else {
+		$('#'+divId).hide();
+	}
+}
+
+function formatGeoKey(jingdu, weidu, toMap) {
+	var key =	jingdu + "-" + weidu;
+	if(toMap){//地图解析 1 google 2百度  3高德
+		key  += ("-" +toMap);
+	}
+	return key
+}
+
+/*
+ * 清空解析地址
+ */
+function clearGeoAddress() {
+	//mapAddress.clear();
+	//mapAddressGoogle.clear();
+	//mapAddressBaiDu.clear();
+	//mapAddressGaode.clear();
+}
+
+/*
+ * 需要使用地图的经纬度来进行解析
+ * 成功返回非空值，{address,city}
+ */
+function getGeoAddress(jingDu, weiDu, toMap) {
+	//此处未区分地图类型
+	var geokey = formatGeoKey(jingDu, weiDu, toMap);
+	return mapAddress.get(geokey);
+}
+
+/*
+ * 需要使用地图的经纬度来进行解析
+ * callback 参数：key, jing, weidu, address, city
+ * key用于传参使用，回调时返回些参数，便于上层使用
+ */
+function geocoderAddress(key, jingDu, weiDu, callback, userdata) {
+	//解析类型
+	var toMap = null;
+	if(userdata && userdata.mapType){
+		toMap = userdata.mapType;
+	}
+	var find = getGeoAddress(jingDu, weiDu, toMap);
+	if (find != null) {
+		try {
+			callback(key, jingDu, weiDu, find.address, find.city, userdata);
+		}catch(e) {}
+	} else {
+		myParseAddressEx(key, jingDu, weiDu, callback, userdata);	
+	}
+};
+
+/*
+ * 保存获取的地理位置
+ */
+function saveGeoAddress(jingdu, weidu, address, city, data) {
+	if(address && address != ""){
+		var ret = {};
+		ret.address = address;
+		ret.city = city;
+		//解析类型
+		var toMap = null;
+		if(data && data.mapType){
+			toMap = data.mapType;
+		}
+		//优先使用对应地图集合去获取
+		mapAddress.put(formatGeoKey(jingdu, weidu, toMap), ret);
+	}
+}
+
+/**
+ * 画区域操作  1点 2矩形 3多边形 10区域 9线
+ */
+function doAddDrawMarker(type) {
+	if(type == 2) {
+		addMapAreaType = 1;
+		addMarkerRectangle();
+	}else if(type == 3) {
+		addMapAreaType = 1;
+		addMarkerPolygon();
+	}else if(type == 9) {
+		addMapAreaType = 1;
+		addMarkerLine();
+	}
+}
+
+/*
+ * 通知上层地图上进行的操作
+ */
+function doMapDrawMarker(type, jingdu, weidu, param) {
+	if(type == 1 || type == 2 || type == 3 || type == 9 || type == 10){
+		//地图上画图操作
+		if(myMap) {
+			//危化添加导航线路点
+			if(type == 1 && pointAddType && pointAddType == 2 && chemicalMap) {
+				chemicalMap.addNavigationPoint(type, jingdu, weidu, param);
+			}else {
+				if(type > 1 && addMapAreaType == 2) {
+					chemicalMap.addMarkerAreaInfo(type, jingdu, weidu, param);
+				}else {
+					myMap.addMarkerAreaInfo(type, jingdu, weidu, param);
+				}
+			}
+		}else {
+			if (typeof parent.ttxMapDrawMarker == "function") {
+				parent.ttxMapDrawMarker(type, jingdu, weidu, param);
+			}
+		}
+	}else {
+		//如果是危化地图类
+		if(chemicalMap && type == 4 && rectSearchType && rectSearchType >= 3) {
+			chemicalMap.searchChemicalByRectangle(type, jingdu, weidu, rectSearchType);
+		}else {
+			if (typeof parent.ttxMapDrawMarker == "function") {
+				if (type == 4) {
+					param = rectSearchType;
+				}
+				parent.ttxMapDrawMarker(type, jingdu, weidu, param);
+			}
+		}
+	}
+}
+
+/*
+ * 通知上层地图上车辆弹窗进行的操作
+ */
+function doClickmenuitem(vehiIdno, menuId, popId) {
+	if (typeof parent.ttxMapClickmenuitem == "function") {
+		parent.ttxMapClickmenuitem(vehiIdno, menuId, popId);
+	}
+}
+
+/**
+ * 判断点是否在区域内
+ */
+function isPointInRect(ptJingdu, ptWeidu, lstJingdu, lstWeidu) {
+	ptJingdu = parseFloat(ptJingdu, 10);
+	ptWeidu = parseFloat(ptWeidu, 10);
+	var arrJing = lstJingdu.split(',');
+	var jingDu1 = parseFloat(arrJing[0], 10);
+	var jingDu2 = parseFloat(arrJing[1], 10);
+	var arrWei = lstWeidu.split(',');
+	var weiDu1 = parseFloat(arrWei[0], 10);
+	var weiDu2 = parseFloat(arrWei[1], 10);
+	if(jingDu1 >= jingDu2) {
+		if(ptJingdu > jingDu1 || ptJingdu < jingDu2) {
+			return false;
+		}
+	}else {
+		if(ptJingdu < jingDu1 || ptJingdu > jingDu2) {
+			return false;
+		}
+	}
+	if(weiDu1 >= weiDu2) {
+		if(ptWeidu > weiDu1 || ptWeidu < weiDu2) {
+			return false;
+		}
+	}else {
+		if(ptWeidu < weiDu1 || ptWeidu > weiDu2) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * 是否禁止系统右键  true 禁止
+ */
+function disableSysRight(id,disable,func) {
+	if(disable) {
+		if(typeof func != 'undefined' && func != null) {
+			$(id).on('contextmenu',func);
+		}else {
+			$(id).on('contextmenu',function(){return false;});
+		}
+	}else {
+		$(id).unbind('contextmenu');
+	}
+}
+
+/**
+ * 轨迹点居中
+ */
+function trackCenterVehicle(trackId, vehiId, hideMarkerPop) {
+	var track = findTracker(trackId);
+	if (track != null){
+		var trackVehiId = trackVehicleId(trackId, vehiId);
+		var vehicle = findVehicle(trackVehiId);
+		if(vehicle != null) {
+			if (vehicle.popMarker != null) {
+				//将之前显示的车辆隐藏
+				if(hideMarkerPop) {
+					if (null != GFRAME.openPopMarkerVehicle){	
+						if (GFRAME.openPopMarkerVehicle == vehicle.getIdno()){
+							moveVehiCenter(vehicle, true, GFRAME.trackZoomLevel);
+							return ;
+						}
+						hideVehiclePop();
+					} else {
+						hideMapmarkerPop();
+					}
+					showVehiclePop(vehicle);
+				}
+				moveVehiCenter(vehicle, true, GFRAME.trackZoomLevel);
+			}
+		}
+	}
+}
+
+//修改我的地图标记（database）
+function editMarkerAreaInfo(markerId, markerType, tableType) {
+	if(tableType == 1 && myMap) {
+		myMap.editMarkerAreaInfo(markerId, markerType);
+	}else if(tableType == 2 && chemicalMap) {
+		chemicalMap.editMarkerAreaInfo(markerId, markerType);
+	}
+}
+
+//删除我的地图标记（database）
+function delMarkerAreaInfo(markerId, markerType, tableType) {
+	if(tableType == 1 && myMap) {
+		myMap.delMarkerAreaInfo(markerId, markerType);
+	}else if(tableType == 2 && chemicalMap) {
+		chemicalMap.delMarkerAreaInfo(markerId, markerType);
+	}
+}
+
+//添加我的地图标记成功（database）
+function doSaveMarkSuc(marker, tableType) {
+	if(tableType != null && tableType == 2) {
+		if(chemicalMap) {
+			chemicalMap.doSaveMarkerSuc(marker);
+		}
+	}else {
+		if(myMap) {
+			myMap.doSaveMarkerSuc(marker);
+			//轨迹回放添加线路成功，删除起点和终点标记
+			if(typeof parent.delTrackLinePointMarker == 'function') {
+				parent.delTrackLinePointMarker();
+			}
+			//设置车辆画区域标志 为false
+			if(typeof parent.setVehicleDrowing == 'function') {
+				parent.setVehicleDrowing(false);
+			}
+		}
+	}
+}
+
+//修改我的地图标记成功（database）
+function doEditMarkSuc(marker, tableType) {
+	if(tableType != null && tableType == 2) {
+		if(chemicalMap) {
+			chemicalMap.doEditMarkSuc(marker);
+		}
+	}else {
+		if(myMap) {
+			myMap.doEditMarkSuc(marker);
+		}
+	}
+}
+
+//修改标记信息改变地图上标记的大小
+function doEditMarkChangeParam(marker, type, tableType) {
+	if(tableType != null && tableType == 2) {
+		if(chemicalMap) {
+			chemicalMap.doEditMarkChangeParam(marker, type);
+		}
+	}else {
+		if(myMap) {
+			myMap.doEditMarkChangeParam(marker, type);
+		}
+	}
+}
+
+/*
+ * 是否启用危化地图
+ * @param enable
+ */
+function enableChemicalMap(enable) {
+	if(enable) {
+		//危化管理
+		if(rootParent.myUserRole.isChemicals()) {
+			chemicalMap = new monitorTtxChemical();
+			chemicalMap.setRoleCls(rootParent.myUserRole);
+			chemicalMap.initialize();
+		}
+	}else {
+		chemicalMap.hideChemicalMap(true);
+	}
+}
+
+/**
+ * 切换地图列表，切换我的地图和应急救援点
+ * @param type 1我的地图 2应急救援点 3生产仓储企业 4禁行区域 5电子围栏 6物流企业 7消防水源点
+ */
+function switchMapTableType(type) {
+	if(type == 1 || type == 5) {
+		if(chemicalMap) {
+			chemicalMap.switchToChemicalMap(type);
+		}
+		if(myMap) {
+			myMap.switchToMyMap(type);
+		}
+	}else {
+		if(myMap) {
+			myMap.switchToMyMap(type);
+		}
+		if(chemicalMap) {
+			chemicalMap.switchToChemicalMap(type);
+		}
+	}
+}
+
+//添加导航点
+function addLineNavigationPoint(index_) {
+	if(chemicalMap) {
+		chemicalMap.addLineNavigationPoint(index_);
+	}
+}
+
+//删除导航点
+function deleteLineNavigationPoint(index_) {
+	if(chemicalMap) {
+		chemicalMap.deleteLineNavigationPoint(index_);
+	}
+}
+
+//改变地图图标
+function changeLineNavigationPoint(oldIndex_, index_) {
+	if(chemicalMap) {
+		chemicalMap.changeLineNavigationPoint(oldIndex_, index_);
+	}
+}
+
+//生成导航线路
+function loadLineNavigationInfo(data) {
+	if(chemicalMap) {
+		chemicalMap.loadLineNavigationInfo(data);
+	}
+}
+
+//打开导航
+function addLineNavigation() {
+	if(chemicalMap) {
+		chemicalMap.addLineNavigation();
+	}
+}
+
+//保存导航线路
+function addDriverLineMarker() {
+	if(chemicalMap) {
+		chemicalMap.addDriverLineMarker();
+	}
+}
+
+//修改地图上点的位置
+function changeMapMarker(index_, jingDu, weiDu) {
+	if(chemicalMap) {
+		chemicalMap.changeMapMarker(index_, jingDu, weiDu);
+	}
+}
+
+//配置热力图参数
+function saveHeatMapConfig(colorConfig, type, chemical) {
+	if(chemicalMap) {
+		chemicalMap.saveHeatMapConfig(colorConfig, type, chemical);
+	}
+}
+
+//显示热力图
+function showHeatMap(colorConfig, type, chemical) {
+	if(chemicalMap) {
+		chemicalMap.showHeatMap(colorConfig, type, chemical);
+	}
+}
+
+//隐藏热力图
+function hideHeatMap() {
+	if(chemicalMap) {
+		chemicalMap.hideHeatMap();
+	}
+}
+
+//修改电子围栏
+function editMapFenceInfo(id) {
+	if(myMap) {
+		myMap.editMapFenceInfo(id);
+	}
+}
+
+//保存电子围栏成功
+function doSaveMapFenceSuc() {
+	if(myMap) {
+		myMap.doSaveMapFenceSuc();
+	}
+}
+
+//删除电子围栏
+function delMapFenceInfo(id) {
+	if(myMap) {
+		myMap.delMapFenceInfo(id);
+	}
+}
+
+//分配电子围栏给车辆
+function assignMapFence(id, name) {
+	if(myMap) {
+		myMap.assignMapFence(id, name);
+	}
+}
+
+//退出
+function doExit() {
+	if(myMap) {
+		myMap.doExit();
+	}
+}
+
+function parseAddress (weidu, jingdu, arr, name, idno){
+	/*if (!initParseAddress) {
+		return ;
+	}*/
+	// var find = parentPage.getVehicleAddressInfo();
+	var _str = '';
+
+	/*if(document.getElementById(arr)!=null){
+		// var find = getGeoAddress(jingdu, weidu);
+		if (find != null) {
+			if (name != "") {
+				_str = "&nbsp;<span class='b'>" + name + ":</span>&nbsp;";
+			} else {
+				_str = "&nbsp;";
+			}
+			_str += find;
+			document.getElementById(arr).innerHTML=_str;
+			document.getElementById(arr).title = name+': '+find;
+			return;
+		}*/
+		/*if(typeof geocoderUtils != "undefined"){
+			var gps_ = {};
+			//高德或者四维地图
+			var vehicle = null;
+			if(typeof idno != "undefined" && idno != null) {
+				vehicle = findVehicle(idno);
+			}else {
+				vehicle = findVehicle(name);
+			}
+			if (vehicle != null){
+				if(rootParent.myUserRole && typeof rootParent.myUserRole.getBaiDuWebAPIKey == 'function') {
+					gps_ = geocoderLngLat(vehicle.getGeocoderLat(), vehicle.getGeocoderLng(), parentPage.getMapType(), rootParent.getGeocoderMapType(), rootParent.getDefaultGeocoderMapType());
+				}
+			}else {
+				gps_.lng = jingdu;
+				gps_.lat = weidu;
+			}
+			//如果解析类型改变了
+			if(rootParent.myUserRole && typeof rootParent.myUserRole.getBaiDuWebAPIKey == 'function') {
+				if(rootParent.getGeocoderMapType() != geocoderUtils.getGeocoderType()) {
+					geocoderUtils.initialize(parentPage.getMapType(), rootParent.getGeocoderMapType(), rootParent.getDefaultGeocoderMapType());
+					clearGeoAddress();
+				}
+			}
+			var userData = {};
+			var mapType = rootParent.getMapType();
+			var toType = 2;
+			if(mapType == 3){//百度
+				toType = 2;
+			}else if(mapType == 4) {
+				toType = 3;
+			}else{//0 谷歌  4  高德
+				toType = 1;
+			}
+			userData.mapType = toType;
+			
+			geocoderUtils.parseAddress(gps_.lng, gps_.lat, function(address, city) {
+				if (name != "") {
+					_str = "&nbsp;<span class='b'>" + name + ":</span>&nbsp;";
+				} else {
+					_str = "&nbsp;";
+				}
+				
+				if(address != null) {
+					_str += address;
+					saveGeoAddress(jingdu, weidu, address, city);
+					document.getElementById(arr).title = name+': '+ address;
+				}else {
+					document.getElementById(arr).title = name+':';
+				}
+				document.getElementById(arr).innerHTML=_str;
+			}, userData);
+		}
+	}*/
+}
+
+/*
+ * 获取优先解析报警的数目
+ */
+ function getAnalysisPointPriorityLength(){
+	 if(typeof geocoderUtils != "undefined"){
+		return  geocoderUtils.getAnalysisPointPriorityLength();
+	 }
+	 return 0;
+};
+
+
+function myParseAddressEx(key, jingdu, weidu, callback, userdata){
+	if(typeof geocoderUtils != "undefined"){
+		//如果解析类型改变了
+		if(rootParent.getGeocoderMapType() != geocoderUtils.getGeocoderType()) {
+			geocoderUtils.initialize(parentPage.getMapType(), rootParent.getGeocoderMapType(), rootParent.getDefaultGeocoderMapType());
+//			clearGeoAddress();
+		}
+		//默认全局配置地图类型
+		//用户传了自定义后采用用户自定义的
+		var geocoderMapType = rootParent.getGeocoderMapType();
+		if(userdata && userdata.mapType){
+			geocoderMapType = userdata.mapType;
+		}
+		var gps_ = geocoderLngLat(weidu, jingdu, parentPage.getMapType(), geocoderMapType, rootParent.getDefaultGeocoderMapType());
+		// console.log("地图解析类型："+geocoderMapType);
+		gps_.lng =  (Number(gps_.lng)).toFixed(6); 
+		gps_.lat =  (Number(gps_.lat)).toFixed(6); 
+		if(userdata){
+			userdata.original_lng =  jingdu;
+			userdata.original_lat =  weidu;
+		}else{
+			userdata = {}; 
+			userdata.original_lng =  jingdu;
+			userdata.original_lat =  weidu;
+		}
+		geocoderUtils.parseAddress(gps_.lng, gps_.lat, function(address, city, data) {
+			if(address != null) {
+				saveGeoAddress(data.original_lng, data.original_lat, address, city, data);
+			}
+			callback(key, data.original_lng, data.original_lat, address, city, data);
+		}, userdata);
+	}
+}
+
+//启用保存地图中心
+function enableSaveMapCenter(enable) {
+	if(enable) {
+		$('#liMapCenter').show();
+	}else {
+		$('#liMapCenter').hide();
+	}
+}
+
+//设置当前地图位置为默认位置
+function saveMapLocation() {
+	if(!confirm(lang.setMapCenterTip)) {
+		return ;
+	}
+	//配置中心点，经度 +　纬度　＋　级别
+	getCenter();
+}
+
+function isChinese() {
+	if (typeof rootParent.langIsChinese == "undefined") {
+		return false;
+	} else {
+		return rootParent.langIsChinese() ? true : false;
+	}
+}
+
+
+
+
+/**
+ * 点击冒泡图片
+ * @param this_
+ * @param id
+ * @param mediaType
+ * @param evt
+ */
+function picClick(this_,id,mediaType,evt){
+    if($('#btnPlay',parent.document).hasClass("pause")) {
+        $.dialog.tips(parent.lang.playingTrack,1);
+        return;
+    }
+	if(mediaType ==0){
+        $('#mediaList'+id+' .bigPic').attr('src',$(this_).attr('data-url'));
+        $('#mediaList'+id+' .bigPic').show();
+        $('#mediaList'+id+' #bigVideo'+id+'').hide();
+	}else{
+		changeVideo(Number(id),$(this_).attr('data-url'));
+		$('#mediaList'+id+' #bigVideo'+id+'').show();
+		$('#mediaList'+id+' .bigPic').hide();
+	}
+    parent.changeSafetyListCss(id);
+    stopPropagationEvent(evt);
+}
+
+
+
+/**
+ * 冒泡播放视频
+ * @param obj
+ */
+function videoPlay(id,url){
+	if(parent.trackPlayer.videoFrame.get(id)!= null){
+		return ;
+	}
+
+	//console.log("开始渲染:"+id);
+	var isIe9 = isBrowseIE9();
+	//动态变量
+   window["videoObject"+id] = {
+      	playerID:'#bigVideo'+id,
+        container: '#bigVideo'+id, //容器的ID
+        variable: 'player'+id,
+	    preload : false,
+        autoplay: true, //是否自动播放
+        loop:false,
+        //loaded: 'loadedHandler', //当播放器加载后执行的函数
+        flashplayer:isIe9,//是否强制使用flash播放器
+        h5container:'#videoplayer'+id, //h5环境中使用自定义播放器ID
+        html5m3u8:true,
+     	debug:true,//启动调试模式
+        video: url
+    };
+    window["player"+id] = new ckplayer(window["videoObject"+id]);
+    parent.trackPlayer.videoFrame.put(id,window["player"+id]);
+    parent.trackPlayer.safetyVideoPlayed.put(id,false);
+
+    //监听开始播放
+    window["player"+id].addListener('play', function(){
+    	//console.log("开始播放:"+id);
+        if(parent.trackPlayer.safetyVideoPlayed.get(id)){
+            window["player"+id].videoPause();
+		}else{
+            parent.trackPlayer.isPause = true;
+            if(!parent.trackPlayer.isPlaying) {
+                parent.trackPlayer.isPlaying = true;
+                parent.trackPlayer.isPause = false;
+                parent.trackPlayer.resetPlayTimer();
+            }
+		}
+    });
+    //监听播放结束
+    window["player"+id].addListener('ended', function(){
+    	if(!parent.trackPlayer.safetyVideoPlayed.get(id)){
+            if ($('#btnPlay',parent.document).hasClass("pause")) {
+                parent.trackPlayer.isPause = false;
+            }else{
+                parent.trackPlayer.isPause = true;
+			}
+            parent.trackPlayer.safetyVideoPlayed.put(id,true);
+		}else{
+            window["player"+id].videoPause();
+		}
+        //console.log("开始播放完成:"+id);
+	});
+
+	 /*var videoObject = {
+      	playerID:'#bigVideo'+id,
+        container: '#bigVideo'+id, //容器的ID
+        variable: 'player'+id,
+        autoplay: true, //是否自动播放
+        loop:false,
+        //loaded: 'loadedHandler', //当播放器加载后执行的函数
+        flashplayer:isIe9,//是否强制使用flash播放器
+        h5container:'#videoplayer'+id, //h5环境中使用自定义播放器ID
+        html5m3u8:true,
+     	debug:true,//启动调试模式
+        video: url
+    };
+    var player = new ckplayer(videoObject);
+    parent.trackPlayer.safetyVideoPlayed = false;
+    parent.trackPlayer.videoFrame.put(id,player);
+    //监听播放结束
+    player.addListener('ended', function(){
+        parent.trackPlayer.safetyVideoPlayed = true;
+        console.log(id);
+        player.videoPause();
+	});*/
+
+    $('.mediaList,.mapTip,.scrollpic,.mybtns').on('click',function (e) {
+        stopPropagationEvent(e);
+    });
+    $('.mediaList,.mapTip,.scrollpic,.mybtns').on('dblclick',function (e) {
+        stopPropagationEvent(e);
+    });
+}
+
+
+
+/**
+ * 切换视频
+ * @param id
+ * @param videoUrl
+ */
+function changeVideo(id,videoUrl) {
+
+	var player = parent.trackPlayer.videoFrame.get(id);
+	if(player == null){
+		return ;
+	}
+    var isIe9 = isBrowseIE9();
+    var newVideoObject = {
+    	playerID:'#bigVideo'+id,
+        container: '#bigVideo'+id, //容器的ID
+        variable: 'player'+id,
+        autoplay: false, //是否自动播放
+        loop:false,
+        //loaded: 'loadedHandler', //当播放器加载后执行的函数
+        flashplayer:isIe9,
+        h5container:'#videoplayer'+id, //h5环境中使用自定义播放器ID
+        html5m3u8:true,
+     	debug:true,//启动调试模式
+        video: videoUrl
+    }
+
+   if(player.playerType == 'html5video') {
+        if(player.getFileExt(videoUrl) == '.flv' || player.getFileExt(videoUrl) == '.m3u8' || player.getFileExt(videoUrl) == '.f4v' || videoUrl.substr(0, 4) == 'rtmp') {
+            player.removeChild();
+
+            player = null;
+            player = new ckplayer();
+            player.embed(newVideoObject);
+        } else {
+            player.newVideo(newVideoObject);
+        }
+    } else {
+        if(player.getFileExt(videoUrl) == '.mp4' || player.getFileExt(videoUrl) == '.webm' || player.getFileExt(videoUrl) == '.ogg' || player.getFileExt(videoUrl) == '.m3u8') {
+            player = null;
+            player = new ckplayer();
+            player.embed(newVideoObject);
+        } else {
+            player.newVideo(newVideoObject);
+        }
+    }
+    $('.mediaList,.mapTip,.scrollpic,.mybtns').on('click',function (e) {
+        stopPropagationEvent(e);
+    });
+    $('.mediaList,.mapTip,.scrollpic,.mybtns').on('dblclick',function (e) {
+        stopPropagationEvent(e);
+    });
+}
+
+
+
+/**
+ * 主动安全报警列表冒泡信息
+ * @param data
+ * @param deviceStatus
+ * @returns {string}
+ */
+function getSafeHtml(data,deviceStatus){
+    var html = [];
+    html.push('<font>');
+    if(data != null && data.length > 0){
+        html.push('<div id="mediaList'+deviceStatus.id+'" class="mediaList">');
+        var picDis = 'block';
+        var videoDis = 'block';
+        var picSrc = "";
+        var videoSrc= "";
+		//大展示图默认显示视频
+		if(data[0].mediaType == 1){
+			picDis = 'none';
+            videoSrc = data[0].videoFile;
+		}else{
+			videoDis = 'none';
+            picSrc = data[0].fileUrl;
+		}
+		html.push('<img class="bigPic" src="'+picSrc+'" width="320px" height="220px" style="display: '+picDis+';"/>'); //oncanplaythrough="videoPlay(this)"
+        //html.push('<video id="bigVideo'+deviceStatus.id+'" controls  playsinline preload="true" width="100%" height="200px" onloadstart="videoPlay('+deviceStatus.id+')"   class="video-js vjs-big-play-centered" style="display: '+videoDis+';"></video>');
+        html.push('<div id="bigVideo'+deviceStatus.id+'" class="bigVideo" style="width: 320px; height: 220px; display: '+videoDis+';"><video width="100%" height="100%" id="videoplayer'+deviceStatus.id+'" onloadstart="videoPlay('+deviceStatus.id+',\''+videoSrc+'\')" src="'+videoSrc+'"></video></div>');  //<img class="preloadImg" src="../images/video.jpg" width="100%" height="100%"/>
+		html.push('<div id="scrollpic'+deviceStatus.id+'" class="scrollpic"><div class="myscroll"><a href="javascript:void(0)" class="right"></a><div class="myscrollbox">');
+        html.push('<ul class="list">');
+        for (var i =0,len = data.length;i<len;i++){
+            if(data[i].mediaType == 0){ //图片
+				if(i ==(data.length-1)){
+                    html.push('<li class="li"><a class="media" href="javascript:void(0)" data-url="'+data[i].fileUrl+'" onclick = "picClick(this,\''+deviceStatus.id+'\',\''+data[i].mediaType+'\')"><img  onload="initSwiper('+deviceStatus.id+')"  src="'+data[i].fileUrl+'" alt=""></a></li>');
+				}else{
+                    html.push('<li class="li"><a class="media" href="javascript:void(0)" data-url="'+data[i].fileUrl+'" onclick = "picClick(this,\''+deviceStatus.id+'\',\''+data[i].mediaType+'\')"><img  src="'+data[i].fileUrl+'" alt=""></a></li>');
+				}
+            }else{ //视频
+                if(i ==(data.length-1)){
+                    html.push('<li class="li"><a class="media" href="javascript:void(0)" data-url="'+data[i].videoFile+'" onclick = "picClick(this,\''+deviceStatus.id+'\',\''+data[i].mediaType+'\')"><img  onload="initSwiper('+deviceStatus.id+')" src="../images/video.jpg" alt=""/></a></li>');
+                }else{
+                    html.push('<li class="li"><a class="media" href="javascript:void(0)" data-url="'+data[i].videoFile+'" onclick = "picClick(this,\''+deviceStatus.id+'\',\''+data[i].mediaType+'\')"><img  src="../images/video.jpg" alt=""/></a></li>');
+                }
+			}
+        }
+
+        html.push('</ul></div><a href="javascript:;" class="left"></a> </div></div>');
+		html.push("</div>");
+    }
+
+    if(deviceStatus.address){
+        deviceStatus.position = deviceStatus.address;
+    }
+    var alarmArr = deviceStatus.alarm.split("|");
+    var alarmStr = '';
+    var statusStr = '';
+    if(alarmArr != null && alarmArr.length>1){
+        alarmStr = alarmArr[0].substring(0,alarmArr[0].length);
+        statusStr = alarmArr[1].substring(0,alarmArr[1].length);
+    }else{
+        alarmStr = deviceStatus.alarm;
+	}
+    html.push('<span class="b">' +  rootParent.lang.monitor_labelAlarm + '</span>' + alarmStr + '<br/>');
+    html.push('<span class="b">' +  rootParent.lang.monitor_labelNormal + '</span>' + statusStr + '<br/>');
+    html.push('<span class="b">' +  rootParent.lang.monitor_labelPosition + '</span>' + deviceStatus.position + '<br/>');
+    //时间
+    html.push('<span class="b">' +  rootParent.lang.labelTime + '</span>' + deviceStatus.gpsTime + '<br/>');
+    //里程
+    html.push('<span class="b">' +  rootParent.lang.monitor_labelLiCheng + '</span>' + deviceStatus.liCheng + '<br/>');
+    //速度
+    html.push('<span class="b">' +  rootParent.lang.labelSpeed + '</span>' + deviceStatus.speed + '<br/>');
+    html.push('</font>');
+    return html.join("");
+}
+
+/**
+ * 滚动图片
+ */
+function initSwiper(id){
+	//获取单个子元素所需宽度
+    var blw=$(".myscrollbox li").width();
+    //获取子元素数量
+    var liArr = $('#mediaList'+id+' .myscrollbox ul').children('li');
+    //获取子元素所在区域宽度
+    var mysw = $(".myscroll").width();
+    //计算出需要显示的子元素的数量
+    var mus = parseInt(mysw/blw);
+    //计算子元素可移动次数（被隐藏的子元素数量）
+    var length = (liArr.length/2)-mus;
+    var i=0
+    $(".right").on('click',function(e){
+		//点击i加1
+        i++;
+        if(i<length){
+            $(".myscrollbox").css("left",-(blw*i));
+            //子元素集合向左移动，距离为子元素的宽度乘以i。
+        }else{
+            i=length;
+            $(".myscrollbox").css("left",-(blw*length));
+            //超出可移动范围后点击不再移动。最后几个隐藏的元素显示时i数值固定位已经移走的子元素数量。
+        }
+        stopPropagationEvent(e);
+    });
+    $(".left").on('click',function(e){
+        i--;
+        //点击i减1
+        if(i>=0){
+            $(".myscrollbox").css("left",-(blw*i));
+            //子元素集合向右移动，距离为子元素的宽度乘以i。
+        }else{
+            i=0;
+            $(".myscrollbox").css("left",0);
+            //超出可移动范围后点击不再移动。最前几个子元素被显示时i为0。
+        }
+        stopPropagationEvent(e);
+    });
+
+    $(".right,.left").on('dblclick',function(e){
+        stopPropagationEvent(e);
+    });
+}
+
+/**
+ * 解决第一个冒泡视频播放bug
+ * @param mapTrack
+ * @param index
+ */
+function showTrackMap(mapTrack, index){
+    var track = findTracker(mapTrack);
+    if (track != null){
+        var trackVehicle = trackFindVehicle(track, index);
+        if (trackVehicle != null) {
+            var trackVehiId = trackVehicleId(mapTrack, index);
+            var vehicle = findVehicle(trackVehiId);
+            hideVehiclePop();
+            showVehiclePop(vehicle);
+        }
+    }
+
+}

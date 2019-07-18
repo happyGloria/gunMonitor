@@ -1,0 +1,2540 @@
+/*
+ * 报警事件，有1个开始和1个结束，使用相同的GUID，不同的报警类型，从服务器接收时，只会收到一1个报警事件，需要将开始和结束事件组合成1个报警
+ */
+
+//function 
+
+/**
+ * 车辆报警处理类
+ * 1、从服务器上获取报警信息，并显示到界面上
+ * 并开启
+ */
+function monitorVehicleAlarm(){
+	this.alarmTableObj = null; //报警信息表格对象
+	this.mapAlarmList = new Hashtable();	//每个报警关联一个GUID和一个报警事件
+	this.alarmList = [];					//按接收顺序存储，接收时会进行移除操作
+	this.flashAlarmInterval = 10000;		//默认间隔，需要启动时从cookie中读取
+	this.flashAlarmTimer = null;			//刷新车辆状态的定时器
+	this.alarmDevIdnos = "";
+	this.alarmShields = [];                    //用户的报警屏蔽设置
+	this.alarmAcceptList = []; //从后台接收的报警数据
+	this.alarmPackNumber = 0;   //报警的批次编号
+	this.mapVehiOnlineList = new Hashtable();	//每个在线车辆关联一个车牌号和一个上线事件的guid
+	//每个任务中的下发任务关联一个车牌号+任务类型id和一个任务中事件
+	this.mapVehiIssInfoList = new Hashtable();
+	this.isAlarmEnd = false;  //报警是否解析完
+	this.addAlarmToEventList = new Array();  //向报警信息列表添加报警信息的集合
+	this.mapAlarmAddToEventList = new Hashtable(); //向报警信息列表添加报警信息的Map集合(车牌号关联)
+	this.mapAlarmUpdateToEventList = new Hashtable(); //向报警信息列表更新报警信息的Map集合(车牌号关联)
+	this.alarmUpdateToEventList = new Array(); //向报警信息列表更新报警信息的集合
+	this.updateOnlineVehicleList = new Array(); //车辆上下线更新集合
+	this.onlineVehicleList = new Array(); //在线的车辆车牌号集合 200个
+	
+	this.trafficAreaParam = "";  //交通部门和交警部门所需区域参数
+	this.mapChemicalAreaAlarmInfo = new Hashtable(); //保存运单号和一个运单车辆状态信息
+	
+	this.flashPositionInterval = 10; //10毫秒刷新
+	this.isFlashPosition = true;//是否刷新地理位置
+	this.flashPositionAlarmList = []; //刷新的报警列表
+	
+	this.mapFlashVehiTeamList = new Hashtable(); //刷新车辆树组织结构的组织结构id列表
+	
+	this.flashDispatcherTimer = (new Date()).getTime();//设置时间
+	
+	this.mapSafetyAlarmList = new Hashtable(); //主动安全对应的报警信息
+	
+	this.mapSafetyAlarm = new Hashtable(); //主动安全 处理相关的报警  
+	
+	this.mapHideAlarm = new Hashtable(); //报警栏不显示的报警 （不加入table） 解析不变
+	
+}
+
+//获取最近报警记录
+monitorVehicleAlarm.prototype.getMapSafetyAlarmList = function(vehiId){
+	return this.mapSafetyAlarmList.get(vehiId+"");
+}
+
+//赋值flashAlarmInterval
+monitorVehicleAlarm.prototype.setFlashAlarmInterval = function(flashAlarmInterval){
+	this.flashAlarmInterval = flashAlarmInterval; 
+}
+
+//获取最近报警记录
+monitorVehicleAlarm.prototype.isHideAlarm = function(type){
+	var endType = this.mapHideAlarm.get(type+"");
+	if(endType){
+		return true;
+	}
+	return false;
+}
+
+//初始化主动安全 处理相关的报警  
+monitorVehicleAlarm.prototype.initMapHideAlarm = function(){
+    //图片音频视频完成事件
+	this.mapHideAlarm.put("109", "109");
+}
+
+//获取最近报警记录
+monitorVehicleAlarm.prototype.isSafetyAlarm = function(type){
+	var endType = this.mapSafetyAlarm.get(type+"");
+	if(endType){
+		return true;
+	}
+	return false;
+}
+
+//初始化主动安全 处理相关的报警  
+monitorVehicleAlarm.prototype.initMapSafetyAlarm = function(){
+	//key 报警类型(开始)  value 报警类型(结束)
+    //驾驶员IC卡异常报警1级
+	this.mapSafetyAlarm.put("641", "691");
+    //驾驶员IC卡异常报警2级
+	this.mapSafetyAlarm.put("641", "692");
+	//后方接近报警
+	this.mapSafetyAlarm.put("633", "683");
+	//左侧后方接近报警
+	this.mapSafetyAlarm.put("634", "684");
+	//右侧后方接近报警
+	this.mapSafetyAlarm.put("635", "685");
+	//胎压报警
+	this.mapSafetyAlarm.put("632", "682");
+	//驾驶员异常报警  2级 
+	this.mapSafetyAlarm.put("627", "677");
+	//驾驶员异常报警  1级 
+	this.mapSafetyAlarm.put("626", "676");
+	//分神驾驶报警  2级 
+	this.mapSafetyAlarm.put("625", "675");
+	//分神驾驶报警  1级 
+	this.mapSafetyAlarm.put("624", "674");
+	//分神驾驶报警  2级 
+	this.mapSafetyAlarm.put("637", "687");
+	//抽烟报警  2级 
+	this.mapSafetyAlarm.put("623", "673");
+	//抽烟报警  1级 
+	this.mapSafetyAlarm.put("622", "672");
+	//接打电话报警  2级 
+	this.mapSafetyAlarm.put("621", "671");
+	//接打电话报警  1级 
+	this.mapSafetyAlarm.put("620", "670");
+	//疲劳驾驶报警 2级 
+	this.mapSafetyAlarm.put("619", "669");
+	//疲劳驾驶报警 1级 
+	this.mapSafetyAlarm.put("618", "668");
+	//障碍物报警 2级
+	this.mapSafetyAlarm.put("613", "663");
+	//障碍物报警 1级
+	this.mapSafetyAlarm.put("612", "662");
+	//道路标识超限报警 2级
+	this.mapSafetyAlarm.put("611", "661");
+	//道路标识超限报警 1级
+	this.mapSafetyAlarm.put("610", "660");
+	//频繁变道  2级
+	this.mapSafetyAlarm.put("609", "659");
+	//频繁变道  1级
+	this.mapSafetyAlarm.put("608", "658");
+	//行人碰撞报警  2级
+	this.mapSafetyAlarm.put("607", "657");
+	//行人碰撞报警  1级
+	this.mapSafetyAlarm.put("606", "656");
+	//车距过近报警 2级
+	this.mapSafetyAlarm.put("605", "655");
+	//车距过近报警 1级
+	this.mapSafetyAlarm.put("604", "654");
+	//车道偏离报警 2级
+	this.mapSafetyAlarm.put("603", "653");
+	//车道偏离报警1级
+	this.mapSafetyAlarm.put("602", "652");
+	//前向碰撞报警 2级
+	this.mapSafetyAlarm.put("601", "651");
+	//前向碰撞报警1级
+	this.mapSafetyAlarm.put("600", "650");
+	//驾驶员识别报警(单独弹窗事件)
+//	this.mapSafetyAlarm.put("636", "686");
+	 if(_getRootFrameElement().myUserRole && _getRootFrameElement().myUserRole.isIsSunglassFailure()){ 
+			//墨镜失效一级报警
+			this.mapSafetyAlarm.put("639", "689");
+			//墨镜失效2级报警   
+			this.mapSafetyAlarm.put("640", "690");
+	 }
+}
+
+
+
+monitorVehicleAlarm.prototype.initialize = function(){
+	//初始化报警屏蔽信息
+//	this.initAlarmShield();
+	//初始化安全管理需要弹窗的报警类型
+	this.initMapSafetyAlarm();
+	//不新增到报警栏的报警
+	this.initMapHideAlarm();
+	//初始化状态列表
+	this.initAlarmTable();
+	//在初始化设备树后，会启动报警信息订阅
+	//this.runAlarmTimer();
+	//加载交通部门和交警部门所需区域参数
+	this.loadTrafficAreaParam();
+};
+
+
+
+
+
+//初始化报警事件列表
+monitorVehicleAlarm.prototype.initAlarmTable = function(){
+	//车辆，报警类型、开始时间，结束时间，报警描述，开始地点，结束地点
+	//本类对象
+	var myMonitorAlarm = this;
+	var  rootparent = _getRootFrameElement();
+	var buttons = [ {separator: false, hidename: "", name: rootparent.lang.clear, bclass: "flexDelete",
+    	bimage: "", tooltip: parent.lang.clear, id: "alarmClear",
+    	onpress: function() {
+    		myMonitorAlarm.clearAlarmTableEvent();
+    	}
+    },{separator: true
+    },
+    {separator: false, hidename: "", name: rootparent.lang.view, bclass: "flexFind",
+    	bimage: "", tooltip: rootparent.lang.view, id: "alarmFind",
+    	onpress: function() {
+    		myMonitorAlarm.doAlarmFind();
+    	}
+    },{separator: true
+    }];
+	
+	var idnoTitle = rootparent.lang.plate_number;
+	var hideTr_ = false;
+	if(rootparent.myUserRole.isPolice()){
+		idnoTitle = rootparent.lang.policeOrVehicel;
+		hideTr_ = true;
+	}else{
+		if(rootparent.myUserRole.isAiAlarmHandle()){
+			buttons.push( {separator: false, hidename: "", name: rootparent.lang.ai_handle_history, bclass: "flexFind",
+		    	bimage: "", tooltip: rootparent.lang.ai_handle_history, id: "aiAlarmHandle",
+		    	onpress: function() {
+		    		myMonitorAlarm.doAIAlarmFind();
+		    	}
+		    },{separator: true
+		    });
+		}
+		
+		buttons.push(
+			    {separator: false, hidename: "", name: rootparent.lang.ai_dialog, bclass: "uncheacked",
+			    	bimage: "", tooltip: rootparent.lang.ai_dialog, id: "openSafetyDialog",
+			    	onpress: function() {
+			    		monitorSafetyAlarmDialog = !monitorSafetyAlarmDialog;
+			    		$(this).find('div span').toggleClass('cheacked');
+			    		//
+			    		if(monitorSafetyAlarmDialog){
+			    			$.cookie("monitorSafetyAlarmDialog", 1, { expires: 365});
+		    	    		$.cookie("monitorSafetyAlarmDialog", 1, { expires: 365, path:"/808gps/" });
+			    		}else{
+			    			$.cookie("monitorSafetyAlarmDialog", 0, { expires: 365});
+		    	    		$.cookie("monitorSafetyAlarmDialog", 0, { expires: 365, path:"/808gps/" });
+			    		}
+			    	}
+			    },{separator: true
+			    },
+			    {separator: false, hidename: "", name: rootparent.lang.ai_audio, bclass: "uncheacked",
+			    	bimage: "", tooltip: rootparent.lang.ai_audio, id: "openSafetyAudio",
+			    	onpress: function() {
+			    		monitorSafetyAlarmAudio = !monitorSafetyAlarmAudio;
+			    		$(this).find('div span').toggleClass('cheacked');
+			    		//
+			    		if(monitorSafetyAlarmAudio){
+			    			$.cookie("monitorSafetyAlarmAudio", 1, { expires: 365});
+		    	    		$.cookie("monitorSafetyAlarmAudio", 1, { expires: 365, path:"/808gps/" });
+			    		}else{
+			    			$.cookie("monitorSafetyAlarmAudio", 0, { expires: 365});
+		    	    		$.cookie("monitorSafetyAlarmAudio", 0, { expires: 365, path:"/808gps/" });
+			    		}
+			    	}
+			    },{separator: true
+			    },
+			    {separator: false, hidename: "", name: rootparent.lang.face_recognition, bclass: "uncheacked",
+			    	bimage: "", tooltip: rootparent.lang.face_recognition, id: "openDriverDialog",
+			    	onpress: function() {
+			    		monitorDriverEventDialog = !monitorDriverEventDialog;
+			    		$(this).find('div span').toggleClass('cheacked');
+			    		//
+			    		if(monitorDriverEventDialog){
+			    			$.cookie("monitorDriverEventDialog", 1, { expires: 365});
+		    	    		$.cookie("monitorDriverEventDialog", 1, { expires: 365, path:"/808gps/" });
+			    		}else{
+			    			$.cookie("monitorDriverEventDialog", 0, { expires: 365});
+		    	    		$.cookie("monitorDriverEventDialog", 0, { expires: 365, path:"/808gps/" });
+			    		}
+			    	}
+			    }
+			    );
+	}
+	
+	this.alarmTableObj = $("#alarmTable").flexigrid({
+		url: "",	//StandardTrackAction_query.action
+		dataType: 'json',
+		colModel : [
+            {display: rootparent.lang.ai_handle, name : 'aiOperator', width : 60, sortable : false, align: 'center', hide: hideTr_},
+            {display: rootparent.lang.ai_number, name : 'aiArmSum', width : 60, sortable : false, align: 'center', hide: hideTr_},
+		    {display: rootparent.lang.operator, name : 'operator', width : 60, sortable : false, align: 'center'},
+		    {display: rootparent.lang.belong_company, name : 'company',sortname:'company', width : 120, sortable : true, align: 'center'},
+			{display: idnoTitle, name : 'idno',sortname:'idno', width : 100,sortable : true, align: 'center'},
+			{display: rootparent.lang.alarm_alarm_sum, name : 'armSum', width : 60, sortable : false, align: 'center'},
+			{display: rootparent.lang.alarm_latest_alarm, name : 'type', width : 160, sortable : false, align: 'center'},
+			{display: rootparent.lang.report_beginTime, name : 'startTime', width : 120, sortable : false, align: 'center'},
+			{display: rootparent.lang.report_endTime, name : 'endTime', width : 120, sortable : false, align: 'center'},
+			{display: rootparent.lang.monitor_alarmInfo, name : 'desc', width : 300, sortable : false, align: 'center'},
+			{display: rootparent.lang.report_normal_beginPosition, name : 'startPos', width : 150, sortable : false, align: 'center'},
+			{display: rootparent.lang.report_normal_endPosition, name : 'endPos', width : 150, sortable : false, align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		buttons: buttons,
+		onChangeSort : true,
+		checkbox: false,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		//onDoubleClick: myMonitorAlarm.onDoubleClick,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	
+	this.alarmTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorAlarm.fillAlarmTable(p, row, idx, index);
+	});
+	this.alarmTableObj.flexSelectRowPropFun(function(obj, selRow) {
+		myMonitorAlarm.selectAlarmRowProp(obj, selRow);
+	});
+	
+	var monitorSafetyAlarmAudio_ = $.cookie("monitorSafetyAlarmAudio");
+	var monitorSafetyAlarmDialog_ = $.cookie("monitorSafetyAlarmDialog");
+	var monitorDriverEventDialog_ = $.cookie("monitorDriverEventDialog");
+	if(monitorSafetyAlarmAudio_  && monitorSafetyAlarmAudio_ == 1){
+		monitorSafetyAlarmAudio = true;
+		$('#openSafetyAudio').find('div span').toggleClass('cheacked');
+	}
+	if(monitorSafetyAlarmDialog_  && monitorSafetyAlarmDialog_ == 1 ){
+		monitorSafetyAlarmDialog = true;
+		$('#openSafetyDialog').find('div span').toggleClass('cheacked');
+	}
+	if(monitorDriverEventDialog_  && monitorDriverEventDialog_ == 1 ){
+		monitorDriverEventDialog = true;
+		$('#openDriverDialog').find('div span').toggleClass('cheacked');
+	}
+	
+	
+	
+	//报警列表右键删除全部报警信息
+//	disableSysRight('#gpsAlarm',true,function() {
+//		$('#alarmTable').flexClear();
+//	});
+};
+
+
+monitorVehicleAlarm.prototype.onDoubleClick = function(obj){
+	var vehiIdno = $.trim($(obj).find('.idno').find('div span').text());
+	//车牌号
+	var companyName = $.trim($(obj).find('.company').find('div span').text());//所属公司
+	var startTime = $.trim($(obj).find('.startTime').find('div span').text());//开始时间
+	var endTime = $.trim($(obj).find('.endTime').find('div span').text());//结束时间
+	var type = $.trim($(obj).find('.type').find('div span').text());//报警类型
+	var position =  $.trim($(obj).find('.startPos').find('div span').text());//开始位置
+	var endPos =  $.trim($(obj).find('.endPos').find('div span').text());//结束位置
+	var desc =  $.trim($(obj).find('.desc').find('div span').text());//报警信息
+	var  data = {};
+	data.vehiIdno = vehiIdno;
+	data.company = companyName;
+	if(endTime && endTime != ""){//优先使用结束时间
+	}else{
+		endTime = startTime;
+	}
+	data.time = endTime;
+	data.type = type;
+	if(endPos && endPos != ""){//优先使用结束时间
+	}else{
+		endPos = position;
+	}
+	data.position = endPos;
+	data.desc = desc;
+	if(handleAlarmDialogInfos && typeof handleAlarmDialogInfos == 'function'){
+		handleAlarmDialogInfos(data);
+	}
+}
+
+
+//清空报警列表
+monitorVehicleAlarm.prototype.clearAlarmTableEvent = function(){
+	if(this.alarmTableObj != null) {
+		this.alarmTableObj.flexClear();
+	}
+	//刷新地理位置状态
+	this.flashPositionAlarmList = [];
+	
+	if(this.mapChemicalAreaAlarmInfo != null) {
+		//清空在监控的系统外运单车辆
+		this.mapChemicalAreaAlarmInfo.each(function(vehiIdno) {
+			if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+				monitorStatus.delMonitorVehicle(vehiIdno);
+			}
+			parent.vehicleManager.removeVehicle(vehiIdno);
+		});
+		this.mapChemicalAreaAlarmInfo.clear();
+	}
+	//清空报警声音
+	if(typeof alarmMotion != 'undefined' && alarmMotion != null) {
+		alarmMotion.alarmSoundList = [];
+	}
+};
+
+/**
+ * 提交ajax
+ */
+monitorVehicleAlarm.prototype.doAjaxSubmit = function(action, params, callback) {
+	var object = $.post(action,
+
+    {json : JSON.stringify(params)}, function(json, textStatus) {
+		if(textStatus == 'timeout'){
+			if((typeof showDialogErrorMessage) == 'function') {
+				showDialogErrorMessage(3);
+			}
+			if((typeof callback) == 'function') {
+				callback(json, false);
+			}
+		} else if(textStatus == 'error') {
+			if((typeof showDialogErrorMessage) == 'function') {
+				showDialogErrorMessage(1);
+			}
+			if((typeof callback) == 'function') {
+				callback(json, false);
+			}
+		} else if (textStatus == "success") {
+			if(json.result == 0){
+				if((typeof callback) == 'function') {
+					callback(json, true);
+				}
+			} else{
+				if((typeof showDialogErrorMessage) == 'function') {
+					showDialogErrorMessage(json.result, json.cmsserver);
+				}
+				if((typeof callback) == 'function') {
+					callback(json, false);
+				}
+			}
+		} else {
+			if((typeof showDialogErrorMessage) == 'function') {
+				showDialogErrorMessage(4);
+			}
+			if((typeof callback) == 'function') {
+				callback(json, false);
+			}
+		}
+		$.myajax.showLoading(false);
+	}, 'json').error(
+			function() {
+			  	if((typeof showDialogErrorMessage) == 'function') {
+					showDialogErrorMessage(101, 1);
+				}
+				if((typeof callback) == 'function') {
+					callback("", false);
+				}
+			}
+		);
+	return object;
+}
+
+//添加交通部门和交警部门所需区域参数
+monitorVehicleAlarm.prototype.appendTrafficAreaParam = function(areaId) {
+	if(this.trafficAreaParam) {
+		this.trafficAreaParam += ',';
+	}
+	this.trafficAreaParam += '@' + areaId;
+}
+
+//获取所在区域行政区域id
+monitorVehicleAlarm.prototype.getCompanyAreaId = function(companyIds) {
+	/*var that = this;
+	$.myajax.jsonGet('WHLocationAction_getCompanyAreaId.action?companyId='+companyId, function(json,action,success){
+		if(success) {
+			if(json.areaId) {
+				var areas = json.areaId.split(',');
+				for (var i = 0; i < areas.length; i++) {
+					if(that.trafficAreaParam) {
+						that.trafficAreaParam += ',';
+					}
+					that.trafficAreaParam += '@' + areas[i];
+				}
+			}
+		};
+	}, null);*/
+	if(companyIds != null && companyIds.length > 0) {
+		for (var i = 0; i < companyIds.length; i++) {
+			if(this.trafficAreaParam) {
+				this.trafficAreaParam += ',';
+			}
+			this.trafficAreaParam += '@' + companyIds[i];
+		}
+	}
+}
+
+//获取所在部门行政区域以及子区域
+monitorVehicleAlarm.prototype.loadAllChildAdminArea = function(companys, parentId) {
+	for (var i = 0; i < parent.vehiGroupList.length; i++) {
+		if(parent.vehiGroupList[i].level == 4 && parent.vehiGroupList[i].parentId == parentId) {
+			companys.push(parent.vehiGroupList[i].id);
+			this.loadAllChildAdminArea(companys, parent.vehiGroupList[i].id);
+		}
+	}
+}
+
+//加载交通部门和交警部门所需区域参数
+monitorVehicleAlarm.prototype.loadTrafficAreaParam = function() {
+	//交通部门和交警部门，获取所在行政区域及下级行政区域id
+	if(typeof parent.myUserRole != 'undefined' && parent.myUserRole != null
+			&& (parent.myUserRole.isTrafficCompany() || parent.myUserRole.isTrafficPoliceCompany())) {//
+		if(parent.isLoadVehiGroupList) {
+			var markerList = parent.mapMarkManager.mapMarkList;
+			if(markerList) {
+				var forbidden = [];
+				//交警部门 获取所有禁行线路和区域的id
+				if(parent.myUserRole.isTrafficPoliceCompany()) {
+					for (var i = 0; i < markerList.length; i++) {
+						//禁行区域
+						if(markerList[i].areaType != 1 && 
+								(markerList[i].markerType == 11 || markerList[i].markerType == 12
+										|| markerList[i].markerType == 13 || markerList[i].markerType == 14)) {
+							forbidden.push('@'+markerList[i].id);
+						}
+					}
+				}
+				this.trafficAreaParam = forbidden.toString();
+				
+				var companys = [];
+				companys.push(parent.companyId);
+				this.loadAllChildAdminArea(companys, parent.companyId);
+				this.getCompanyAreaId(companys);
+			}
+		}else {
+			var that = this;
+			setTimeout(function() {
+				that.loadTrafficAreaParam();
+			}, 50);
+		}
+	}
+}
+
+//开启刷新车辆报警的定时器
+monitorVehicleAlarm.prototype.runAlarmTimer = function(){
+	//本类对象
+	var myMonitorAlarm = this;
+	this.flashStatusTimer = setTimeout(function () {
+		myMonitorAlarm.flashVehicleAlarm();
+	}, myMonitorAlarm.flashAlarmInterval);
+};
+
+//设置危化区域报警示例
+monitorVehicleAlarm.prototype.setChemicalExample = function(index, alarm) {
+	alarm.type = 232;
+	alarm.stType = 232;
+	if(index == 0) {
+		alarm.desc =  parent.lang.vehicles+'45678'+index+';'+parent.lang.example_info+';YD123213213213'+index;
+		alarm.DevIDNO = '@2323';
+	}else {
+		alarm.desc = '5000000;'+parent.lang.example_info+';YD123213213213'+index;
+	}
+}
+
+//刷新报警状态
+monitorVehicleAlarm.prototype.flashVehicleAlarm = function(){
+	var data = {};
+	if(parent.myUserRole.isDispatcher()){
+		data.devIdnos = parent.vehicleManager.getAllDispatchDevIdnos();
+	}else{
+		data.devIdnos = parent.vehicleManager.getAllDevIdnos();
+	}
+	if(this.trafficAreaParam) {
+		if(data.devIdnos) {
+			data.devIdnos += ',';
+		}
+		data.devIdnos += this.trafficAreaParam;
+	}
+//	if (data.devIdnos == "") {
+//		this.runAlarmTimer();
+//		return ;
+//	}else {
+		//服务器需要
+//		data.devIdnos += ',5,@@NOTIFY_EVENT@@';
+	data.devIdnos += ',@@NOTIFY_EVENT@@';
+//	}
+	
+	//本类对象
+	var myMonitorAlarm = this;
+	//数据库取实时状态
+	//$.myajax.jsonPost('StandardPositionAction_alarm.action?toMap='+parent.toMap, data, false, 
+	this.doAjaxSubmit('StandardPositionAction_alarm.action?toMap='+parent.toMap, data, function(json, success) {
+		var isMore = false;
+		if(success) {
+		//json =	{"alarmlist":[{"DevIDNO":"10003","Gps":{"dct":0,"gt":"2018-10-30 15:05:01","hx":0,"lat":0,"lc":0,"lid":1,"lng":0,"mlat":"0.000000","mlng":"0.000000","net":0,"pk":0,"s1":0,"s2":0,"s3":0,"s4":0,"sfg":0,"snm":0,"sp":0,"sst":0,"t1":0,"t2":0,"t3":0,"t4":0,"tsp":0,"yl":0},"desc":"test111;13666666666;13666666666@163.com;|测试二测试122塔塔塔江铜检测室中心;2;2018-10-30 15:05:01","guid":"404E194B1E274FA7BD5805FBD4620605","hd":0,"img":"","info":29,"p1":12345678,"p2":9,"p3":16777217,"p4":1,"rve":0,"srcAt":2,"srcTm":"2018-10-30 15:05:01","stType":0,"time":"2018-10-30 15:05:01","type":113},{"DevIDNO":"10003","Gps":{"dct":0,"gt":"2018-10-30 15:05:01","hx":176,"lat":22669803,"lc":172619009,"lid":0,"lng":113823600,"mlat":"22.672557","mlng":"113.835182","net":0,"pk":0,"s1":805327235,"s2":0,"s3":0,"s4":0,"sfg":0,"snm":0,"sp":680,"sst":0,"t1":-321,"t2":350,"t3":-200,"t4":0,"tsp":0,"yl":12447},"desc":"1234","guid":"1469CA71BCA04E6F9A5FC7ABC4E72FE4","hd":0,"img":"","info":0,"p1":16777343,"p2":53139,"p3":1,"p4":0,"rve":1,"srcAt":0,"srcTm":"2000-00-00 00:00:00","stType":17,"time":"2018-10-30 15:05:01","type":17},{"DevIDNO":"1235","Gps":{"dct":0,"gt":"2018-10-30 15:05:01","hx":176,"lat":22669803,"lc":172619009,"lid":0,"lng":113823600,"mlat":"22.672557","mlng":"113.835182","net":0,"pk":0,"s1":805327235,"s2":0,"s3":0,"s4":0,"sfg":0,"snm":0,"sp":680,"sst":0,"t1":-321,"t2":350,"t3":-200,"t4":0,"tsp":0,"yl":12447},"desc":"1235","guid":"3EAF022EE95A4C658510EAA67613945F","hd":0,"img":"","info":0,"p1":16777343,"p2":53138,"p3":1,"p4":0,"rve":1,"srcAt":0,"srcTm":"2000-00-00 00:00:00","stType":17,"time":"2018-10-30 15:05:01","type":17},{"DevIDNO":"1236","Gps":{"dct":0,"gt":"2018-10-30 15:05:01","hx":176,"lat":22669803,"lc":172619009,"lid":0,"lng":113823600,"mlat":"22.672557","mlng":"113.835182","net":0,"pk":0,"s1":805327235,"s2":0,"s3":0,"s4":0,"sfg":0,"snm":0,"sp":680,"sst":0,"t1":-321,"t2":350,"t3":-200,"t4":0,"tsp":0,"yl":12447},"desc":"1236","guid":"24727A312511437D9DE98F4E5C07407D","hd":0,"img":"","info":0,"p1":16777343,"p2":53137,"p3":1,"p4":0,"rve":1,"srcAt":0,"srcTm":"2000-00-00 00:00:00","stType":17,"time":"2018-10-30 15:05:01","type":17},{"DevIDNO":"1238","Gps":{"dct":0,"gt":"2018-10-30 15:05:01","hx":176,"lat":22669803,"lc":172619009,"lid":0,"lng":113823600,"mlat":"22.672557","mlng":"113.835182","net":0,"pk":0,"s1":805327235,"s2":0,"s3":0,"s4":0,"sfg":0,"snm":0,"sp":680,"sst":0,"t1":-321,"t2":350,"t3":-200,"t4":0,"tsp":0,"yl":12447},"desc":"1238","guid":"099C28BE418E424489817596D6CFED3B","hd":0,"img":"","info":0,"p1":16777343,"p2":53136,"p3":1,"p4":0,"rve":1,"srcAt":0,"srcTm":"2000-00-00 00:00:00","stType":17,"time":"2018-10-30 15:05:01","type":17},{"DevIDNO":"@@NOTIFY_EVENT@@","Gps":{"dct":0,"gt":"2000-00-00 00:00:00","hx":0,"lat":0,"lc":0,"lid":0,"lng":0,"mlat":"0.000000","mlng":"0.000000","net":0,"pk":0,"s1":0,"s2":0,"s3":0,"s4":0,"sfg":0,"snm":0,"sp":0,"sst":0,"t1":0,"t2":0,"t3":0,"t4":0,"tsp":0,"yl":0},"center":"江铜检测室中心;2;2018-10-30 15:05:01","desc":"450126000002|测试二测试122塔塔塔江铜检测室中心;2;2018-10-30 15:05:01","guid":"30BE1F0BA35F4D8D880EB4D260E1C913","hd":0,"img":"8月28日10时左右，在广昆高速坛洛往石埠方向K590处，一辆客车翻到公路外边沟，致10人死亡，32人受伤。请各企业（平台）加强对车辆的监控！绝不能怠慢预警工作，积极响应预警机制。各企业务必加大对驾驶员的培训教育，提高对安全驾驶、规范操作的要求，务必将事故发生的源头遏制。请回答：明白！加强管理！","info":21,"p1":2,"p2":15,"p3":12345678,"p4":23,"rve":0,"srcAt":0,"srcTm":"2000-00-00 00:00:00","stType":0,"time":"2018-10-30 15:05:01","type":113}],"cmsserver":1,"more":0,"result":0};
+			if (typeof json.alarmlist != "undefined" && json.alarmlist != null) {
+				for (var i = 0; i < json.alarmlist.length; ++ i) {
+//					myMonitorAlarm.setChemicalExample(i, json.alarmlist[i]);
+					//赋值批次编号
+					json.alarmlist[i].alarmPackNumber = myMonitorAlarm.alarmPackNumber;
+					myMonitorAlarm.alarmAcceptList.push(json.alarmlist[i]);
+				//	myMonitorAlarm.doRecvAlarm(json.alarmlist[i]);
+				}
+			}
+			//判断是否还有更多报警，如果有，则立即发送请求
+			if (typeof json.more != "undefined" && json.more != null && json.more > 0) {
+				isMore = true;
+			}else {
+				//如果没有更多报警，则是新的报警
+				//报警批次编号+1
+				myMonitorAlarm.alarmPackNumber++;
+				if(this.flashAlarmCacheTimer == null) {
+					myMonitorAlarm.runAlarmCacheTimer();
+				}
+			}
+		} 
+		if (isMore) {
+			myMonitorAlarm.flashVehicleAlarm();
+		} else {
+			//一次接受到的数据大于100  只取100记录 实时界面显示50条记录
+			myMonitorAlarm.changeOnlineStatus();
+			myMonitorAlarm.runAlarmTimer();
+		}
+	});
+};
+
+//更改在线状态
+monitorVehicleAlarm.prototype.changeOnlineStatus = function(){
+	//本类对象
+	var myMonitorAlarm = this;
+	if(this.alarmAcceptList != null && this.alarmAcceptList.length > 0) {
+		//取数组第一个值，然后再删除
+		var isOnline = false;
+		for (var i = 0; i < this.alarmAcceptList.length; i++) {
+			//如果车辆在线，则不允许再次提示上线
+			//如果车辆不在线，则不允许再次提示下线
+			var alarm = this.alarmAcceptList[i];
+			if(alarm.type == 17 || alarm.type == 67){
+				isOnline = true;
+				var vehicle;
+				if(parent.myUserRole.isDispatcher()){//当前登录为调度用户
+					vehicle = parent.vehicleManager.getDispatchMemByDevIdno(alarm.DevIDNO);
+				}else{
+					vehicle = parent.vehicleManager.getVehiByDevIdno(alarm.DevIDNO);
+				}
+				if(alarm.type == 17) {//车辆上线
+					//车辆不在线，则把车辆上线时的guid保存
+					this.mapVehiOnlineList.put(vehicle.getIdno(), alarm.guid);
+					//更新设备上线  不刷新树
+					this.updateOnline(vehicle, alarm.DevIDNO, true, true);
+				}else if (alarm.type == 67) {//车辆下线
+					//查询保存的车辆上线时候的guid
+					var olGuid = this.mapVehiOnlineList.get(vehicle.getIdno());
+					if(olGuid != null && olGuid != '') {
+						alarm.guid = olGuid;
+						this.mapVehiOnlineList.remove(vehicle.getIdno());
+					}
+					//更新设备下线  不刷新树
+					this.updateOnline(vehicle, alarm.DevIDNO, false,  true);
+				}
+			}
+		}
+		//刷新树
+		if(isOnline){
+			this.flashUpdateOnline();
+		}
+		//按时间经行排序  升序  可能是没有必要的操作！
+		this.alarmAcceptList.sort(this.compare('time'));
+	}
+};
+
+/**
+ * 数组对象排序  按时间排序升序
+ * @param property  数组对象对应的属性
+ * @returns {Function}
+ */
+monitorVehicleAlarm.prototype.compare = function(property) {
+	return function(a,b){
+		var value1 = 'a';
+		var value2 = 'a';
+		if(a[property]){
+			value1 = 'a'+a[property];
+		}
+		if(b[property]){
+			value2 = 'a'+b[property];
+		}
+		return value1.localeCompare(value2, "zh");
+	}
+}
+
+
+
+//开启读取保存的报警数据的定时器
+monitorVehicleAlarm.prototype.runAlarmCacheTimer = function(){
+	//本类对象
+	var myMonitorAlarm = this;
+	this.flashAlarmCacheTimer = setTimeout(function () {
+		//报警是否解析完
+		myMonitorAlarm.isAlarmEnd = false;
+		myMonitorAlarm.startFlashTime = (new Date()).getTime();
+		myMonitorAlarm.flashVehicleAlarmCache();
+	}, 50);
+};
+
+//读取保存的报警数据，解析的同时删除，直到解析完报警数据
+monitorVehicleAlarm.prototype.flashVehicleAlarmCache = function(){
+	if(this.alarmAcceptList != null && this.alarmAcceptList.length > 0) {
+		//取数组第一个值，然后再删除
+		var alarmInfo = this.alarmAcceptList[0];
+		this.alarmAcceptList.splice(0,1);
+
+		// 报警触发报警联动
+		if(typeof alarmMotion != 'undefined' && alarmMotion != null) {
+			//如果上一个报警为空，则为新报警
+			if(typeof this.lastAlarmInfo == 'undefined' || this.lastAlarmInfo == null) {
+				//新一轮报警，设置报警联动 isNewAlarm 为true
+				alarmMotion.isNewAlarm = true;
+				//初始化联动警音提示
+				alarmMotion.initAlarmSoundRun();
+			}else {
+				//如果不是新报警,并且//如果批次号与上一个批次号不同，则设置报警联动 isNewAlarm 为true
+				if(!alarmMotion.isNewAlarm && alarmInfo.alarmPackNumber != this.lastAlarmInfo.alarmPackNumber) {
+					//新一轮报警，设置报警联动 isNewAlarm 为true
+					alarmMotion.isNewAlarm = true;
+					//初始化联动警音提示
+					alarmMotion.initAlarmSoundRun();
+				}else {
+					//如果是新报警，并且如果批次号与上一个批次号相同，则设置报警联动 isNewAlarm 为false
+					if(alarmMotion.isNewAlarm && alarmInfo.alarmPackNumber == this.lastAlarmInfo.alarmPackNumber) {
+						alarmMotion.isNewAlarm = false;
+					}
+				}
+			}
+		}
+		//报警是否解析完
+		if(this.alarmAcceptList.length == 0) {
+			this.isAlarmEnd = true;
+		}
+
+		// 报警触发回调函数
+		if(parent.myUserRole.isZSYRoadList()){
+			var  that = this;
+			//延迟30秒报警
+			setTimeout(function (){
+					that.doRecvAlarm(alarmInfo)
+				}, 10000);
+		}else{
+			this.doRecvAlarm(alarmInfo);
+		}
+		
+		this.lastAlarmInfo = alarmInfo;
+		if((new Date()).getTime() - this.startFlashTime < 500) {
+			this.flashVehicleAlarmCache();
+		}else {
+			this.runAlarmCacheTimer();
+		}
+	}else {
+		this.flashAlarmCacheTimer = null;
+		//读取完报警，设置报警联动 isNewAlarm 为false
+		if(typeof alarmMotion != 'undefined' && alarmMotion != null) {
+			alarmMotion.isNewAlarm = false;
+		}
+	}
+};
+
+//是否危化禁行区域报警
+monitorVehicleAlarm.prototype.isChemicalAreaAlarm = function(devIdno) {
+	return devIdno && devIdno.startWith('@');
+}
+
+//人脸识别报警弹窗
+//vehiIdno 报警guid
+monitorVehicleAlarm.prototype.doFaceRecognition = function(devIdno, param1, param2, driverId, files, alarmInfo, armStartTime, guid) {
+		if(driverId != null && driverId != 0){
+			if(this.DriverFaceObj == null) {
+				var myClass = this;
+				 var url = 'url:EvidenceManagement/driver_identification.html?type=1&files='+encodeURI(files)+"&alarmInfo="+
+			        alarmInfo+"&armStartTime="+armStartTime+"&driverId="+driverId+
+			            "&param1="+param1+"&param2="+param2+"&devIdno="+devIdno+"&lang="+GetCookie("language")+"&guid="+guid;
+				this.DriverFaceObj = $.dialog({id:'driverFaceAlarm', title: parent.lang.face_recognition, content: url,
+					width: '620px', height: '700px', min:true, max:false, lock: false,fixed:false
+						, resize:false, close: function() {
+							myClass.DriverFaceObj = null;
+							if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+								popTipsObject.remove('driverFaceAlarm');
+							}
+						} });
+			}else {
+				if(this.DriverFaceObj.content && (typeof this.DriverFaceObj.content.initPageInfo == 'function')) {
+					this.DriverFaceObj.content.initPageInfo();
+				}
+				this.DriverFaceObj.show();
+			}
+			if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+				popTipsObject.put('driverFaceAlarm', this.DriverFaceObj);
+			}
+			if(typeof hidePopTips == 'function'){
+				hidePopTips('driverFaceAlarm');
+			}
+		}else{
+			$.dialog.tips(parent.lang.notExistDriverInfo,1);
+		}
+}
+
+//解析报警数据
+//耗时 15-20ms  0ms 500辆车 9画面视频
+monitorVehicleAlarm.prototype.doRecvAlarm = function(alarm){
+//	loadConsoleTime(true, 'doRecvAlarm');
+	//报警列表最多存储 512条记录，如果超出了此数据，则将报警列表清空
+	//判断是否存在对应的车辆
+	//
+	if(alarm.type == 140 || alarm.type == 147 || alarm.type == 146
+			|| alarm.type == 148){//调度拉入数据
+		alarm.DevIDNO = alarm.desc;
+	}
+	var vehicle;
+	if(parent.myUserRole.isDispatcher()){//当前登录为调度用户
+		vehicle = parent.vehicleManager.getDispatchMemByDevIdno(alarm.DevIDNO);
+	}else{
+		vehicle = parent.vehicleManager.getVehiByDevIdno(alarm.DevIDNO);
+	}
+	//政府督办  113		//自定义报警, AlarmInfo表示类型( 21 查岗， 28 平台报文， 29  报警督办)
+	if( alarm.type == 113 && (alarm.info == 21
+		 || alarm.info == 28 || alarm.info == 29
+		)){
+		var governmentVehiIdno_ = "";
+		if(vehicle != null){
+			governmentVehiIdno_ = vehicle.getIdno();
+		}
+		this.analysisGovernmentOperate(alarm, governmentVehiIdno_);
+	}
+	//ai附件完成事件
+	if(alarm.type == 638){
+		var vehiId_ =   vehicle.getVid();
+		var lst = this.getMapSafetyAlarmList(vehiId_);
+		var guid_ = alarm.desc;
+		var showDialog_ = false;
+		if(lst && lst.length > 0 && guid_){
+			for(var i = 0, j = lst.length; i < j; i++){
+				var info_ = lst[i];
+				if(info_.guid && info_.guid == guid_){
+					info_.success = true;
+					showDialog_ = true;
+				}
+			}
+		}
+		//有附件完成后再弹窗
+		if(monitorSafetyAlarmDialog && showDialog_){
+			this.doAIAlarmHandle(vehiId_);
+		}
+		return;
+	}
+	//人脸识别报警
+	if(alarm.type == 636){
+		if(monitorDriverEventDialog){
+			this.doFaceRecognition(alarm.DevIDNO, alarm.p1, alarm.p2, alarm.p4, alarm.img, alarm.info, alarm.time, alarm.guid);
+		}
+	}
+	
+	//调度操作
+	if(vehicle == null && parent.myUserRole.isDispatcher()){
+		if(alarm.type == 124 && alarm.info == 206){//调度拉入数据
+			//从新加载公司
+			var groupId = alarm.p1;
+			var group = parent.vehicleManager.getDispatch(groupId);
+			if(group){
+				data = {};
+				data.id = alarm.guid;//车牌号
+				data.time = alarm.time;
+				data.group = group.name;
+				data.others = parent.lang.dispatcher_operate_update;
+				if(alarm.p2 == 1){
+					data.type = parent.lang.dispatcher_operate_add_temporary;
+				}
+				data.vehiIdno = parent.loginAccount;//用户显示为当前登录调度员
+				if(data){
+					dispatchAlarm.doRecvAlarm(data);
+				}
+				if((new Date()).getTime() - this.flashDispatcherTimer > 500){
+					var func = loadUserDispatchTree;
+					var flushThree = function (){
+						parent.getUserDispatchGroup(func);	
+					}
+					parent.getUserAllVehicles(flushThree);//重新加载车
+					this.flashDispatcherTimer = (new Date()).getTime();
+				}
+				return;
+			}
+		}
+	}
+	
+	
+	
+	if (vehicle == null  && !this.isChemicalAreaAlarm(alarm.DevIDNO)) {
+		return ;
+	}
+	//车辆 设备状态未使用
+	if(vehicle != null && vehicle.getIsDisable() ){
+		return ;
+	}
+	//服务期限
+	if(vehicle != null && !vehicle.isServicePeriod()){
+		return;
+	}
+	//如果车辆在线，则不允许再次提示上线
+	//如果车辆不在线，则不允许再次提示下线
+	var isShowAlarmInfo = true;
+	/*if(alarm.type == 17) {//车辆上线
+		if(vehicle.isOnline()) {//车辆在线
+			isShowAlarmInfo = false;
+		}else {
+			车辆不在线，则把车辆上线时的guid保存
+			this.mapVehiOnlineList.put(vehicle.getIdno(), alarm.guid);
+			更新设备上线
+			this.updateOnline(vehicle, alarm.DevIDNO, true);
+		}
+	}else if (alarm.type == 67) {//车辆下线
+		if(!vehicle.isOnline()) {//车辆离线
+			isShowAlarmInfo = false;
+		}else {
+			//查询保存的车辆上线时候的guid
+			var olGuid = this.mapVehiOnlineList.get(vehicle.getIdno());
+			if(olGuid != null && olGuid != '') {
+				alarm.guid = olGuid;
+				this.mapVehiOnlineList.remove(vehicle.getIdno());
+			}
+			//更新设备下线
+			this.updateOnline(vehicle, alarm.DevIDNO, false);
+		}
+	}*/
+	
+	//中石油电子路单
+	if(parent.myUserRole.isZSYRoadList()){
+		if(alarm.type == 71 || alarm.type == 72) {
+			return;
+		}
+		//打卡开始22 ，结束21
+		if(alarm.type == 21 || alarm.type == 22) {
+			//车辆开启了记录打卡信息或者有执行中的任务，才执行下去，否则退出
+			if(vehicle.zsyPunchCard != 1){
+				return;
+			}
+			if(alarm.type == 22 && !vehicle.zsyRun){
+				return;
+			}
+			if(vehicle.appTypeName){//如果没有路单刷新回来 存在五秒时间差
+			}else{
+				if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+					monitorStatus.flashVehicleStatusHandle();
+				}
+			}
+		}
+		if(alarm.type == 48) {
+			//如果车辆没有任务并且开启了无任务报警，才能显示报警信息，否则退出
+			if(vehicle.zsyRun || vehicle.zsyAlarmTask != 1) {
+				return;
+			}
+		}
+	}
+	//判断是否报警屏蔽
+	if(!this.isAlarmShield(alarm.type) && isShowAlarmInfo) {
+		//创建事件信息
+		var armInfo = new standardArmInfo();
+		armInfo.setAlarm(alarm);
+		//危化区域
+		if(this.isChemicalAreaAlarm(alarm.DevIDNO) && alarm.desc) {
+			if(vehicle == null || !vehicle.isInSystemVehicle()) {
+				var desc_ = alarm.desc.split(";");
+				if(desc_.length > 2) {
+					alarm.vehiIdno = desc_[0];
+					this.mapChemicalAreaAlarmInfo.put(desc_[0], alarm);
+				}
+			}
+		}
+		//车辆居中显示
+		//改为报警联动电子地图锁定
+//		if(this.monitorStatus != null) {
+//			this.monitorStatus.selectVehicle(vehicle.getIdno(), true, true, false);
+//		}
+		
+		////离线任务通知 任务中和任务结束归结一条
+		if(armInfo.armType != null && armInfo.armType == 113 && armInfo.armIinfo != null && armInfo.armIinfo == 19) {
+			//如果不是任务中，则赋值报警结束
+			if(armInfo.param2 != 1) {
+				armInfo.startType = 0;
+			}else{
+				//TODO 一直刷任务中的处理
+			}
+			var issInfo = this.mapVehiIssInfoList.get(vehicle.getIdno()+armInfo.param1);
+			if(issInfo != null) {
+				//如果任务结束比开始早传递到页面，则将状态改为结束状态
+				if(armInfo.param2 == 1) {
+					armInfo.param2 = issInfo.param2;
+				}
+				alarm.guid = issInfo.guid;
+				this.mapVehiIssInfoList.remove(vehicle.getIdno()+armInfo.param1);
+			}else {
+				this.mapVehiIssInfoList.put(vehicle.getIdno()+armInfo.param1, armInfo);
+			}
+		}
+		
+		//查找是否已经存在些报警事件
+		var vehiAlarm = this.mapAlarmList.get(alarm.guid);
+		
+		if (vehiAlarm == null) {
+			vehiAlarm = new standardAlarm(alarm.guid, alarm.stType);
+			this.mapAlarmList.put(alarm.guid, vehiAlarm);
+			this.alarmList.push(vehiAlarm);
+			
+			//报警缓存最多放10240条记录，如果多出了些记录，则按时间顺序移除一部分老的数据
+			if (this.alarmList.length > 10240) {
+				for (var i = 0; i < 1024; ++ i) {
+					var tempAlarm = this.alarmList.pop();
+					this.mapAlarmList.remove(tempAlarm.guid);
+				}
+			}
+		}
+		//更新报警信息
+		vehiAlarm.setAlarm(armInfo);
+		//解析出报警事件
+		var data = vehiAlarm.parseAlarmInfo(true);
+		if(!data.vehiIdno && vehicle != null) {
+			data.vehiIdno = vehicle.getIdno();
+			data.vehiId = vehicle.getVid();
+			var speed = 0;
+			if(alarm.Gps && alarm.Gps.sp){
+				speed = alarm.Gps.sp;
+			}
+			var speedStr = "";
+			if(typeof speedConversion == 'function') {
+				speedStr = speedConversion((speed / 10).toFixed(2));
+			}else{
+				speedStr =	(speed / 10).toFixed(2);
+			}
+			data.speedStr  = speedStr;
+				
+		}	
+		
+		if(data.armType != null) { 
+			//中石油任务汇报
+			if(parent.myUserRole.isZSYRoadList() && 
+					(data.armType == 21 || data.armType == 22)){
+				
+				if(vehicle.appTypeName){//如果没有路单刷新回来 直接放弃这条报警
+				}else{
+					var i = 0;
+					while(!vehicle.appTypeName &&  i < 10000){
+						++i;
+					}
+					if(!vehicle.appTypeName){
+						return;
+					}
+				}
+				
+				data.id = "zsyTask-"+ vehicle.vid;
+				data.type = vehicle.appTypeName; //[vehicle.zsyRun  ]
+				data.start = vehicle.zsyStartPlace;//路单开始
+				data.end = vehicle.zsyEndPlace;//路单结束
+				if(data.armType == 21){
+					vehicle.zsyCount += 1;
+				}
+				if(armInfo.status) {//车辆有gps   替换车辆的
+					vehicle.zsyTime = armInfo.status.getGpsTimeString();
+					vehicle.zsyWeidu = armInfo.status.getWeiDu();
+					vehicle.zsyJingdu = armInfo.status.getJingDu();
+					vehicle.zsyPostion = '';
+				}
+				if(vehicle.zsyCount){
+					data.clockInt = "已完成"+vehicle.zsyCount+"次打卡";
+				}
+				//起点时间
+				if(vehicle.zsyStartTime){
+					data.startTime = vehicle.zsyStartTime;
+				}
+				//终点时间
+				if(vehicle.zsyEndTime){
+					data.endTime = vehicle.zsyEndTime;
+				}
+				//线路详情
+				if(vehicle.zsyAllLine){
+					data.allLine = vehicle.zsyAllLine;
+				}
+				//乘客
+				if(vehicle.zsySumPeople && vehicle.zsyPeople){
+					data.peopleInfo = "人数："+vehicle.zsySumPeople+";人员："+vehicle.zsyPeople;
+				}
+				
+				if(vehicle.zsyCurDriver || vehicle.zsyCurDriverPhone){//当前司机信息
+					data.curDriver = vehicle.zsyCurDriver+'('+vehicle.zsyCurDriverPhone+')';
+				}
+				
+				if(!data.startPos && armInfo.status != null
+					&& armInfo.status.getJingDu() != null && armInfo.status.getJingDu() != '' 
+					&& armInfo.status.getWeiDu() != null && armInfo.status.getWeiDu() != '') {
+					data.startPos = armInfo.status.getWeiDu()+','+armInfo.status.getJingDu();	
+				}
+				if(!data.startMapLngLat && armInfo.status != null
+					&& armInfo.status.mapJingDu != null && armInfo.status.mapJingDu != ''
+					&& armInfo.status.mapWeiDu != null && armInfo.status.mapWeiDu != '') {
+					data.startMapLngLat = armInfo.status.mapWeiDu+','+armInfo.status.mapJingDu;
+				}
+				
+				if(data.startPos) {
+					if(data.startPos != parent.lang.monitor_gpsUnvalid && data.startPos != '') {
+						if(data.startMapLngLat) {
+							var points = data.startPos.split(",");
+							var  toMapType =  parent.toMap;
+							if(parent.toMapLoaction != null){
+								toMapType =  parent.toMapLoaction;
+							}
+							vehicle.mapType = toMapType;
+							data.startAddress = this.getGeoAddress(points[1], points[0], vehicle);//缓存中为解析
+							vehicle.zsyPostion = data.startAddress;
+						}
+					}
+				}
+				//车辆开启了记录打卡信息或者有执行中的任务
+				if(vehicle.zsyPunchCard == 1 ){
+					if(data.armType == 22 && vehicle.zsyRun){//开始打卡报警  vehicle.zsyRun
+						var remark = "任务已完成";
+						if(vehicle.zsyStatus != 2){
+							remark = "正在任务中";
+						}
+						data.remark = remark;
+						tastAlarm.addAlarmToEventList.push(data);
+						//启动添加报警数据到报警信息列表的定时器
+						tastAlarm.flashAddAlarmToEvent();
+						//刷新GPS监控列表
+						if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+							monitorStatus.updateZsyVehicleTask(data.vehiIdno);
+						}
+					}else if(data.armType == 21){//打卡结束报警
+						vehicle.zsyStatus = 2;
+						vehicle.zsyRun = 0;
+						data.remark = "完成打卡";
+						tastAlarm.addAlarmToEventList.push(data);
+						//启动添加报警数据到报警信息列表的定时器
+						tastAlarm.flashAddAlarmToEvent();
+						//刷新GPS监控列表
+						if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+							monitorStatus.updateZsyVehicleTask(data.vehiIdno);
+						}
+					}
+				}
+				return;
+			}
+			//警员调度事件操作ptt报警
+			if(parent.myUserRole.isPolice() && data.armType == 124 ){
+				this.analysisPttOperate(armInfo);
+			}
+			if(typeof monitorMedia != 'undefined' && monitorMedia != null) {
+				//如果是录像下载完成事件
+				if(data.armType == 130 || data.armType == 148 ) {
+					monitorMedia.doAddMediaFile(data);
+					//触发弹窗含媒体文件
+					if(data.armType != 148){
+						if(showAlarmDialogDetail &&typeof showAlarmDialogDetail == 'function'){
+							showAlarmDialogDetail(data, data.baseAlarm);
+						}
+					}
+					return;
+				}else if(data.armType == 113 && data.armIinfo == 19) {//如果是离线任务通知
+					monitorMedia.serverEventTableObject.flexRemoveRow(alarm.guid);
+					data.id = alarm.guid;
+					monitorMedia.addServerInfoToEvent(data);
+					return;
+				}
+			}
+			//触发弹窗 不含媒体文件
+			if(data.armType != 148){
+				if(showAlarmDialogInfos &&typeof showAlarmDialogInfos == 'function'){
+					showAlarmDialogInfos(data);
+				}
+			}
+			
+			if(data.armType == 113) {
+				if(data.armIinfo == 44) {//上报实时视频（客户端做主动视频弹出） 44//默认60秒后关闭
+					if((typeof previewVideo) == 'function') {
+						var defalutCloseTime = 60;//默认60秒后停止播放
+						if(Number(data.closeTime)){//报警param3
+							defalutCloseTime = Number(data.closeTime);
+						}
+						previewVideo(data.vehiIdno, data.channel, data.stream, defalutCloseTime);
+					}
+				}else if(data.armIinfo == 45) {//停止上报实时视频（客户端把主动弹出的视频关闭掉）45
+					if(typeof ttxVideo != 'undefined' && ttxVideo != null) {
+						var videoDevice = vehicle.getVideoDevice();
+						ttxVideo.stopChannelPreview(videoDevice.getIdno(), data.channel, data.stream);
+					}
+				}
+			}
+			/*if(typeof monitorLine != 'undefined' && monitorLine != null) {
+				if(data.armType == 117) {//公交报站信息
+					data.id = "report-"+vehicle.getIdno();
+					monitorLine.addStationReportData(data);
+					return;
+				}
+			}*/
+			
+		}
+		//将报警事件放到报警事件栏的第一行，因此不管事件是否存在，都先从事件列表上移除
+		//	var rowid = $('#alarmTable').flexGetRowid(alarm.guid);
+//		this.alarmTableObj.flexRemoveRow(alarm.guid);
+		//如果返回类型解析为未知，则不显示
+		if(data.type != null && data.type != '' && data.type != parent.lang.unknown) {
+			if(data.startMapLngLat) {
+				var points = data.startMapLngLat.split(",");
+				data.startAddress = this.getGeoAddress(points[1], points[0], null, data, 1);
+			}
+			if(data.endMapLngLat) {
+				var points = data.endMapLngLat.split(",");
+				data.endAddress = this.getGeoAddress(points[1], points[0], null, data, 2);
+			}
+//			,,,
+			if(this.isChemicalAreaAlarm(alarm.DevIDNO)) {//危化区域
+				data.id = "alarm-"+data.waybillNum;
+			}else {
+				data.id = "alarm-"+data.vehiId;
+			}
+			data.guid = alarm.guid;
+			
+			if((data.startTime || data.endTime) &&  this.isSafetyAlarm(data.armType) ) {
+				var  lst = this.mapSafetyAlarmList.get(data.vehiId+"");
+				var alarm_time =  data.startTime;
+				if(data.endTime){
+					alarm_time =  data.endTime;
+				}
+				if(lst && lst.length > 0){
+					if(lst.length > 31){
+						lst.splice(0, 1);//移除第一个数据
+					}
+					//idno  设备号
+					//vehiIdno  车牌号
+					lst.push({guid:data.guid, alarmType:data.armType, alarmTime: alarm_time,
+						alarmTypeStr: data.type, speedStr: data.speedStr, devIdno: data.idno, vehiIdno: data.vehiIdno});
+				}else{
+					lst = [];
+					lst.push({guid:data.guid, alarmType:data.armType, alarmTime: alarm_time, alarmTypeStr: data.type
+						, speedStr: data.speedStr, devIdno: data.idno, vehiIdno: data.vehiIdno});
+					this.mapSafetyAlarmList.put(data.vehiId+"", lst);
+				}
+				if(monitorSafetyAlarmAudio){
+					var data_ = {'sd':1,"sds":"Msg"};
+					alarmMotion.doAlarmMotionRun_(data_);
+				}
+			}
+			
+			this.addAlarmToEventList.push(data);
+			
+			//启动添加报警数据到报警信息列表的定时器
+			if(this.flashAddAlarmToEventTimer == null) {
+				this.runAddAlarmToEventTimer();
+			}
+			
+			var team;
+			if(parent.myUserRole.isDispatcher()){//当前登录为调度用户
+				team = parent.vehicleManager.getAllTeam(vehicle.parentId);
+			}else{
+				 team = parent.vehicleManager.getTeam(vehicle.parentId);
+			}
+			if(team){
+				data.company = team.name;
+			}else{
+				data.company = '';
+			}
+			//引发报警联动
+			if(typeof alarmMotion != 'undefined' && alarmMotion != null 
+					&& typeof parent.myUserRole != 'undefined' && parent.myUserRole != null 
+					&& parent.myUserRole.isAlarmLinkageSupport() && vehicle != null) {
+				//是否报警结束
+				var isEnd = false;
+				if(data.endTime != null && data.endTime != '') {
+					isEnd = true;
+				}
+				// 报警联动触发
+				alarmMotion.doAlarmMotion(vehicle.getIdno(), armInfo.armType, isEnd, alarm.alarmPackNumber);
+			}
+		}
+	}
+	//处理上下线事件
+	//#define GPS_ALARM_TYPE_DEV_ONLINE				17		//设备在线
+	//#define GPS_ALARM_TYPE_DEV_DISONLINE			67		//设备断线
+//	if(vehicle != null) {
+//		if (alarm.type == 17) {
+//			this.updateOnline(vehicle, alarm.DevIDNO, true);
+//		} else if (alarm.type == 67) {
+//			this.updateOnline(vehicle, alarm.DevIDNO, false);
+//		}
+//	}
+};
+
+
+
+/**
+ * 设置终端编号  已经所属公司
+ * @param vehicle
+ * @param data
+ */
+monitorVehicleAlarm.prototype.getTerminalInfo = function(terminal, data){
+	if(terminal){//车辆存在
+		//讲话终端
+		data.vehiIdno = terminal.getIdno();//车牌号
+		var company =  parent.vehicleManager.getAllTeam(terminal.parentId.toString());
+		if(company){//车辆所在公司
+			data.department = company.name;
+		}
+	}
+}
+
+/**
+ * 解析政府督办相关报警
+ * @param armInfo
+ */
+monitorVehicleAlarm.prototype.analysisGovernmentOperate = function(alarm, vehiIdno, isHideWindow){
+	//政府督办  113		//自定义报警, AlarmInfo表示类型( 21 查岗， 28 平台报文， 29  报警督办)
+	//判断是否显示
+	var type = "";
+	var data_ = {};
+	switch (alarm.info) {
+		case 21:
+			type = "查岗";
+			break;
+		case 28:
+			type = "平台报文";
+			break;
+		case 29:
+			type = "报警督办";
+			break;
+		default:
+			break;
+	}
+	var content = [];
+	
+	
+	var companyName = "";
+	var serverId = "";
+	var alarmTime = "";
+	var companyName_ = "";
+	if(alarm.info == 21 || alarm.info == 28){
+//		#define CUSTOM_ALARM_TYPE_809_PLATFORM_POST_QUERY		21		//809查岗信息
+//		#define CUSTOM_ALARM_TYPE_809_PLATFORM_INFO					28	//平台报文
+		//Param1：查岗对象类型   alarm.p1 0X01, 当前连接的下级平台 , 0X02,下级平台所属单一业户 , 0X03, 下级平台所属所有业户
+		//Param2：查岗消息ID   alarm.p2
+//		查岗对象的 ID，长度不足时后补 0X00，
+//		定义如下：
+//		对象类型=0X01 时，由平台行政区划代码
+//		和平台唯一编码组成；
+//		对象类型=0X02 时，为业户经营许可证
+//		号；
+//		对象类型=0X03时，为空(0x00)。
+		//Param3：中心ID			alarm.p3
+		//Param4：公司id		alarm.p3
+		//szDesc：查岗对象ID		alarm.desc
+		//szImgFile：查岗内容	alarm.img
+		//center：上级平台名称     待定
+		if(alarm.p1 != null){
+			var type_ = "";
+			if(alarm.p1 == 1){
+				type_ = "当前连接的下级平台";
+			}else if(alarm.p1 == 2){
+				type_ = "下级平台所属单一业户";
+				if(alarm.p4){
+					if(parent.vehiGroupList){
+						data_.companyName_ = getArrayName(parent.vehiGroupList, alarm.p4);
+					}else{
+						if(alarm.cnm){
+							data_.companyName_ = alarm.cnm;
+						}
+					}
+				}
+			}else if(alarm.p1 == 3){
+				type_ = "下级平台所属所有业户";
+			}
+			if(alarm.info == 28){
+				if(alarm.p1 == 0){
+					type_ = "下级平台所属单一平台";
+				}else if(alarm.p1 == 4){
+					type_ = "下级平台所属所有平台";
+				}else if(alarm.p1 == 5){
+					type_ = "下级平台所属所有平台和业户";
+				}else if(alarm.p1 == 6){
+					type_ = "下级平台所属所有政府监管平台（含监控端） ";
+				}else if(alarm.p1 == 7){
+					type_ = "下级平台所属所有企业监控平台";
+				}else if(alarm.p1 == 8){
+					type_ = "下级平台所属所有经营性企业监控平台";
+				}else if(alarm.p1 == 9){
+					type_ = "下级平台所属所有非经营性企业监控平台 ";
+				}
+			}
+			if(type_){
+				content.push(type+"对象类型:"+type_);
+			}
+			data_.typeStr_ = type_;
+			data_.type_ = alarm.p1;
+		}
+		if(data_.companyName_){
+			content.push("公司:"+data_.companyName_);
+		}
+		
+		if(alarm.p2){
+			content.push(type+"信息ID:"+alarm.p2);
+			data_.netId_ = alarm.p2;
+		}
+		if(alarm.p3){
+//			content.push("中心ID	:"+alarm.p3);
+			data_.centerId_ = alarm.p3;
+		}
+		if(alarm.desc){//查岗对象ID|平台名称;网关服务器ID;报警时间
+			var  arryDesc  = (alarm.desc+"").split('|');
+			content.push(type+"对象ID:"+arryDesc[0]);
+			data_.objectId_ = arryDesc[0];
+			if(arryDesc.length > 1){
+				var otherInfo_ = arryDesc[1];
+				if(otherInfo_){
+					var infos_ = otherInfo_.split(';');
+					if(infos_ && infos_.length > 0){
+						for (var int = 0, j =  infos_.length; int < j; int++) {
+							if(int == 0){
+								companyName =  infos_[int];
+							}else if(int == 1){
+								serverId = infos_[int];
+							}else if(int == 2){
+								alarmTime = infos_[int];
+							}
+						}
+					}
+				}
+			}
+		}
+		if(alarm.img){
+			content.push(type+"内容:"+alarm.img);
+			data_.content_ = alarm.img;
+		}
+	}else if(alarm.info == 29){
+//		companyName =  alarm.img;//上级平台名称     alarm.img
+//		#define CUSTOM_ALARM_TYPE_809_WARN_URGE_TODO			29	//报警督办
+//		param1：	中心id                  	alarm.p1
+//		param2：	uiSuporVisionID		alarm.p2 督办ID
+//		param3：	低16位为  nWarnSrc报警源	1车载终端，2企业平台，3政府平台，9其它  高16位为  usWarnType报警类型	 alarm.p3
+//		param4：	uiSuporVisionLeve	报警督办级别		0紧急，1一般    alarm.p4
+	//  szDesc：督办人;督办人电话;督办人Email    alarm.desc
+		var vehiIdno_ = vehiIdno;
+		if(alarm.p1 != null){
+//			content.push("中心ID	:"+alarm.p1);
+			data_.centerId_ = alarm.p1;
+		}
+//		var plateColer = getPlateEx(alarm.p1);
+//		vehiIdno_ += "("+plateColer+")";
+		content.push("车牌号:"+vehiIdno_);
+		data_.vehiIdno_ = vehiIdno;
+		//获取车牌颜色
+		if(vehiIdno_){
+			var  plateType =	getArrayParam(parent.vehicleList, vehiIdno_, 'name', 'plateType');
+			if(plateType){
+				var plateColer = getPlateEx(plateType);
+				data_.color_ = plateColer;
+				content.push("车牌颜色:"+plateColer);
+			}
+		}
+		if(alarm.p4 != null){
+			var leave_ = "紧急";
+			if(alarm.p4 == 1){
+				leave_ = "一般";
+			}
+			content.push("报警督办级别:"+leave_);
+			data_.leave_ = leave_;
+		}
+		if(alarm.p2){
+			content.push("督办ID:"+alarm.p2);
+			data_.supervisor_ = alarm.p2;
+		}
+		if(alarm.p3){
+			var l = (alarm.p3 & 0xffff); //低16位
+			var h = (alarm.p3 & 0xffffffff) >> 16 ; //高16为
+			var source_ = "";
+			if(l == 1){
+				source_  = parent.lang.vehicleTerminal;
+			}else if(l == 2){
+				source_  =  parent.lang.companyPlatform;
+			}else if(l == 3){
+				source_  = parent.lang.govPlatform;
+			}else{
+				source_  = parent.lang.otherPlatform;
+			}
+			content.push("信息源:"+source_);
+			data_.source_ = source_;
+			if(governmentAlarmTypes){
+				var alarmType_ =	getArrayName(governmentAlarmTypes, h);
+				if(alarmType_){
+					content.push("报警类型:"+alarmType_);
+					data_.alarmType_ = alarmType_;
+				}else{
+					alarmType_ =	getArrayName(governmentAlarmTypes, 14);
+					content.push("报警类型:"+alarmType_);
+					data_.alarmType_ = alarmType_;
+				}
+			}
+		}
+		if(alarm.time){
+			content.push("督办期限:"+alarm.time);
+		}
+		if(alarm.desc){//督办人;督办电话;督办Email|平台名称;网关服务器ID;报警时间
+			var  arryDesc  = (alarm.desc+"").split('|');
+			var infos_ = arryDesc[0].split(';');
+			if(infos_ && infos_.length > 0){
+				for (var int = 0, j =  infos_.length; int < j; int++) {
+					if(int == 0){
+						content.push("督办人:"+infos_[int]);
+						data_.userName_ = infos_[int];
+					}else if(int == 1){
+						content.push("督办电话:"+infos_[int]);
+						data_.userPhone_ = infos_[int];
+					}else if(int == 2){
+						content.push("督办Email:"+infos_[int]);
+						data_.userEmail_ = infos_[int];
+					}
+				}
+			}
+			if(arryDesc.length > 1){
+				var otherInfo_ = arryDesc[1];
+				if(otherInfo_){
+					var infos_s = otherInfo_.split(';');
+					if(infos_s && infos_s.length > 0){
+						for (var int = 0, j =  infos_s.length; int < j; int++) {
+							if(int == 0){
+								companyName =  infos_s[int];
+							}else if(int == 1){
+								serverId = infos_s[int];
+							}else if(int == 2){
+								alarmTime = infos_s[int];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	data_.devIdno = alarm.DevIDNO;
+	data_.serverId = serverId;
+	data_.id = alarm.guid;//时间
+	data_.startTime = alarmTime ;//时间
+	data_.endTime = alarm.time;//时间
+	data_.name = companyName;//时间
+	data_.typeStr = type;
+	data_.type = alarm.info;
+	data_.content = content.join(";");
+	if(alarm.hd){//报警
+		data_.readOnly = 1;
+		data_.resultContent = alarm.hdc;
+	}
+	
+	if(isHideWindow){
+		governmentAlarm.mapAlarmAddToEventList.put(data_.id, data_);
+	}else{
+		governmentAlarm.addAlarmToEventList.push(data_);
+		//启动添加报警数据到报警信息列表的定时器
+		governmentAlarm.flashAddAlarmToEvent();
+	}
+	return data_;
+}
+
+
+
+/**
+ * 解析ptt操作报警
+ */
+monitorVehicleAlarm.prototype.analysisPttOperate = function(armInfo){
+	var data = {};
+	data.id = armInfo.guid;
+	data.others = parent.lang.dispatcher_operate_success;
+	data.time = armInfo.armTime;
+	data.success = false;
+	var  groupIdP1 = armInfo.param1;//参数1是groupid
+	var  currentVehP2 = parent.getVehIdnoByDevId(parseInt(armInfo.param2)); // param2  id的参数 根据设备id 获取车辆信息
+	var  currentVehDevIdno = parent.vehicleManager.getDispatchMemByDevIdno(armInfo.devIdno);
+	var  groupP1 = parent.vehicleManager.getDispatch(groupIdP1);
+	if(currentVehP2){//默认填充 填充用户名(终端编号) 所属公司
+		this.getTerminalInfo(currentVehP2, data);
+	}
+	if(groupP1){
+		data.group = groupP1.name;
+	}
+	var func = loadUserDispatchTree;
+	if(armInfo.armIinfo == 201 && parent.myUserRole.isDispatcher()){//当前用户所在协调小组  只有调度用户
+		parent.vehicleManager.inintMemberInGroup();
+		var groupId = parent.vehicleManager.getMemberInGroup(parent.loginAccount);//获取当前用户所在小组
+		if(groupIdP1 && groupId &&  groupIdP1 == groupId){//当前用户所在
+			if(armInfo.param3 == 1){
+				data.type = parent.lang.dispatcher_operate_talk;
+			}else{
+				data.type = parent.lang.dispatcher_operate_talk_end;
+			}
+			data.success = true;
+		}
+	}else if(armInfo.armIinfo == 202){
+		if(groupP1){
+			if(armInfo.param4 == 1){//param3=0强拆     param3=1强拉
+				if(armInfo.param3 == 1){
+					data.type = parent.lang.dispatcher_push;
+				}else{
+					data.type = parent.lang.dispatcher_pop;
+				}
+			}else{//param3=0离开     param3=1进入
+				if(armInfo.param3 == 1){
+					data.type = parent.lang.in_group;
+				}else{
+					data.type = parent.lang.out_group;
+				}
+			}
+			data.success = true;
+			if((new Date()).getTime() - this.flashDispatcherTimer > 500){
+				parent.getUserDispatchGroup(func);
+				this.flashDispatcherTimer = (new Date()).getTime();
+			}
+		}
+	}else if(armInfo.armIinfo == 203){
+//		#define TTX_PTT_MESSAGE_S_TALK_AUDIO				
+//		203	//接收到讲话数据，inParam：szParam1为音频数据，nParam1为音频帧序号，nParam2为数据长度, 
+//		nParam3为群组ID, nParam4为终端ID, outParam无内容
+//			暂不处理
+	}else if(armInfo.armIinfo == 204){
+//		#define TTX_PTT_MESSAGE_S_UPDATE_GROUP_INFO			
+//		204	//协同小组信息（如名称）发生变化，inParam：nParam1为群组ID，szParam1为utf8群组名称，szParam2为ansi群组名称, outParam无内容
+//			暂不处理	desc为群组名称
+	}else if(armInfo.armIinfo == 205){
+//		#define TTX_PTT_MESSAGE_S_UPDATE_GROUP_MEMBER		
+//		205	//协同成员变化（增加、删除成员），inParam：nParam1为群组ID, outParam无内容
+//		暂不处理	直接从后台刷新群组信息（从后台把群组列表重新刷新回来）
+	}else if(armInfo.armIinfo == 206){
+		if(armInfo.devIdno == parent.loginAccount){//调度用户
+			data.gid = groupIdP1;
+			if(armInfo.param2 == 1){
+				data.type = parent.lang.dispatcher_operate_add_temporary;
+			}
+			var currentVeh = parent.vehicleManager.getVehicle(parent.loginAccount);//获取车辆信息
+			//覆盖填充
+			this.getTerminalInfo(currentVeh, data);
+			if((new Date()).getTime() - this.flashDispatcherTimer > 500){
+				parent.getUserDispatchGroup(func);
+				this.flashDispatcherTimer = (new Date()).getTime();
+			}
+			if(!groupP1){//已经再小组下了  拉其他人
+				data.others = parent.lang.dispatcher_operate_update;
+			}
+			data.success = true;
+		}else{//这个还要改
+			if(groupP1){
+				if(armInfo.param2 == 1){
+					data.type = parent.lang.dispatcher_operate_add_temporary;
+				}
+				if((new Date()).getTime() - this.flashDispatcherTimer > 500){
+					parent.getUserDispatchGroup(func);	
+					this.flashDispatcherTimer = (new Date()).getTime();
+				}
+				//覆盖填充
+				this.getTerminalInfo(currentVehDevIdno, data);
+				data.success = true;
+			}
+		}
+	}else if(armInfo.armIinfo == 207){
+//		#define TTX_PTT_MESSAGE_S_REMOVE_FROM_GROUP(ok)		
+//		207	//从协同小组中移除，inParam：nParam1为群组ID, nParam2表示为临时群组，nParam3表示操作的终端id
+//			要处理		如果群组存在，将用户从协同小组中移除。
+//					如果群组无用户了，则将用户移除
+		//刷新公司协调小组树
+		if(myUserRole.isDispatcher()){
+            if((new Date()).getTime() - this.flashDispatcherTimer > 1000){
+                parent.getUserDispatchGroup(func);
+                this.flashDispatcherTimer = (new Date()).getTime();
+            }
+            if(groupP1){
+                data.type = parent.lang.monitor_line_from+data.group+parent.lang.dispatcher_operate_remove;
+                //覆盖填充
+                this.getTerminalInfo(currentVehDevIdno, data);
+                data.success = true;
+            }
+		}
+
+	}else if(armInfo.armIinfo == 208){
+//		#define TTX_PTT_MESSAGE_S_TTS(ok)				
+//		208	//发送TTS文字，inParam：desc为文字数据，nParam1群组ID(不为0表示对某个群组消息消息),
+//		nParam2终端id(nParam1为0时有效，表示1对1发送文字信息),nParam3类型
+//		nParam1群组ID 不为 0 时，判断是否存在nParam1的群组，如果是，显示 某某  发送  xxx 文字
+//		nParam1群组ID 为 0 时，判断img为目标的设备，如果存在这个目标设备为自己，则将发送文字显示出来
+		parent.vehicleManager.inintMemberInGroup();
+		var groupId = parent.vehicleManager.getMemberInGroup(parent.loginAccount);//获取当前用户所在小组
+		if(groupIdP1 && groupId &&  groupIdP1 == groupId){
+			if(groupP1){
+				data.type =  currentVehDevIdno.getIdno()+ parent.lang.monitor_send +" "+ armInfo.desc+ " "+parent.lang.dispatcher_operate_word;
+				this.getTerminalInfo(currentVehDevIdno, data);
+				data.success = true;
+			}
+		}else{//1对1消息
+			if(armInfo.imgFile == parent.loginAccount){//目标设备为当前调度员
+				data.type =  currentVehDevIdno.getIdno()+parent.lang.monitor_send+" "+armInfo.desc+" "+ parent.lang.dispatcher_operate_word;
+				this.getTerminalInfo(currentVehDevIdno, data);
+				data.success = true;
+			}
+		}
+	}else if(armInfo.armIinfo == 209){
+//		#define TTX_PTT_MESSAGE_S_UPLOAD_FILE(ok)			
+//		209	//上传文件，inParam：szParam1为url地址，nParam1群组ID(不为0表示对某个群组消息消息),
+//		nParam2终端id(nParam1为0时有效，表示1对1发送文字信息),nParam3类型,nParam4为文件时长（毫秒）
+//			判断是否存在nParam1的群组，如果是，显示 某某  发送  xxx 文字，并且判断自己当前是否处于这个群组，如果是，显示列表进行声音播放
+		parent.vehicleManager.inintMemberInGroup();
+		var groupId = parent.vehicleManager.getMemberInGroup(parent.loginAccount);//获取当前用户所在小组
+		if(groupIdP1 && groupId && groupIdP1 == groupId){//当前用户所在
+			if(groupP1){
+				data.type =  parent.lang.report_labelLoginType+armInfo.param3+", "+parent.lang.dispatcher_operate_file_time +armInfo.param4+parent.lang.dispatcher_operate_file_time_unit;
+				//覆盖
+				this.getTerminalInfo(currentVehDevIdno, data);
+				data.success = true;
+			}
+		}else{//1对1消息
+			if(armInfo.imgFile == parent.loginAccount){//目标设备为当前调度员
+				data.type =  parent.lang.report_labelLoginType+armInfo.param3+", "+parent.lang.dispatcher_operate_file_time +armInfo.param4+parent.lang.dispatcher_operate_file_time_unit;
+				data.success = true;
+			}
+		}
+		if(data && data.success && armInfo.desc){
+			var media = {};
+			media.src = "http://"+ gatewayServer.ip + ":"+ gatewayServer.port + (armInfo.desc).replace(/\\/g,'/');
+			media.user = data.vehiIdno;
+			media.time = data.time;
+			media.id = data.id;
+			media.group = data.group;
+			media.talTime = armInfo.param4;
+			dispatchMedia.addPlayList(media);
+		}
+		return;
+	}
+	if(data && data.success){
+		dispatchAlarm.doRecvAlarm(data);
+	}
+	return;
+} 
+
+
+
+//修改具体报警信息
+//object 要修改的对象
+//position 是否是坐标 地图坐标
+monitorVehicleAlarm.prototype.modifyColumnTitle = function(object, value, position, address, isGps) {
+	if(object) {
+		var html = "";
+		if(value) {
+			if(position){
+				var point = position.split(',');
+				if(point.length > 1){
+					$(object).empty();
+					if(address){
+						html = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ address +'">'+ address+'</span>';
+					}else{
+						html = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ value +'">'+ value +'</span>';
+					}
+					$(object).append(html);
+				}
+			}else{
+				object.attr('title', value);
+				object.text(value);
+			}
+		}else{
+			if(isGps){
+				object.attr('title', "");
+				object.text("");
+			}
+		}
+	}
+}
+
+/**
+ * 更新报警信息列表
+ */
+monitorVehicleAlarm.prototype.updateAlarmEvent = function(armInfo) {
+	var rowObj = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(armInfo.id));
+	if(rowObj && rowObj.length > 0) {//列表存在
+		this.modifyColumnTitle(rowObj.find('.type div span'), armInfo.type);
+		this.modifyColumnTitle(rowObj.find('.company span'), armInfo.company);
+		var armSum = Number(rowObj.find('.armSum div span').html()) + Number(armInfo.armSum);
+		this.modifyColumnTitle(rowObj.find('.armSum div span'),  armSum);
+		
+		var aiArmSum = Number(rowObj.find('.aiArmSum div span').html()) + Number(armInfo.aiArmSum);
+		this.modifyColumnTitle(rowObj.find('.aiArmSum div span'),  aiArmSum);
+		
+		
+		this.modifyColumnTitle(rowObj.find('.startTime div span'), armInfo.startTime);
+		//上报的没有结束时间 就表示是开始报警 清空上传结束时间
+		if( armInfo.endTime){
+			this.modifyColumnTitle(rowObj.find('.endTime div span'), armInfo.endTime);
+		}else{
+			rowObj.find('.endTime div span').attr('title', "");
+			rowObj.find('.endTime div span').text("");
+		}
+		if( armInfo.desc){
+			this.modifyColumnTitle(rowObj.find('.desc div span'), armInfo.desc);
+		}else{
+			rowObj.find('.desc div span').attr('title', "");
+			rowObj.find('.desc div span').text("");
+		}
+		
+		if(armInfo.startMapLngLat){
+			if(armInfo.startAddress) {
+				this.modifyColumnTitle(rowObj.find('.startPos div'), armInfo.startPos,  armInfo.startMapLngLat,  armInfo.startAddress, true);
+			}else {
+				this.modifyColumnTitle(rowObj.find('.startPos div'), armInfo.startPos, armInfo.startMapLngLat, null, true);
+			}
+		}
+		
+		if(armInfo.endAddress) {
+			this.modifyColumnTitle(rowObj.find('.endPos div'), armInfo.endPos, armInfo.endMapLngLat, armInfo.endAddress, true);
+		}else {
+			this.modifyColumnTitle(rowObj.find('.endPos div'), armInfo.endPos, armInfo.endMapLngLat, null, true);
+		}
+	}
+}
+
+//开启向报警列表更新数据的定时器
+monitorVehicleAlarm.prototype.runUpdateAlarmToEventTimer = function(){
+	//本类对象
+	var myMonitorAlarm = this;
+	this.flashUpdateAlarmToEventTimer = setTimeout(function () {
+		myMonitorAlarm.startUpdateAlarmToEventTime = (new Date()).getTime();
+		myMonitorAlarm.flashUpdateAlarmToEvent();
+	}, 50);
+};
+
+//向报警列表更新数据
+monitorVehicleAlarm.prototype.flashUpdateAlarmToEvent = function(){
+	if(this.alarmUpdateToEventList != null && this.alarmUpdateToEventList.length > 0) {
+		var armInfo = this.alarmUpdateToEventList[0];
+		this.alarmUpdateToEventList.splice(0, 1);
+		
+		this.updateAlarmEvent(armInfo);
+		//刷新地理位置状态
+		this.flashPositionAlarmList.push(armInfo);
+		
+		if((new Date()).getTime() - this.startUpdateAlarmToEventTime < 500) {
+			this.flashUpdateAlarmToEvent();
+		}else {
+			//刷新地理位置信息
+			this.flashAlarmPosition();
+			this.runUpdateAlarmToEventTimer();
+		}
+	}else {
+		//刷新地理位置信息
+		this.flashAlarmPosition();
+		this.flashUpdateAlarmToEventTimer = null;
+	}
+}
+
+//开启向报警列表添加数据的定时器
+monitorVehicleAlarm.prototype.runAddAlarmToEventTimer = function(){
+	//本类对象
+	var myMonitorAlarm = this;
+	this.flashAddAlarmToEventTimer = setTimeout(function () {
+		myMonitorAlarm.startAddAlarmToEventTime = (new Date()).getTime();
+		myMonitorAlarm.flashAddAlarmToEvent();
+	}, 50);
+};
+
+//向报警列表添加数据
+//耗时 200ms -  500ms  600ms+ 500辆车 9画面视频
+monitorVehicleAlarm.prototype.flashAddAlarmToEvent = function(){
+	var that_ = this;
+	if(this.addAlarmToEventList != null && this.addAlarmToEventList.length > 0) {
+//		loadConsoleTime(true, 'flashAddAlarmToEvent');
+		//处理报警，同一车辆的报警，向上叠加，只显示最新的报警信息
+		//如果报警列表中不存在车辆的报警信息，则添加，否则更新
+		var armInfo = this.addAlarmToEventList[0];
+		
+		this.addAlarmToEventList.splice(0, 1);
+		//不屏蔽的报警 加入链表或者更新操作
+		if(!that_.isHideAlarm(armInfo.armType)){
+			////提示报警有新的报警信息
+			this.showAlarmMessage();
+			
+			var rowObj = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(armInfo.id));
+			if(rowObj && rowObj.length > 0) {//列表存在
+				var oldArmInfo = this.mapAlarmUpdateToEventList.get(armInfo.id);
+				if(oldArmInfo != null) {
+					armInfo.armSum =  Number(oldArmInfo.armSum);
+					armInfo.aiArmSum =  Number(oldArmInfo.aiArmSum);
+				}else {
+					armInfo.armSum = 0;
+					armInfo.aiArmSum = 0;
+				}
+				//如果有开始时间和结束时间，表示报警结束，则报警数目不增加
+				if(!armInfo.startTime || !armInfo.endTime) {
+					armInfo.armSum += 1;
+					//判断属于ai报警  目前都是报警类型大于600的
+					if(this.isSafetyAlarm(armInfo.armType)){
+						armInfo.aiArmSum += 1;
+					}
+				}
+				this.mapAlarmUpdateToEventList.put(armInfo.id, armInfo);
+			}else {//列表不存在
+				//表示已加入，但未放入列表，修改报警数目
+				var oldArmInfo = this.mapAlarmAddToEventList.get(armInfo.id);
+				if(oldArmInfo != null) {
+					armInfo.armSum =  Number(oldArmInfo.armSum);
+					armInfo.aiArmSum =  Number(oldArmInfo.aiArmSum);
+					if(!armInfo.startTime || !armInfo.endTime) {
+						armInfo.armSum += 1;
+						//判断属于ai报警
+						if(this.isSafetyAlarm(armInfo.armType)){
+							armInfo.aiArmSum += 1;
+						}
+					}
+				}else {
+					armInfo.armSum = 1;
+					if(this.isSafetyAlarm(armInfo.armType)){
+						armInfo.aiArmSum = 1;
+					}
+				}
+				this.mapAlarmAddToEventList.put(armInfo.id, armInfo);
+				//刷新地理位置状态
+				this.flashPositionAlarmList.push(armInfo);
+			}
+//			if((armInfo.startTime || armInfo.endTime) &&  this.isSafetyAlarm(armInfo.armType) ) {
+//				var  lst = this.mapSafetyAlarmList.get(armInfo.vehiId+"");
+//				var alarm_time =  armInfo.startTime;
+//				if(armInfo.endTime){
+//					alarm_time =  armInfo.endTime;
+//				}
+//				if(lst && lst.length > 0){
+//					if(lst.length > 31){
+//						lst.splice(0, 1);//移除第一个数据
+//					}
+//					//idno  设备号
+//					//vehiIdno  车牌号
+//					lst.push({guid:armInfo.guid, alarmType:armInfo.armType, alarmTime: alarm_time,
+//						alarmTypeStr: armInfo.type, speedStr: armInfo.speedStr, devIdno: armInfo.idno, vehiIdno: armInfo.vehiIdno});
+//				}else{
+//					lst = [];
+//					lst.push({guid:armInfo.guid, alarmType:armInfo.armType, alarmTime: alarm_time, alarmTypeStr: armInfo.type
+//						, speedStr: armInfo.speedStr, devIdno: armInfo.idno, vehiIdno: armInfo.vehiIdno});
+//					this.mapSafetyAlarmList.put(armInfo.vehiId+"", lst);
+//				}
+//				if(monitorSafetyAlarmAudio){
+//					var data = {'sd':1,"sds":"Msg"};
+//					alarmMotion.doAlarmMotionRun_(data);
+//				}
+//			}
+		}
+		
+		//更新表
+		if(this.addAlarmToEventList.length == 0 || (new Date()).getTime() - this.startAddAlarmToEventTime >= 500) {
+			var that = this;
+			this.mapAlarmUpdateToEventList.each(function(vehiIdno, armInfo_) {
+				that.alarmUpdateToEventList.push(armInfo_);
+			});
+			this.mapAlarmUpdateToEventList.clear();
+			if(this.flashUpdateAlarmToEventTimer == null) {
+				this.runUpdateAlarmToEventTimer();
+			}
+		}
+		//新增表
+		if(this.addAlarmToEventList.length == 0) {
+			var rows = [];
+			this.mapAlarmAddToEventList.each(function(vehiIdno, armInfo_) {
+				//图片完成事件
+				if(rows.length < 50 && !that_.isHideAlarm(armInfo_.armType)){
+					rows.push(armInfo_);
+				}
+			});
+//			this.orderList.push({vehiName:"", company:});
+			this.mapAlarmAddToEventList.clear();
+			//耗时比较多(添加500条需要3-4s)
+//			loadConsoleTime(true, 'flexAppendRowJson');
+			if(rows.length > 0){
+				if(rows.length >= 50){
+					this.alarmTableObj.flexClear();
+				}else{
+					//判断列表是否大于50行  大于50行移除一行再插入
+					var rowData_ = $("#alarmTable").find('tbody tr'); //获取查询的数据
+					if(rowData_ && rowData_.length > 0) {
+						var tal_ =  rows.length + rowData_.length;
+						//移除最后一行
+						for(var i_ = tal_ - 1; i_ > 50; i_--){
+							$("#alarmTable").find('tbody tr:last').remove();
+						}
+					}
+				}
+				this.alarmTableObj.flexAppendRowJson(rows, true);
+			}
+			
+//			loadConsoleTime(false, 'flexAppendRowJson');
+		}
+//		loadConsoleTime(false, 'flashAddAlarmToEvent');
+		if((new Date()).getTime() - this.startAddAlarmToEventTime < 500) {
+			this.flashAddAlarmToEvent();
+		}else {
+			//刷新地理位置信息
+			this.flashAlarmPosition();
+			this.runAddAlarmToEventTimer();
+		}
+	}else {
+		//刷新地理位置信息
+		this.flashAlarmPosition();
+		this.flashAddAlarmToEventTimer = null;
+	}
+};
+
+//选中事件列表
+monitorVehicleAlarm.prototype.selectAlarmRowProp = function(obj, selRow) {
+	//如果不执行，则跳过
+	if(selRow && selRow == 'selAll') {
+		return;
+	}
+	var vehiIdno = $.trim($(obj).find('.idno').find('div span').text());
+	
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if (vehicle != null && vehicle.isInSystemVehicle()) {//系统内车辆
+		if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+			if(!monitorStatus.findMonitorVehicle(vehiIdno)) {//如果没有监控
+				if(typeof vehiTree != 'undefined' && vehiTree != null) {
+					if(typeof loadTeamTree == 'function') {
+						//如果没有添加到树列表则添加
+						loadTeamTree(vehicle.getParentId(), function() {
+							vehiTree.setCheck(vehiIdno, true);
+							monitorStatus.addMonitorVehicle(vehiIdno);
+						});
+					}else {
+						vehiTree.setCheck(vehiIdno, true);
+						monitorStatus.addMonitorVehicle(vehiIdno);
+					}
+				}else {
+					monitorStatus.addMonitorVehicle(vehiIdno);
+				}
+			}else {
+				monitorStatus.selectVehicle(vehiIdno, true, true, true);
+			}
+		}
+	}else {
+		//加载危化系统外车辆到地图
+		if(vehiIdno) {
+			var alarm = this.mapChemicalAreaAlarmInfo.get(vehiIdno);
+			if(typeof monitorChemical != 'undefined' && monitorChemical != null && alarm != null) {
+				monitorChemical.loadAreaAlarmVehicle(alarm);
+			}
+		}
+	}
+}
+
+monitorVehicleAlarm.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充报警信息列表
+monitorVehicleAlarm.prototype.fillAlarmTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var ret = "";
+	if(name == 'idno') {
+		if(row.vehiIdno) {
+			ret = row.vehiIdno;
+		}
+	} else if(name == 'company') {
+		if(row.company) {
+			ret = row.company;
+		}
+	}else if(name == 'type') { 
+		if(row.type) {
+			ret = row.type;
+		}
+	} else if(name == 'armSum') { 
+		if(row.armSum) {
+			ret = row.armSum;
+		}
+	} else if(name == 'aiArmSum') { 
+		if(row.aiArmSum) {
+			ret = row.aiArmSum;
+		}
+	}else if(name == 'startTime') {
+		if(row.startTime) {
+			ret = row.startTime;
+		}
+	} else if(name == 'endTime') { 
+		if(row.endTime) {
+			ret = row.endTime;
+		}
+	} else if(name == 'startPos') { 
+		if(row.startPos) {
+			if(row.startPos != parent.lang.monitor_gpsUnvalid && row.startPos != '') {
+				var point = row.startMapLngLat.split(',');
+				if(row.startAddress) {
+					ret = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ row.startAddress +'">'+ row.startAddress +'</span>';
+				}else {
+					ret = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ row.startPos +'">'+ row.startPos +'</span>';
+				}
+			}else {
+				ret = '<span title="'+ row.startPos +'">'+ row.startPos +'</span>';
+			}
+		//	ret = row.startPos;
+			return ret;
+		}
+	} else if(name == 'endPos') { 
+		if(row.endPos) {
+			if(row.endPos != parent.lang.monitor_gpsUnvalid && row.endPos != '') {
+				var point = row.endMapLngLat.split(',');
+				if(row.endAddress) {
+					ret = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ row.endAddress +'">'+ row.endAddress +'</span>';
+				}else {
+					ret = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ row.endPos +'">'+ row.endPos +'</span>';
+				}
+			}else {
+				ret = '<span title="'+ row.endPos +'">'+ row.endPos +'</span>';
+			}
+			//ret = row.endPos;
+			return ret;
+		}
+	} else if(name == 'desc') { 
+		if(row.desc) {
+			ret = row.desc;
+		}
+	} else if(name == 'operator') {//报警查看
+		if(!row.waybillNum) {
+			return '<a class="view" href="javascript:doAlarmFind(\''+row.vehiIdno+'\');" title="'+parent.lang.view+'"></a>';
+		}
+	} else if(name == 'aiOperator') {//报警查看
+		if(!row.waybillNum) {
+			return '<a class="edit" href="javascript:doAIAlarmHandle(\''+row.vehiId+'\');" title="'+parent.lang.view+'"></a>';
+		}
+	} else if(name == 'other') {
+		//ret = row.id;
+	}
+	return this.getColumnTitle(ret);
+};
+
+
+
+
+
+//报警查看
+//vehiIdno 报警guid
+monitorVehicleAlarm.prototype.doAIAlarmHandle = function(vehiId) {
+	var lst = this.getMapSafetyAlarmList(vehiId);
+	if(lst && lst.length > 0){
+	}else{
+		$.dialog.tips(parent.lang.ai_no_receive, 1);
+		return;
+	}
+	if(this.alarmHandleListObj == null) {
+		var myClass = this;
+//		guid=9EB293CE1E3B447C9CB586DB7EC36631&alarmType=600&armStartTime=2018-11-16 00:20:20
+		var url = 'url:EvidenceManagement/batchHandle.html?vehiId='+vehiId+'&lang='+GetCookie("language")+"&toMap="+ _getRootFrameElement().toMap;
+		this.alarmHandleListObj = $.dialog({id:'safetyAlarmHandleList', title: parent.lang.ai_handle, content: url,
+			width: '910px', height: '600px', min:true, max:false, lock: false,fixed:false
+				, resize:false, close: function() {
+					myClass.alarmHandleListObj = null;
+					if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+						popTipsObject.remove('safetyAlarmHandleList');
+					}
+				} });
+	}else {
+		if(this.alarmHandleListObj.content && (typeof this.alarmHandleListObj.content.initPageInfo == 'function')) {
+			this.alarmHandleListObj.content.initPageInfo();
+		}
+		this.alarmHandleListObj.show();
+	}
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('safetyAlarmHandleList', this.alarmHandleListObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('safetyAlarmHandleList');
+	}
+}
+
+//填充车辆列表
+monitorVehicleAlarm.prototype.updateOnline = function(vehicle, devIdno, isOnline, isNoFlash){
+	if (vehicle.setOnline(devIdno, isOnline)) {
+		//收到上下级事件时，需要及时更新  树列表  监控列表及地图上的状态
+		//monitorVehicleStatus.prototype.updateVehicleStatus 和这里面更新接口可以同样使用
+		this.updateOnlineVehicleList.push(vehicle);
+		if(isNoFlash){//不刷新
+		}else{
+			if(this.flashUpdateOnlineTimer == null) {
+				this.runUpdateOnlineTimer();
+			}
+		}
+	}
+};
+
+//开启上下线刷新车辆状态信息的定时器
+monitorVehicleAlarm.prototype.runUpdateOnlineTimer = function(){
+	//本类对象
+	var myMonitorAlarm = this;
+	this.flashUpdateOnlineTimer = setTimeout(function () {
+		myMonitorAlarm.startUpdateOnlineTime = (new Date()).getTime();
+		myMonitorAlarm.flashUpdateOnline();
+	}, 50);
+};
+
+//上下线刷新车辆状态信息
+monitorVehicleAlarm.prototype.flashUpdateOnline = function(){
+	if(this.updateOnlineVehicleList != null && this.updateOnlineVehicleList.length > 0) {
+		if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+			monitorStatus.updateVehicleStatus(this.updateOnlineVehicleList[0]);
+			
+			//修改公司车队中的在线离线车辆信息
+			var team_ = parent.vehicleManager.getTeam(this.updateOnlineVehicleList[0].getParentId());
+			if(team_) {
+				//保存组织结构id
+				this.mapFlashVehiTeamList.put(team_.getId(), team_.getId());
+				//如果上线
+				var idno_ = this.updateOnlineVehicleList[0].getIdno();
+				if(this.updateOnlineVehicleList[0].isOnline()) {
+					team_.addOnlineVehiIdno(idno_);
+					team_.delOfflineVehiIdno(idno_);
+				}else {
+					team_.delOnlineVehiIdno(idno_);
+					team_.addOfflineVehiIdno(idno_);
+				}
+			}
+		}
+		this.updateOnlineVehicleList.splice(0, 1);
+		
+		if((new Date()).getTime() - this.startUpdateOnlineTime < 500) {
+			this.flashUpdateOnline();
+		}else {
+			this.runUpdateOnlineTimer();
+		}
+	}else {
+		this.flashUpdateOnlineTimer = null;
+		//计算状态显示数据
+		if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+			monitorStatus.initVehicleStatusCount();
+		}
+		//计算车辆树上组织结构下的数目
+		if(typeof countGroupVehiOnlineEx == 'function') {
+			countGroupVehiOnlineEx();
+		}
+		//重新刷新车辆树组织结构下的车辆顺序
+		this.reflashTeamTree();
+	}
+}
+
+//重新刷新车辆树组织结构下的车辆顺序
+monitorVehicleAlarm.prototype.reflashTeamTree = function() {
+	if(this.mapFlashVehiTeamList.size() > 0) {
+		this.mapFlashVehiTeamList.each(function(key, value) {
+			if(typeof reflashTeamTree == 'function') {
+				reflashTeamTree(key);
+			}
+		});
+	}
+}
+
+//提示报警有新的报警信息
+monitorVehicleAlarm.prototype.showAlarmMessage = function() {
+	//如果当前选择的是  GPS监控  或者 系统事件列表，当接收到报警时，需要将  报警信息字体变红，
+	//展现已经接收到了报警，及时提示用户
+	if(!$('#gps-alarm').hasClass('active') || !isMinSize) {//未选中  并且非 最小化化
+		$('#gps_alarm_title').css('background-color','#FF0000');
+	}
+}
+
+//初始化用户的报警屏蔽信息
+//monitorVehicleAlarm.prototype.initAlarmShield = function() {
+////	if(typeof parent.myUserRole != 'undefined' && parent.myUserRole != null && parent.myUserRole.isAlarmMaskSupport()) {
+//		//本类对象
+//		var myMonitorAlarm = this;
+//		$.myajax.jsonGet("StandardPositionAction_findAlarmShield.action", function(json, action, success) {
+//			if(success) {
+//				if(json.alarmShield != null) {
+//					myMonitorAlarm.alarmShields = json.alarmShield.split(',');
+//					alarmClassNew.alarmShields = 	myMonitorAlarm.alarmShields;
+//				}
+//			}
+//		}, null);
+////	}
+//}
+
+//判断是否报警屏蔽
+monitorVehicleAlarm.prototype.isAlarmShield = function(armType) {
+	//判断是否报警屏蔽
+	 if(typeof parent.alarmClassNew != "undefined" && parent.alarmClassNew != null){
+		return parent.alarmClassNew.isAlarmShield(armType);
+	}
+	return false;
+}
+
+//报警查看
+//vehiIdno 报警guid
+monitorVehicleAlarm.prototype.doAIAlarmFind = function(vehiIdno) {
+	if(_getRootFrameElement().myUserRole.isAiAlarmHandleAlone()){
+		_getRootFrameElement().simulationEvent('safety');
+		var ifame_ = _getRootFrameElement().document.getElementById('left-safety');
+		if(ifame_){
+			$(_getRootFrameElement().document.getElementById('left-safety').contentWindow.document.body).find('#tab-subiaoAlarmHandle-title').trigger("click");
+			$(_getRootFrameElement().document.getElementById('left-safety').contentWindow.document.body).find('#tab-safeAlarmHandle').trigger("click");
+		}
+	}else{
+		_getRootFrameElement().simulationEvent('tongji');
+		var ifame_ = _getRootFrameElement().document.getElementById('left-tongji');
+		if(ifame_){
+			$(_getRootFrameElement().document.getElementById('left-tongji').contentWindow.document.body).find('#tab-subiaoAlarmHandle-title').trigger("click");
+			$(_getRootFrameElement().document.getElementById('left-tongji').contentWindow.document.body).find('#tab-safeAlarmHandle').trigger("click");
+		}
+	}
+	
+//	if(this.aiAlarmListObj == null) {
+//		if(this.onlineVehicleList && this.onlineVehicleList.length > 0){
+//		}else{
+//			var vehicleList = parent.vehicleManager.getAllVehicle();
+//			this.onlineVehicleList = [];
+//			var allVehicles = parent.lang.allpoliceOrVehicel;
+//			this.onlineVehicleList.push({id: '*all', name: allVehicles});
+//			for (var i = 0, j = vehicleList.length; i < 200 && i < j; i++) {
+//				this.onlineVehicleList.push(vehicleList[i]);
+//			}
+//		}
+//		var myClass = this;
+//		var url = 'url:LocationManagement/vehicleSafetyAlarm.html';
+//		this.aiAlarmListObj = $.dialog({id:'safetyAlarmList', title: "AI历史记录", content: url,
+//			width: '1020px', height: '540px', min:true, max:false, lock: false,fixed:false
+//				, resize:false, close: function() {
+//					myClass.aiAlarmListObj = null;
+//					if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+//						popTipsObject.remove('safetyAlarmList');
+//					}
+//				} });
+//	}else {
+//		if(this.aiAlarmListObj.content && (typeof this.aiAlarmListObj.content.initPageInfo == 'function')) {
+//			this.aiAlarmListObj.content.initPageInfo();
+//		}
+//		this.aiAlarmListObj.show();
+//	}
+//	
+//	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+//		popTipsObject.put('safetyAlarmList', this.aiAlarmListObj);
+//	}
+//	if(typeof hidePopTips == 'function'){
+//		hidePopTips('safetyAlarmList');
+//	}
+}
+
+//报警查看
+//vehiIdno 报警guid
+monitorVehicleAlarm.prototype.doAlarmFind = function(vehiIdno) {
+	if(this.alarmListObj == null) {
+		if(this.onlineVehicleList && this.onlineVehicleList.length > 0){
+		}else{
+			var vehicleList = parent.vehicleManager.getAllVehicle();
+			this.onlineVehicleList = [];
+			var allVehicles = parent.lang.allpoliceOrVehicel;
+			this.onlineVehicleList.push({id: '*all', name: allVehicles});
+			for (var i = 0, j = vehicleList.length; i < 200 && i < j; i++) {
+				this.onlineVehicleList.push(vehicleList[i]);
+			}
+		}
+		var myClass = this;
+		var url = 'url:LocationManagement/vehicleAlarmList.html';
+		if(vehiIdno) {
+			url += '?vehiIdno='+ encodeURI(vehiIdno)
+		}
+		this.alarmListObj = $.dialog({id:'alarmList', title: parent.lang.alarm_alarm_list, content: url,
+			width: '950px', height: '600px', min:true, max:false, lock: false,fixed:false
+				, resize:false, close: function() {
+					myClass.alarmListObj = null;
+					if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+						popTipsObject.remove('alarmList');
+					}
+				} });
+	}else {
+		if(this.alarmListObj.content && (typeof this.alarmListObj.content.initPageInfo == 'function')) {
+			this.alarmListObj.content.initPageInfo(vehiIdno);
+		}
+		this.alarmListObj.show();
+	}
+	
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('alarmList', this.alarmListObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('alarmList');
+	}
+}
+
+//是否百度地图
+monitorVehicleAlarm.prototype.isBaiduMap = function() {
+	
+	//地图类型
+	var  mapType = 	parent.mapType;
+	if(parent.mapTypeLoaction  != null){
+		mapType = parent.mapTypeLoaction;
+	}
+	if (mapType != null && mapType == 3) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
+//是否高德地图
+monitorVehicleAlarm.prototype.isGaoDeMap = function() {
+	//地图类型
+	var  mapType = 	parent.mapType;
+	if(parent.mapTypeLoaction  != null){
+		mapType = parent.mapTypeLoaction;
+	}
+	if (mapType != null && mapType == 4) {
+		return true;
+	} else {
+		return false;
+	}
+//	if (parent.mapType != null && parent.mapType == 4) {
+//		return true;
+//	} else {
+//		return false;
+//	}
+}
+
+
+/**
+ * 获取地图缓存地理位置信息
+ * @param jingDu
+ * @param weiDu
+ */
+
+monitorVehicleAlarm.prototype.getGeoAddress = function(jingDu, weiDu, vechile, data, type) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		//如果报警界面带解析的大于200 就不在发送解析了
+		if(ttxMap.getAnalysisPointPriorityLength && ttxMap.getAnalysisPointPriorityLength.length > 200){
+			return;
+		}
+		var  toMapType =  parent.toMap;
+		if(parent.toMapLoaction != null){
+			toMapType =  parent.toMapLoaction;
+		}
+		var position = ttxMap.getGeoAddress(jingDu, weiDu, toMapType);
+		if(position != null && position.address != null) {
+			return position.address;
+		}else{
+			if(vechile){
+				var	key =	jingDu + "-" + weiDu;
+				vechile.mapType = toMapType;
+				vechile.topLeave = 1;//优先解析
+				ttxMap.geocoderAddress(key, jingDu, weiDu, setVehicleLastTaskPosition, vechile) 
+			}else if(data){
+				var	key =	jingDu + "-" + weiDu;
+				if(type == 1){
+					data.haveStart = true;
+				}else if(type == 2){
+					data.haveEnd = true;
+				}
+				data.topLeave = 1;//优先解析
+				data.mapType = toMapType;//
+				ttxMap.geocoderAddress(key, jingDu, weiDu, setDataResultPosition, data) 
+			}
+		}
+	}
+	return "";
+}
+//只能保证一个解析对的！！！！
+function setDataResultPosition(key, jingDu, weiDu, address, city, userdata){
+	if(address){
+		if(userdata.haveStart){
+			userdata.startAddress = address;
+			userdata.haveStart = false;
+		}
+		if(userdata.haveEnd){
+			userdata.endAddress = address;
+			userdata.haveEnd = false;
+		}
+	}
+}
+
+
+function setVehicleLastTaskPosition(key, jingDu, weiDu, address, city, userdata){
+	if(address){
+		userdata.zsyPostion = address;
+	}
+}
+
+//启动自动刷新地理位置的定时器
+monitorVehicleAlarm.prototype.runPositionTimer = function(){
+	var that = this;
+	this.flashPositionTimer = setTimeout(function () {
+		that.flashAlarmPosition();
+	}, that.flashPositionInterval);
+};
+
+//自动刷新地理位置
+//百度地图才刷新
+monitorVehicleAlarm.prototype.flashAlarmPosition = function() {
+	if(this.isFlashPosition) {
+		var that = this;
+		if(this.flashPositionAlarmList.length > 0 ) {
+			this.flashPositionInterval = 50;
+			var alarm = this.flashPositionAlarmList[this.flashPositionAlarmList.length - 1];
+			this.flashPositionAlarmList.splice(this.flashPositionAlarmList.length - 1,1);
+			var object = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(alarm.id));
+			if(object.length > 0) {
+				if(typeof ttxMap != 'undefined' && ttxMap != null) {
+					//开始位置
+					if(alarm.isStartGpsValid) {//位置有效
+						var position = $.trim(object.find('.startPos div .maplngLat').html());
+						var point = alarm.startPos.split(",");
+						var jingDu = point[1];
+						var weiDu = point[0];
+						var userData = {};
+						var  toMapType =  parent.toMap;
+						if(parent.toMapLoaction != null){
+							toMapType =  parent.toMapLoaction;
+						}
+						userData.mapType = toMapType;
+						userData.obj = object;
+						userData.point = point;
+						userData.position = position;
+						ttxMap.geocoderAddress(weiDu+','+jingDu, jingDu, weiDu, function(key, jingDu, weiDu, address, city, objs) {
+							var object = objs.obj;
+							var position = objs.position;
+							var point = objs.point;
+							if(address != '' && address != position) {
+								object.find('.startPos div .maplngLat').attr('data-position', point);
+								object.find('.startPos div .maplngLat').html(address);
+								object.find('.startPos div .maplngLat').attr('title', address);
+							}
+						}, userData);
+					}
+					//结束位置
+					if(alarm.isEndGpsValid) {//位置有效
+						var position = $.trim(object.find('.endPos div .maplngLat').html());
+						var point = alarm.endPos.split(",");
+						var jingDu = point[1];
+						var weiDu = point[0];
+						
+						var userData = {};
+						var  toMapType =  parent.toMap;
+						if(parent.toMapLoaction != null){
+							toMapType =  parent.toMapLoaction;
+						}
+						userData.mapType = toMapType;
+						userData.obj = object;
+						userData.point = point;
+						userData.position = position;
+						ttxMap.geocoderAddress(weiDu+','+jingDu, jingDu, weiDu, function(key, jingDu, weiDu, address, city, objs) {
+							var object = objs.obj;
+							var position = objs.position;
+							var point = objs.point;
+							if(address != '' && address != position) {
+								object.find('.endPos div .maplngLat').attr('data-position', point);
+								object.find('.endPos div .maplngLat').html(address);
+								object.find('.endPos div .maplngLat').attr('title', address);
+							}
+						}, userData);
+					}
+				}
+			}
+			that.runPositionTimer();
+		}else {
+			this.flashPositionInterval = 120000;
+			this.runPositionTimer();
+		}
+	}
+}

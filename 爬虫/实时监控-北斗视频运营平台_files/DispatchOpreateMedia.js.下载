@@ -1,0 +1,224 @@
+
+/**
+ * 调度事件 说话的音频文件
+ */
+function DispatchOpreateMedia(){
+	this.alarmMediaLst = [];// 需要播放的操作
+	this.alarmMediaObj = null;
+	this.flashAddMediaToEventTimer = null;
+	this.alarmMediaAllMap = new Hashtable();//所有报警媒体文件
+	
+}
+
+DispatchOpreateMedia.prototype.initialize = function(){
+	var  thatAlarm = this;
+	//任务汇报
+	thatAlarm.initTable();
+	//绑定监听
+	thatAlarm.bind();
+};
+
+DispatchOpreateMedia.prototype.bind = function(){
+	$(function(){
+		dispatchPlay = document.getElementById("audioPlay"); 
+		//当前音频播放完成事件  更改src
+		dispatchPlay.addEventListener('ended', function () {  
+			//播放完成以后 去检查还有没有需要播放的链表
+			dispatchMedia.checkPlay(dispatchPlay.className);
+		}, false);
+	});
+};
+
+//初始化任务汇报状态列表
+DispatchOpreateMedia.prototype.initTable = function() {
+	var myMonitorAlarm = this;
+	var buttons = [
+	       	    {separator: false, hidename: "", name: parent.lang.clear, bclass: "flexDelete",
+	       	    	bimage: "", tooltip: parent.lang.clear, id: "dispatchAlarmClear",
+	       	    	onpress: function() {
+	       	    		myMonitorAlarm.clearAlarmTableEvent();
+	       	    	}
+	       	    },
+	       	   {audio: true , separator: true}
+	       	];
+	
+	this.alarmMediaObj = $("#dispatchMediaEventTable").flexigrid({
+		url: "",	
+		dataType: 'json',
+		colModel : [
+			{display: parent.lang.track_play, name : 'paly', width : 100, sortable : true, align: 'center'},
+			{display: parent.lang.dispatcher_operate_play_status, name : 'status',  width : 200,  align: 'center'},
+			{display: parent.lang.dispatcher_member_name, name : 'user',  width : 200,  align: 'center'},
+			{display: parent.lang.call_report_group, name : 'group',  width : 200,  align: 'center'},
+			{display:  parent.lang.dispatcher_operate_file_time, name : 'talTime',  width : 200,  align: 'center'},
+			{display: parent.lang.dispatcher_time, name : 'time',  width : 120,  align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		onChangeSort: true,
+		buttons: buttons,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false,
+		onDoubleClick : function(obj, event) {
+			userOpenPlay($.trim($(obj).attr('data-id')));
+		}
+	});
+	//本类对象
+	var myMonitorStatus = this;
+	this.alarmMediaObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorStatus.fillAlarmTable(p, row, idx, index);	
+	});
+	//选中事件
+}
+
+/**
+ * 新产生的报警新增到播放链表
+ */
+DispatchOpreateMedia.prototype.addPlayList = function(media){
+	this.alarmMediaLst.push(media);
+	//用于播放其他
+	this.alarmMediaAllMap.put(media.id, media.src);
+	//加载到播放列表 上方
+	this.doRecvAlarm(media);
+	if(this.flashAddMediaToEventTimer == null) {
+		this.runAddMediaToEventTimer();
+	}
+};
+
+/**
+ * 检查是否有报警上来
+ */
+DispatchOpreateMedia.prototype.runAddMediaToEventTimer = function(){
+	var myMonitorAlarm = this;
+	this.flashAddMediaToEventTimer = setTimeout(function () {
+		myMonitorAlarm.continuePlay();
+	}, 50);
+};
+
+/**
+ * 继续播放音乐
+ */
+DispatchOpreateMedia.prototype.continuePlay = function(){
+	if(this.alarmMediaLst && this.alarmMediaLst.length > 0){
+		var media = this.alarmMediaLst[0];
+		dispatchPlay.src = media.src;
+		dispatchPlay.className = media.id;
+		//开始播放
+		dispatchPlay.play();
+		this.changeStatus(media.id, parent.lang.dispatcher_operate_play_playing, 1);
+	}else{
+		dispatchPlay.className = "";
+		this.flashAddMediaToEventTimer = null;//下一条报警上来的时候需要重新播放
+		
+	}
+};
+
+DispatchOpreateMedia.prototype.changeStatus = function(id, tips, type) {
+	var object = this.alarmMediaObj.find(this.alarmMediaObj.flexGetRowid(id));
+	object.find('.status div').html(tips);
+	if(type){
+		switch (parseInt(type)) {
+		case 1: //播放中
+			object.find('.status').attr("id", "dispatcher_playing");
+			break;
+		case 2: //播放完成
+			object.find('.status').attr("id", "dispatcher_complete");
+			break;
+		case 3: //播放中断
+			object.find('.status').attr("id", "dispatcher_interrupt");
+			break;
+		default:
+			object.find('.status').attr("id", "dispatcher_unopened");
+			break;
+		}
+	}
+}
+
+
+/**
+ * 点击播放了  新来的消息，  并没有把消息从alarmMediaLst中移除
+ */
+DispatchOpreateMedia.prototype.checkPlay = function(id){
+	if(this.alarmMediaLst && this.alarmMediaLst.length > 0){
+		if(id){//表示是报警链表播放完成  移除已经完成播放的
+			for(var i = 0; i < this.alarmMediaLst.length; i++){
+				if(id == this.alarmMediaLst[i].id){
+					this.alarmMediaLst.splice(i, 1);
+					break;
+				}
+			}
+		}
+		//播放完成提示
+		this.changeStatus(id, parent.lang.dispatcher_operate_success, 2);
+		dispatchPlay.className = "";
+		this.continuePlay();//继续检查未播放的链表
+	}else{
+		dispatchPlay.className = "";
+		//普通手动点击播放完成
+		this.changeStatus(id, parent.lang.dispatcher_operate_success, 2);
+		this.flashAddMediaToEventTimer = null;//下一条报警上来的时候需要重新播放
+	}
+};
+
+
+
+
+
+//清空报警列表
+DispatchOpreateMedia.prototype.clearAlarmTableEvent = function(){
+	if(this.alarmMediaObj != null) {
+		this.alarmMediaLst = [];
+		this.alarmMediaObj.flexClear();
+	}
+};
+
+
+
+//调度操作 报警信息
+DispatchOpreateMedia.prototype.doRecvAlarm = function(data){
+	this.showAlarmMessage();
+	var rows = [];
+	rows.push(data);
+	this.alarmMediaObj.flexAppendRowJson(rows, true);
+};
+
+DispatchOpreateMedia.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充报警信息列表
+DispatchOpreateMedia.prototype.fillAlarmTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var ret = "";
+	if(name == "talTime"){
+		if(row[name]){//单位毫秒
+			ret = second2ShortHourEx(parseInt(row[name]/1000));
+		}
+	}else if(name == "paly"){
+		//播放按键  
+		//弹出播放界面，完成播放后调研当前这个方法继续播放
+		return '<a class="playback" href="javascript:userOpenPlay(\''+row['id']+'\');" title="'+ parent.lang.track_play +'"></a>';
+	}else if(name == "status"){
+		ret = "未播放";
+	}else{
+		if(row[name]){
+			ret = row[name];
+		}
+	}
+	return this.getColumnTitle(ret);
+};
+
+//提示报警有新的报警信息
+DispatchOpreateMedia.prototype.showAlarmMessage = function() {
+	//如果当前选择的是  GPS监控  或者 系统事件列表，当接收到报警时，需要将  报警信息字体变红，
+	//展现已经接收到了报警，及时提示用户
+	if(!$('#gps-dispatchMedia').hasClass('active') || !isMinSize) {//未选中  并且非 最小化化
+		$('#gps-dispatchMedia_title').css('background-color','#FF0000');
+	}
+}

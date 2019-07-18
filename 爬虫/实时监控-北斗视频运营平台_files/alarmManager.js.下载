@@ -1,0 +1,904 @@
+
+function alarmTypeObject() {
+	this.isPolice = false;	//警员存在的
+	this.isVehicle = true;
+	this.name = null;		//报警名称
+	this.parentName = null;//报警分类名称
+	this.armType = null;	//开始报警 标识
+	this.armEnd = null;//结束报警 标识
+	this.realType = null;//真实      结束存在的时候    开始,结束
+	this.classify = null;	//用于报警屏蔽和报警联动内的分类
+	this.isAlarmLinkage = false; //是否报警联动需要的
+}
+
+alarmTypeObject.prototype.setIsPolice = function(isPolice){
+	this.isPolice = isPolice;
+};
+alarmTypeObject.prototype.setName = function(name){
+	this.name = name;
+};
+alarmTypeObject.prototype.setParentName = function(parentName){
+	this.parentName = parentName;
+};
+alarmTypeObject.prototype.setArmType = function(armType){
+	this.armType = armType;
+};
+alarmTypeObject.prototype.setArmEnd = function(armEnd){
+	this.armEnd = armEnd;
+};
+alarmTypeObject.prototype.setClassify = function(classify){
+	this.classify = classify;
+};
+alarmTypeObject.prototype.setAlarmLinkage = function(isAlarmLinkage_){
+	this.isAlarmLinkage = isAlarmLinkage_;
+};
+
+/**
+ * 报警屏蔽和报警联动内的分类
+ */
+function AlarmManager(){
+	this.lstAlarmTypeOjbect = [];//
+	this.lstAlarmClassify= [];//分类类型 {id:对应的标识  ,name:名称}
+	this.isAlarmLinkage = false; //是否报警联动，如果是报警联动需要去掉几个报警
+	this.isRemovePlatform = false; //是否去掉平台报警
+	this.isRemoveSafety = false; //是否去掉主动安全
+	this.allId = [];//所有id
+}
+
+AlarmManager.prototype.setAlarmLinkage = function(isAlarmLinkage_) {
+	this.isAlarmLinkage = isAlarmLinkage_;
+}
+AlarmManager.prototype.setRemovePlatform = function(isRemovePlatform_){
+	this.isRemovePlatform = isRemovePlatform_;
+};
+AlarmManager.prototype.setRemoveSafety = function(isRemoveSafety_){
+	this.isRemoveSafety = isRemoveSafety_;
+};
+//获取报警类型对象集合
+AlarmManager.prototype.getLstAlarmTypes = function() {
+	return this.lstAlarmTypeOjbect;
+}
+
+AlarmManager.prototype.getAllIds = function(){
+    return this.allId.join(',');
+};
+
+var rootElement = _getRootFrameElement();
+/**
+ * 
+ * @param alarmType  报警类型  10 G-SenSor 9 主动安全  3 AI报警  2 日报表相关报警  1 渣土车
+ */
+
+AlarmManager.prototype.initObject = function(alarmType) {
+
+	//G-sensor报警类型
+	if(alarmType === 11){
+		//GSensor启动
+        this.fillObject(rootElement.lang.alarm_GSensorStart, rootElement.lang.alarm_GSensor_type, "439", "489", "gSensor",false,true);
+        //GSensor停止
+        this.fillObject(rootElement.lang.alarm_GSensorStop, rootElement.lang.alarm_GSensor_type, "440", "490", "gSensor",false,true);
+        //急加速
+        this.fillObject(rootElement.lang.alarm_type_rapidAcceleration, rootElement.lang.monitor_alarm_otherAlarm, "246", "296", "otherAlarm",false,true);
+        //急减速
+        this.fillObject(rootElement.lang.alarm_type_rapidDeceleration, rootElement.lang.monitor_alarm_otherAlarm, "247", "297", "otherAlarm",false,true);
+        //急转弯
+        this.fillObject(rootElement.lang.alarm_type_sharpTurn, rootElement.lang.alarm_GSensor_type, "444", "494", "gSensor",false,true);
+        //碰撞侧翻报警
+        this.fillObject(rootElement.lang.alarm_type_rollover, rootElement.lang.monitor_alarm_otherAlarm,"219","269","otherAlarm",false,true);
+        //GSensor侧翻
+        this.fillObject(rootElement.lang.alarm_GSensorRollOver, rootElement.lang.alarm_GSensor_type, "441", "491", "gSensor",false,true);
+        return;
+	}
+	
+	//二级报警相关报警规则加载报警类型
+	if(alarmType === 9) {
+		//前向碰撞报警1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_fcw, rootElement.lang.monitor_alarm_safety, "600", "650", "activeSafety",false,true);	//1
+		//车道偏离报警1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_ldw, rootElement.lang.monitor_alarm_safety, "602", "652", "activeSafety",false,true);	//1
+		//车距过近报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_near_car, rootElement.lang.monitor_alarm_safety, "604", "654", "activeSafety",false,true);	//1
+		//行人碰撞报警  1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_hit_pedestrian, rootElement.lang.monitor_alarm_safety, "606", "656", "activeSafety",false,true);	//1
+		//频繁变道  1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_frequent_lane_change, rootElement.lang.monitor_alarm_safety, "608", "658", "activeSafety",false,true);	//1
+		//道路标识超限报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_road_marking_over_limit, rootElement.lang.monitor_alarm_safety, "610", "660", "activeSafety",false,true);	//1
+		//障碍物报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_obstacle, rootElement.lang.monitor_alarm_safety, "612", "662", "activeSafety",false,true);	//1
+		//疲劳驾驶报警 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_fatigue_driving, rootElement.lang.monitor_alarm_safety, "618", "668", "activeSafety",false,true);	//1
+		//接打电话报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_answer_the_call, rootElement.lang.monitor_alarm_safety, "620", "670", "activeSafety",false,true);	//1
+		//抽烟报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_smoking, rootElement.lang.monitor_alarm_safety, "622", "672", "activeSafety",false,true);	//1
+		//分神驾驶报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_distracted_driving, rootElement.lang.monitor_alarm_safety, "624", "674", "activeSafety",false,true);	//1
+		//驾驶员异常报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_abnormal, rootElement.lang.monitor_alarm_safety, "626", "676", "activeSafety",false,true);	//1
+		 if(rootElement.myUserRole && rootElement.myUserRole.isIsSunglassFailure()){ 
+			//墨镜失效一级报警   
+			this.fillObject(rootElement.lang.net_alarm_type_sb_l1_sunglass_failure, rootElement.lang.monitor_alarm_safety, "639", "689", "activeSafety",false,true);	//1
+		 }
+		 if(!enableSubiao()){
+             //驾驶员IC卡异常报警1级
+             this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_ic_abnormal, rootElement.lang.monitor_alarm_safety, "641", "691", "activeSafety",false,true);	//1
+		 }
+
+		return;
+	}
+	
+	//主动安全设备
+	//后方接近报警
+	if(alarmType === 3){
+        if(!enableSubiao()){
+            //驾驶员IC卡异常报警1级
+            this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_ic_abnormal, rootElement.lang.monitor_alarm_safety, "641", "691", "activeSafety",false,true);	//1
+            //驾驶员IC卡异常报警2级
+            this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_ic_abnormal, rootElement.lang.monitor_alarm_safety, "642", "692", "activeSafety",false,true);	//1
+            //驾驶员身份识别事件
+            this.fillObject(rootElement.lang.net_event_type_sb_l1_driver_ident, rootElement.lang.monitor_alarm_safety, "643", null, "activeSafety",false,true);	//1
+        }
+
+		//后方接近报警
+		this.fillObject(rootElement.lang.report_approach, rootElement.lang.monitor_alarm_safety, "633", "683", "activeSafety",false,true);	//1
+		//左侧后方接近报警
+		this.fillObject(rootElement.lang.left_rear, rootElement.lang.monitor_alarm_safety, "634", "684", "activeSafety",false,true);	//1
+		//右侧后方接近报警
+		this.fillObject(rootElement.lang.right_rear, rootElement.lang.monitor_alarm_safety, "635", "685", "activeSafety",false,true);	//1
+		//胎压报警
+		this.fillObject(rootElement.lang.net_alarm_type_sb_tpms, rootElement.lang.monitor_alarm_safety, "632", "682", "activeSafety",false,true);	//1
+		//驾驶员异常报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_abnormal, rootElement.lang.monitor_alarm_safety, "627", "677", "activeSafety",false,true);	//1
+		//驾驶员异常报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_abnormal, rootElement.lang.monitor_alarm_safety, "626", "676", "activeSafety",false,true);	//1
+		//分神驾驶报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_distracted_driving, rootElement.lang.monitor_alarm_safety, "625", "675", "activeSafety",false,true);	//1
+		//分神驾驶报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_distracted_driving, rootElement.lang.monitor_alarm_safety, "624", "674", "activeSafety",false,true);	//1
+		//分神驾驶报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_distracted_driving+"("+rootElement.lang.alarmSource_platform+")", rootElement.lang.monitor_alarm_safety, "637", "687", "activeSafety",false,true);	//1
+		//抽烟报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_smoking, rootElement.lang.monitor_alarm_safety, "623", "673", "activeSafety",false,true);	//1
+		//抽烟报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_smoking, rootElement.lang.monitor_alarm_safety, "622", "672", "activeSafety",false,true);	//1
+		//接打电话报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_answer_the_call, rootElement.lang.monitor_alarm_safety, "621", "671", "activeSafety",false,true);	//1
+		//接打电话报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_answer_the_call, rootElement.lang.monitor_alarm_safety, "620", "670", "activeSafety",false,true);	//1
+		//疲劳驾驶报警 2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_fatigue_driving, rootElement.lang.monitor_alarm_safety, "619", "669", "activeSafety",false,true);	//1
+		//疲劳驾驶报警 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_fatigue_driving, rootElement.lang.monitor_alarm_safety, "618", "668", "activeSafety",false,true);	//1
+		//驾驶员变更事件 2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_change, rootElement.lang.monitor_alarm_safety, "631", null, "activeSafety",false,true);	//1
+		//驾驶员变更事件 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_change, rootElement.lang.monitor_alarm_safety, "630", null, "activeSafety",false,true);	//1
+		//自动抓拍事件 2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_auto, rootElement.lang.monitor_alarm_safety, "629", null, "activeSafety",false,true);	//1
+		//自动抓拍事件 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_auto, rootElement.lang.monitor_alarm_safety, "628", null, "activeSafety",false,true);	//1
+		//主动抓拍事件 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_active, rootElement.lang.monitor_alarm_safety, "617", null, "activeSafety",false,true);	//1
+		//主动抓拍事件 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_active, rootElement.lang.monitor_alarm_safety, "616", null, "activeSafety",false,true);	//1
+		//道路标志识别事件 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_sign, rootElement.lang.monitor_alarm_safety, "615", null, "activeSafety",false,true);	//1
+		//道路标志识别事件 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_sign, rootElement.lang.monitor_alarm_safety, "614", null, "activeSafety",false,true);	//1
+		//障碍物报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_obstacle, rootElement.lang.monitor_alarm_safety, "613", "663", "activeSafety",false,true);	//1
+		//障碍物报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_obstacle, rootElement.lang.monitor_alarm_safety, "612", "662", "activeSafety",false,true);	//1
+		//道路标识超限报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_road_marking_over_limit, rootElement.lang.monitor_alarm_safety, "611", "661", "activeSafety",false,true);	//1
+		//道路标识超限报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_road_marking_over_limit, rootElement.lang.monitor_alarm_safety, "610", "660", "activeSafety",false,true);	//1
+		//频繁变道  2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_frequent_lane_change, rootElement.lang.monitor_alarm_safety, "609", "659", "activeSafety",false,true);	//1
+		//频繁变道  1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_frequent_lane_change, rootElement.lang.monitor_alarm_safety, "608", "658", "activeSafety",false,true);	//1
+		//行人碰撞报警  2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_hit_pedestrian, rootElement.lang.monitor_alarm_safety, "607", "657", "activeSafety",false,true);	//1
+		//行人碰撞报警  1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_hit_pedestrian, rootElement.lang.monitor_alarm_safety, "606", "656", "activeSafety",false,true);	//1
+		//车距过近报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_near_car, rootElement.lang.monitor_alarm_safety, "605", "655", "activeSafety",false,true);	//1
+		//车距过近报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_near_car, rootElement.lang.monitor_alarm_safety, "604", "654", "activeSafety",false,true);	//1
+		//车道偏离报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_ldw, rootElement.lang.monitor_alarm_safety, "603", "653", "activeSafety",false,true);	//1
+		//车道偏离报警1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_ldw, rootElement.lang.monitor_alarm_safety, "602", "652", "activeSafety",false,true);	//1
+		//前向碰撞报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_fcw, rootElement.lang.monitor_alarm_safety, "601", "651", "activeSafety",false,true);	//1
+		//前向碰撞报警1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_fcw, rootElement.lang.monitor_alarm_safety, "600", "650", "activeSafety",false,true);	//1
+		//驾驶员识别报警
+		this.fillObject(rootElement.lang.net_alarm_type_sb_driver_identification, rootElement.lang.monitor_alarm_safety, "636", "686", "activeSafety",false,true);	//1
+		 if(rootElement.myUserRole && rootElement.myUserRole.isIsSunglassFailure()){ 
+				//墨镜失效一级报警   
+				this.fillObject( rootElement.lang.net_alarm_type_sb_l1_sunglass_failure, rootElement.lang.monitor_alarm_safety, "639", "689", "activeSafety",false,true);	//1
+				//墨镜失效2级报警   
+				this.fillObject( rootElement.lang.net_alarm_type_sb_l2_sunglass_failure, rootElement.lang.monitor_alarm_safety, "640", "690", "activeSafety",false,true);	//1
+		 }
+		return;
+	}
+	
+	if(alarmType === 2){//用于统计 日报表报警对应的数据
+		//自定义报警     	1
+		this.fillObject(rootElement.lang.alarm_type_custom_alarm, rootElement.lang.monitor_alarm_adas, "1", "", "otherAlarm",false,true);	//1
+		//紧急按钮报警		2
+		this.fillObject(rootElement.lang.alarm_type_ungency_button, rootElement.lang.monitor_alarm_operate,"2","52","otherAlarm",true,true);
+		//区域超速报警		200	
+		this.fillObject(rootElement.lang.alarm_type_regionalSpeedingAlarm, rootElement.lang.monitor_alarm_fence,"200","250","otherAlarm",false,true);	//1
+		//预警				201
+		this.fillObject(rootElement.lang.alarm_type_earlyWarning, rootElement.lang.monitor_alarm_otherAlarm,"201","251","otherAlarm",false,true);	//1
+		//GNSS模块故障		202
+		this.fillObject(rootElement.lang.alarm_type_GNSSModuleFailure, rootElement.lang.monitor_alarm_fault,"202","252","otherAlarm",false,true);	//1
+		//GNSS天线未接或者剪断 203
+		this.fillObject(rootElement.lang.alarm_type_GNSSAntennaMissedOrCut, rootElement.lang.monitor_alarm_fault, "203", "253", "otherAlarm",false,true);	//1
+		//GNSS天线短路		204
+		this.fillObject(rootElement.lang.alarm_type_GNSSAntennaShort, rootElement.lang.monitor_alarm_fault,"204","254","otherAlarm",false,true);	//1
+		//电源欠压			205
+		this.fillObject(rootElement.lang.alarm_type_mainSupplyUndervoltage, rootElement.lang.monitor_alarm_otherAlarm, "205", "255", "otherAlarm",false,true);	//1
+		//电源掉电			206
+		this.fillObject(rootElement.lang.alarm_type_mainPowerFailure, rootElement.lang.monitor_alarm_otherAlarm,"206","256","otherAlarm",false,true);	//1
+		//LCD或者显示器故障	207
+		if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+			this.fillObject(rootElement.lang.alarm_type_LCDorDisplayFailure, rootElement.lang.monitor_alarm_fault, "207", "257", "otherAlarm",false,true);	//1
+		}
+		//TTS模块故障		208
+		this.fillObject(rootElement.lang.alarm_type_TTSModuleFailure, rootElement.lang.monitor_alarm_fault,"208","258","otherAlarm",false,true);	//1
+		//摄像头故障		209
+		this.fillObject(rootElement.lang.alarm_type_cameraMalfunction, rootElement.lang.monitor_alarm_fault,"209","259","otherAlarm",false,true);	//1
+		//累计驾驶超时		210
+		this.fillObject(rootElement.lang.alarm_type_cumulativeDayDrivingTimeout, rootElement.lang.monitor_alarm_otherAlarm, "210", "260", "otherAlarm",false,true);	//1
+		//停车过长报警		14
+		this.fillObject(rootElement.lang.alarm_type_overtimeParking,rootElement.lang.monitor_alarm_speed,"14","64","otherAlarm",false,true);	//1
+		//进出区域			211
+		this.fillObject(rootElement.lang.alarm_type_outOfRegional, rootElement.lang.monitor_alarm_fence, "211", "261", "otherAlarm", true,true);	//1
+		//进出线路			212
+		this.fillObject(rootElement.lang.alarm_type_outOfLine, rootElement.lang.monitor_alarm_fence,"212","262","otherAlarm",false,true);	//1
+		//路段行驶时间过长/过短	213
+		this.fillObject(rootElement.lang.alarm_type_InadequateOrTooLongRoadTravelTime, rootElement.lang.monitor_alarm_fence, "213", "263", "otherAlarm",false,true);	//1
+		//线路偏离			214
+		this.fillObject(rootElement.lang.alarm_type_routeDeviation, rootElement.lang.monitor_alarm_fence,"214","264","otherAlarm",false,true);	//1
+		//VSS故障			215
+		this.fillObject(rootElement.lang.alarm_type_VSSFailure, rootElement.lang.monitor_alarm_fault, "215", "265", "otherAlarm",false,true);	//1
+		//油量异常			216	
+		this.fillObject(rootElement.lang.alarm_type_abnormalFuel, rootElement.lang.monitor_alarm_fuel,"216","266","otherAlarm",false,true);	//1
+		if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+			//车辆被盗			217
+			this.fillObject(rootElement.lang.alarm_type_antitheftDevice, rootElement.lang.monitor_alarm_otherAlarm,"217","267","otherAlarm",false,true);	//1
+			//非法点火报警		8
+			this.fillObject(rootElement.lang.alarm_type_illegalIgnition, rootElement.lang.monitor_alarm_otherAlarm, "8", "58", "otherAlarm",false,true);	//1
+			//非法位移			218
+			this.fillObject(rootElement.lang.alarm_type_illegalDisplacement, rootElement.lang.monitor_alarm_otherAlarm, "218", "268", "otherAlarm",false,true);	//1
+		}
+		//碰撞侧翻报警		219
+		this.fillObject(rootElement.lang.alarm_type_rollover, rootElement.lang.monitor_alarm_otherAlarm,"219","269","otherAlarm",false,true);	//1
+		//夜间行驶报警		151
+		this.fillObject(rootElement.lang.alarm_type_nightdriving, rootElement.lang.monitor_alarm_otherAlarm,"151","152","otherAlarm",false,true);	//1
+		//超速报警			11
+		this.fillObject(rootElement.lang.monitor_alarm_speed,rootElement.lang.monitor_alarm_speed,"11","61","otherAlarm",false,true);	//1
+		//非法开门报警		6
+		this.fillObject(rootElement.lang.alarm_type_door_open_lawless, rootElement.lang.monitor_alarm_operate, "6", "56", "otherAlarm",false,true);	//1
+		//区域超速报警(平台产生) 	300
+		this.fillObject(rootElement.lang.alarm_type_areaOverSpeed_platform, rootElement.lang.monitor_alarm_platform, "300", "350", "otherAlarm",false,true);	//1
+		//区域低速报警(平台产生) 	301
+		this.fillObject(rootElement.lang.alarm_type_areaLowSpeed_platform, rootElement.lang.monitor_alarm_platform,"301","351","otherAlarm",false,true);	//1
+		//进出入区域(平台产生)	 	302
+		this.fillObject(rootElement.lang.alarm_type_areaInOut_platform, rootElement.lang.monitor_alarm_platform, "302", "352", "otherAlarm",true,true);	//1
+		//线路偏移(平台产生)	 	303
+		this.fillObject(rootElement.lang.alarm_type_lineInOut_platform, rootElement.lang.monitor_alarm_platform,"303","353","otherAlarm",false,true);	//1
+		//时间段超速报警(平台产生)	304
+		this.fillObject(rootElement.lang.alarm_type_overSpeed_platform, rootElement.lang.monitor_alarm_platform, "304", "354", "otherAlarm",false,true);	//1
+		//时间段低速报警(平台产生) 	305
+		this.fillObject(rootElement.lang.alarm_type_lowSpeed_platform, rootElement.lang.monitor_alarm_platform,"305","355","otherAlarm",false,true);	//1
+		//疲劳驾驶(平台产生)  	 	306
+		this.fillObject(rootElement.lang.alarm_type_fatigue_platform, rootElement.lang.monitor_alarm_platform, "306", "356", "otherAlarm",false,true);	//1
+		//超时停车(平台产生)		307
+		this.fillObject(rootElement.lang.alarm_type_parkTooLong_platform, rootElement.lang.monitor_alarm_platform,"307","357","otherAlarm",false,true);	//1
+		//关键点监控报警(平台产生)	308
+		this.fillObject(rootElement.lang.alarm_type_areaPoint_platform, rootElement.lang.monitor_alarm_platform, "308", "358", "otherAlarm",false,true);	//1
+		//线路超速报警(平台产生) 	309
+		this.fillObject(rootElement.lang.alarm_type_lineOverSpeed_platform, rootElement.lang.monitor_alarm_platform,"309","359","otherAlarm",false,true);	//1
+		//线路低速报警(平台产生) 	310
+		this.fillObject(rootElement.lang.alarm_type_lineLowSpeed_platform, rootElement.lang.monitor_alarm_platform, "310", "360", "otherAlarm",false,true);	//1
+		//道路等级超速报警(平台产生) 311
+		this.fillObject(rootElement.lang.report_roadLvlOverSpeed_platform, rootElement.lang.monitor_alarm_platform,"311","361","otherAlarm",false,true);	//1
+		//疲劳驾驶					49
+		this.fillObject(rootElement.lang.alarm_type_fatigue, rootElement.lang.monitor_alarm_adas, "49", "99", "otherAlarm",false,true);	//1
+		//面部疲劳     				249
+		this.fillObject(rootElement.lang.face_fatigue, rootElement.lang.monitor_alarm_adas, "249", "299", "otherAlarm",false,true);	//1
+		//夜间超速(平台产生)  		314
+		this.fillObject(rootElement.lang.alarm_type_night_overSpeed_platform, rootElement.lang.monitor_alarm_adas, "314", "364", "otherAlarm",false,true);	//1
+
+		// 2018-07-23 添加 主要修改警情统计报表 下拉选择
+		// 定位异常 136 countStr40
+        this.fillObject(rootElement.lang.report_abnormalPosition_platform, rootElement.lang.monitor_alarm_platform,"136", "","platformAlarm",false,true);	//1
+        if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){ 
+        	// 设备开锁 182 countStr41
+        	this.fillObject(rootElement.lang.alarm_type_device_unlock, rootElement.lang.monitor_alarm_otherAlarm, "182", "232", "otherAlarm",false,false);	//1
+        	// 设备上锁 183 countStr42
+        	this.fillObject(rootElement.lang.alarm_type_device_lock, rootElement.lang.monitor_alarm_otherAlarm,"183","233","otherAlarm",false,false);	//1
+			// 氧气浓度低 192 countStr43
+	        this.fillObject(rootElement.lang.alarm_type_lowOxygen, rootElement.lang.monitor_alarm_otherAlarm, "192", "193", "otherAlarm",false,true);	//1
+	        // 其他视频设备故障报警 244 countStr44
+	        this.fillObject(rootElement.lang.other_device_error, rootElement.lang.monitor_alarm_otherAlarm, "244", "294", "otherAlarm",false,true);	//其他视频设备故障报警
+			// 录像阀值 245 countStr45
+	        this.fillObject(rootElement.lang.record_threshold, rootElement.lang.monitor_alarm_otherAlarm, "245", "295", "otherAlarm",false,true);	//录像阀值
+			// 烟感报警 194 countStr46
+	        this.fillObject(rootElement.lang.smoke_induction_alarm,rootElement.lang.monitor_alarm_otherAlarm, "194", "195", "otherAlarm",false,true);  //烟感报警
+			// 异常驾驶 248 countStr47
+	        this.fillObject(rootElement.lang.abnormal_drive,rootElement.lang.monitor_alarm_otherAlarm, "248", "298", "otherAlarm",false,true);  //异常驾驶
+        }
+        return;
+	}
+	
+	
+	//渣土车查询页面得到报警信息
+	if(alarmType === 1) {
+//		this.fillObject(rootElement.lang.alarm_type_ungency_button, rootElement.lang.monitor_alarm_operate,"2","","operateAlarm",true,true);	//1
+//		this.fillObject(rootElement.lang.alarm_type_shake, rootElement.lang.monitor_alarm_otherAlarm,"3","","otherAlarm",false,true);	//1
+		if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+			this.fillObject(rootElement.lang.overload, rootElement.lang.monitor_alarm_otherAlarm,"231","","otherAlarm",false,true);	//超载
+		}
+		this.fillObject(rootElement.lang.illegal_area_unload, rootElement.lang.monitor_alarm_otherAlarm,"138","","otherAlarm",false,true);//违规卸载
+		this.fillObject(rootElement.lang.unclosed_cover, rootElement.lang.monitor_alarm_otherAlarm,"139","","otherAlarm",false,true);	//重车行驶厢盖未关闭
+		this.fillObject(rootElement.lang.unproven_driving, rootElement.lang.monitor_alarm_otherAlarm,"411","","otherAlarm",false,true);//未插卡  驾驶员身份验证或未进行身份证验证启动车辆
+//		this.fillObject(rootElement.lang.unproven_driving, rootElement.lang.monitor_alarm_otherAlarm,"120","","otherAlarm",false,true);	//1
+//		return;
+	}
+	
+	//速度报警
+	this.fillObject(rootElement.lang.monitor_alarm_speed,rootElement.lang.monitor_alarm_speed,"11","61","speendAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_overtimeParking,rootElement.lang.monitor_alarm_speed,"14","64","speendAlarm",false,true);	//1
+	//视频报警
+	this.fillObject(rootElement.lang.alarm_type_motion, rootElement.lang.monitor_alarm_video, "15", "65", "videoAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_video_lost, rootElement.lang.monitor_alarm_video,"4","54","videoAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_video_mask, rootElement.lang.monitor_alarm_video,"5","55","videoAlarm",false,true);	//1
+	//硬盘报警
+	this.fillObject(rootElement.lang.monitor_alarm_disk1NoExist, rootElement.lang.monitor_alarm_disk, "39", null, "diskAlarm",false,false);	//1
+	this.fillObject(rootElement.lang.monitor_alarm_disk2NoExist, rootElement.lang.monitor_alarm_disk,"40",null,"diskAlarm",false,false);	//1
+	this.fillObject(rootElement.lang.alarm_type_disk_error, rootElement.lang.monitor_alarm_disk,"10","60","diskAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_highTemperature, rootElement.lang.monitor_alarm_disk, "157", "158", "diskAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_defect_disk, rootElement.lang.monitor_alarm_disk,"162","163","diskAlarm",false,true);	//1
+	//故障报警
+	this.fillObject(rootElement.lang.monitor_alarm_GpsInvalid, rootElement.lang.monitor_alarm_fault, "45", "85", "faultAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_gps_signal_loss, rootElement.lang.monitor_alarm_fault,"18","68","faultAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_GNSSModuleFailure, rootElement.lang.monitor_alarm_fault,"202","252","faultAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_GNSSAntennaMissedOrCut, rootElement.lang.monitor_alarm_fault, "203", "253", "faultAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_GNSSAntennaShort, rootElement.lang.monitor_alarm_fault,"204","254","faultAlarm",false,true);	//1
+	if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+		this.fillObject(rootElement.lang.alarm_type_LCDorDisplayFailure, rootElement.lang.monitor_alarm_fault, "207", "257", "faultAlarm",false,true);	//1
+	}
+	this.fillObject(rootElement.lang.alarm_type_TTSModuleFailure, rootElement.lang.monitor_alarm_fault,"208","258","faultAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_cameraMalfunction, rootElement.lang.monitor_alarm_fault,"209","259","faultAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_VSSFailure, rootElement.lang.monitor_alarm_fault, "215", "265", "faultAlarm",false,true);	//1
+	//操作报警
+	this.fillObject(rootElement.lang.alarm_type_ungency_button, rootElement.lang.monitor_alarm_operate,"2","52","operateAlarm",true,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_door_open_lawless, rootElement.lang.monitor_alarm_operate, "6", "56", "operateAlarm",false,true);	//1
+	//油量报警
+	this.fillObject(rootElement.lang.alarm_type_add_oil, rootElement.lang.monitor_alarm_fuel, "46", "86", "fuelAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_dec_oil, rootElement.lang.monitor_alarm_fuel,"47","87","fuelAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_abnormalFuel, rootElement.lang.monitor_alarm_fuel,"216","266","fuelAlarm",false,true);	//1
+	//其它报警
+	this.fillObject(rootElement.lang.alarm_type_temperator, rootElement.lang.monitor_alarm_otherAlarm, "9", "59", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_fatigue, rootElement.lang.monitor_alarm_otherAlarm, "49", "99", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_face, rootElement.lang.monitor_alarm_otherAlarm, "170", "171", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_eyesClosed, rootElement.lang.monitor_alarm_otherAlarm, "172", "173", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_phone, rootElement.lang.monitor_alarm_otherAlarm, "174", "175", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_smoke, rootElement.lang.monitor_alarm_otherAlarm, "176", "177", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_leaveJob, rootElement.lang.monitor_alarm_otherAlarm, "186", "187", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_lookAround, rootElement.lang.monitor_alarm_otherAlarm, "188", "189", "otherAlarm",false,true);	//1
+//	this.fillObject(rootElement.lang.alarm_type_yawn, rootElement.lang.monitor_alarm_otherAlarm, "190", "191", "otherAlarm",false,true);	//1
+
+	this.fillObject(rootElement.lang.alarm_type_gathering, rootElement.lang.monitor_alarm_otherAlarm,"153","154","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_upsCut, rootElement.lang.monitor_alarm_otherAlarm, "155", "156", "otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_before_board_opened, rootElement.lang.monitor_alarm_otherAlarm,"159","160","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_sim_lost, rootElement.lang.monitor_alarm_otherAlarm, "166", "167", "otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_erong_pwd, rootElement.lang.monitor_alarm_otherAlarm,"7","57","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_door_abnormal, rootElement.lang.monitor_alarm_otherAlarm, "13", "63", "otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_shake, rootElement.lang.monitor_alarm_otherAlarm,"3","53","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_Acc, rootElement.lang.monitor_alarm_otherAlarm,"16","66","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_earlyWarning, rootElement.lang.monitor_alarm_otherAlarm,"201","251","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_mainSupplyUndervoltage, rootElement.lang.monitor_alarm_otherAlarm, "205", "255", "otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_mainPowerFailure, rootElement.lang.monitor_alarm_otherAlarm,"206","256","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_cumulativeDayDrivingTimeout, rootElement.lang.monitor_alarm_otherAlarm, "210", "260", "otherAlarm",false,true);	//1
+	if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+		this.fillObject(rootElement.lang.alarm_type_lowOxygen, rootElement.lang.monitor_alarm_otherAlarm, "192", "193", "otherAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_antitheftDevice, rootElement.lang.monitor_alarm_otherAlarm,"217","267","otherAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_illegalIgnition, rootElement.lang.monitor_alarm_otherAlarm, "8", "58", "otherAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_illegalDisplacement, rootElement.lang.monitor_alarm_otherAlarm, "218", "268", "otherAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_device_unlock, rootElement.lang.monitor_alarm_otherAlarm, "182", null, "otherAlarm",false,false);	//1
+		this.fillObject(rootElement.lang.alarm_type_device_lock, rootElement.lang.monitor_alarm_otherAlarm,"183",null,"otherAlarm",false,false);	//1
+	}
+
+	this.fillObject(rootElement.lang.alarm_type_add_water, rootElement.lang.monitor_alarm_otherAlarm, "184", null, "otherAlarm",false,false);	//1
+	this.fillObject(rootElement.lang.alarm_type_dec_water, rootElement.lang.monitor_alarm_otherAlarm,"185",null,"otherAlarm",false,false);	//1
+	this.fillObject(rootElement.lang.net_alarm_type_tpms, rootElement.lang.monitor_alarm_otherAlarm, "239", null, "otherAlarm",false,false);	//1
+	this.fillObject(rootElement.lang.net_alarm_type_tt_abnormal, rootElement.lang.monitor_alarm_otherAlarm,"235","285","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.net_alarm_type_tc_abnormal, rootElement.lang.monitor_alarm_otherAlarm, "236", "286", "otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.net_alarm_type_ts_nosignal, rootElement.lang.monitor_alarm_otherAlarm,"237","287","otherAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.net_alarm_type_ts_lowvoltage, rootElement.lang.monitor_alarm_otherAlarm, "238", "288", "otherAlarm",false,true);	//1
+	//2017年4月26日 10:52:34新增
+	if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+		this.fillObject(rootElement.lang.other_device_error, rootElement.lang.monitor_alarm_otherAlarm, "244", "294", "otherAlarm",false,true);	//其他视频设备故障报警
+		this.fillObject(rootElement.lang.record_threshold, rootElement.lang.monitor_alarm_otherAlarm, "245", "295", "otherAlarm",false,true);	//录像阀值 
+		this.fillObject(rootElement.lang.smoke_induction_alarm,rootElement.lang.monitor_alarm_otherAlarm, "194", "195", "otherAlarm",false,true);  //烟感报警
+		this.fillObject(rootElement.lang.abnormal_drive,rootElement.lang.monitor_alarm_otherAlarm, "248", "298", "otherAlarm",false,true);  //异常驾驶
+	}
+
+	
+	
+	this.fillObject(rootElement.lang.on_the_way_offline,rootElement.lang.monitor_alarm_otherAlarm, "146", null, "otherAlarm",false,true);  //烟感报警
+	this.fillObject(rootElement.lang.unknow_vehicle,rootElement.lang.monitor_alarm_otherAlarm, "147", null, "otherAlarm",false,true);  //异常驾驶
+	if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+		this.fillObject(rootElement.lang.overload, rootElement.lang.monitor_alarm_otherAlarm,"231",null,"otherAlarm",false,true);  //超载
+	}
+	this.fillObject(rootElement.lang.people_flow,rootElement.lang.monitor_alarm_otherAlarm, "135", null, "otherAlarm",false,true);  //808客流统计
+	//司机刷卡     				442
+	this.fillObject(rootElement.lang.driver_swipe, rootElement.lang.monitor_alarm_adas, "442", "", "otherAlarm",false,true);	//1
+	//学生刷卡		443
+	this.fillObject(rootElement.lang.student_swipe, rootElement.lang.monitor_alarm_adas, "443", "", "otherAlarm",false,true);	//1
+	
+	// 临时规则报警 路单报警(中石油)
+	if(rootElement.myUserRole && rootElement.myUserRole.isZSYRoadList()){
+		this.fillObject("临时路单报警", rootElement.lang.monitor_alarm_otherAlarm,"149",null,"otherAlarm",false,true);  //超载
+	}
+	
+	//IO报警
+	this.fillObject(rootElement.lang.alarm_type_io1, rootElement.lang.alarm_type_io, "19", "69", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io2, rootElement.lang.alarm_type_io,"20","70","IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io3, rootElement.lang.alarm_type_io, "21", "71", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io4, rootElement.lang.alarm_type_io, "22", "72", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io5, rootElement.lang.alarm_type_io,"23","73","IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io6, rootElement.lang.alarm_type_io, "24", "74", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io7, rootElement.lang.alarm_type_io, "25", "75", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io8, rootElement.lang.alarm_type_io,"26","76","IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io9, rootElement.lang.alarm_type_io, "41", "91", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io10, rootElement.lang.alarm_type_io, "42", "92", "IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io11, rootElement.lang.alarm_type_io,"43","93","IOAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_io12, rootElement.lang.alarm_type_io, "44", "94", "IOAlarm",false,true);	//1
+	//围栏报警
+	this.fillObject(rootElement.lang.alarm_type_fence_in, rootElement.lang.monitor_alarm_fence, "27", "77", "fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_out, rootElement.lang.monitor_alarm_fence,"28","78","fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_in_overspeed, rootElement.lang.monitor_alarm_fence, "29", "79", "fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_out_overspeed, rootElement.lang.monitor_alarm_fence,"30","80","fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_in_lowspeed, rootElement.lang.monitor_alarm_fence, "31", "81", "fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_out_lowspeed, rootElement.lang.monitor_alarm_fence,"32","82","fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_in_stop, rootElement.lang.monitor_alarm_fence, "33", "83", "fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_fence_out_stop, rootElement.lang.monitor_alarm_fence,"34","84","fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_beyond_bounds, rootElement.lang.monitor_alarm_fence, "12", "62", "fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_regionalSpeedingAlarm, rootElement.lang.monitor_alarm_fence,"200","250","fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_outOfRegional, rootElement.lang.monitor_alarm_fence, "211", "261", "fenceAlarm", true,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_outOfLine, rootElement.lang.monitor_alarm_fence,"212","262","fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_InadequateOrTooLongRoadTravelTime, rootElement.lang.monitor_alarm_fence, "213", "263", "fenceAlarm",false,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_routeDeviation, rootElement.lang.monitor_alarm_fence,"214","264","fenceAlarm",false,true);	//1
+	
+	//ADAS报警 monitor_alarm_adas
+	//前车碰撞预警
+	this.fillObject(rootElement.lang.adas_alarm_type_frontcarcollision, rootElement.lang.monitor_alarm_adas,"400","450","adasAlarm",false,true);	//1
+	//道路偏离预警
+	this.fillObject(rootElement.lang.adas_alarm_type_lane_deviation, rootElement.lang.monitor_alarm_adas,"401","451","adasAlarm",false,true);	//1
+	//行人检测预警
+	this.fillObject(rootElement.lang.adas_alarm_type_pedestrian, rootElement.lang.monitor_alarm_adas,"402","452","adasAlarm",false,true);	//1
+	//车距近
+	this.fillObject(rootElement.lang.adas_alarm_type_shortdistance, rootElement.lang.monitor_alarm_adas,"406","456","adasAlarm",false,true);	//1
+	//急刹车
+	this.fillObject(rootElement.lang.adas_slam_brake, rootElement.lang.monitor_alarm_adas, "407", "457", "adasAlarm",false,true);	//1
+    //急左转弯
+    this.fillObject(rootElement.lang.alarm_rapid_turnleft, rootElement.lang.monitor_alarm_adas, "408", "458", "adasAlarm",false,true);	//1
+    //急右转弯
+    this.fillObject(rootElement.lang.alarm_rapid_tturnright, rootElement.lang.monitor_alarm_adas, "409", "459", "adasAlarm",false,true);	//1
+	//胎压报警(ADAS)
+	this.fillObject(rootElement.lang.tire_alarm, rootElement.lang.monitor_alarm_adas, "168", "169", "adasAlarm",false,true);	//1
+	//撞击行人 新疆定制
+//	this.fillObject(rootElement.lang.impacting_pedestrians, rootElement.lang.monitor_alarm_adas, "421", "471", "adasAlarm",false,true);	//1
+	//驾驶员遮挡或镜头偏离位置
+	this.fillObject(rootElement.lang.adas_alarm_type_lens_deviation, rootElement.lang.monitor_alarm_adas,"403","453","adasAlarm",false,true);	//1
+	//面向警示
+	this.fillObject(rootElement.lang.alarm_type_face, rootElement.lang.monitor_alarm_adas, "170", "", "adasAlarm",false,true);	//1
+	//驾驶员变更事件
+//	this.fillObject(rootElement.lang.report_driverChange, rootElement.lang.monitor_alarm_adas, "144", null, "adasAlarm",false,true);	//1
+	//道路标志识别事件
+//	this.fillObject(rootElement.lang.report_signsRecognition, rootElement.lang.monitor_alarm_adas, "141", null, "adasAlarm",false,true);	//1
+	//自动抓拍事件
+//	this.fillObject(rootElement.lang.report_autoCapture, rootElement.lang.monitor_alarm_adas, "143", null, "adasAlarm",false,true);	//1
+	//主动抓拍事件
+//	this.fillObject(rootElement.lang.report_activeCapture, rootElement.lang.monitor_alarm_adas, "142", null, "adasAlarm",false,true);	//1
+	//不系安全带
+	this.fillObject(rootElement.lang.adas_alarm_type_nobelts, rootElement.lang.monitor_alarm_adas,"404","454","adasAlarm",false,true);	//1
+	//低头
+	this.fillObject(rootElement.lang.adas_alarm_type_belowHead, rootElement.lang.monitor_alarm_adas,"410","460","adasAlarm",false,true);	//1
+	
+	//疲劳驾驶
+	this.fillObject(rootElement.lang.adas_alarm_type_fatigue_one_level, rootElement.lang.monitor_alarm_adas, "49", "", "adasAlarm",false,true);	//1
+	//左顾右盼
+	this.fillObject(rootElement.lang.adas_alarm_type_leave_driving_sight, rootElement.lang.monitor_alarm_adas, "188", "", "adasAlarm",false,true);	//1
+	//打哈欠
+	this.fillObject(rootElement.lang.adas_alarm_type_yawn, rootElement.lang.monitor_alarm_adas, "190", "", "adasAlarm",false,true);	//1
+	if(rootElement.myUserRole && !rootElement.myUserRole.isShieldReport()){
+		//手机警示
+//		this.fillObject(rootElement.lang.adas_alarm_type_call, rootElement.lang.monitor_alarm_adas, "174", "", "adasAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.adas_alarm_type_phone_warning, rootElement.lang.monitor_alarm_adas, "174", "", "adasAlarm",false,true);	//1
+		//抽烟警示
+		this.fillObject(rootElement.lang.adas_alarm_type_smoking, rootElement.lang.monitor_alarm_adas, "176", "", "adasAlarm",false,true);	//1
+	}
+	//闭眼警示
+	this.fillObject(rootElement.lang.adas_alarm_type_close_eye_warning, rootElement.lang.monitor_alarm_adas, "172", "", "adasAlarm",false,true);	//1
+	//离岗
+	this.fillObject(rootElement.lang.adas_alarm_type_out_work, rootElement.lang.monitor_alarm_adas, "186", "", "adasAlarm",false,true);	//1
+	//面部疲劳
+	this.fillObject(rootElement.lang.face_fatigue, rootElement.lang.monitor_alarm_adas, "249", "299", "adasAlarm",false,true);	//1
+	//平台报警
+	if(!this.isRemovePlatform) {
+		this.fillObject(rootElement.lang.alarm_type_areaOverSpeed_platform, rootElement.lang.monitor_alarm_platform, "300", "350", "platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_areaLowSpeed_platform, rootElement.lang.monitor_alarm_platform,"301","351","platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_areaInOut_platform, rootElement.lang.monitor_alarm_platform, "302", "352", "platformAlarm",true,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_lineInOut_platform, rootElement.lang.monitor_alarm_platform,"303","353","platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_overSpeed_platform, rootElement.lang.monitor_alarm_platform, "304", "354", "platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_lowSpeed_platform, rootElement.lang.monitor_alarm_platform,"305","355","platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_fatigue_platform, rootElement.lang.monitor_alarm_platform, "306", "356", "platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_parkTooLong_platform, rootElement.lang.monitor_alarm_platform,"307","357","platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_areaPoint_platform, rootElement.lang.monitor_alarm_platform, "308", "358", "platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_lineOverSpeed_platform, rootElement.lang.monitor_alarm_platform,"309","359","platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_lineLowSpeed_platform, rootElement.lang.monitor_alarm_platform, "310", "360", "platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.report_roadLvlOverSpeed_platform, rootElement.lang.monitor_alarm_platform,"311","361","platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.report_abnormalPosition_platform, rootElement.lang.monitor_alarm_platform,"136", null,"platformAlarm",false,true);	//1
+		this.fillObject(rootElement.lang.alarm_type_night_overSpeed_platform, rootElement.lang.monitor_alarm_platform, "314", "364", "platformAlarm",false,true);	//1
+		//夜间禁止行车 平台产生
+		this.fillObject(rootElement.lang.alarm_type_nightdriving, rootElement.lang.monitor_alarm_platform,"151","152","platformAlarm",false,true);	//1
+		//离线预警(平台产生) 		140
+		this.fillObject(rootElement.lang.vehicle_offline_alarm, rootElement.lang.monitor_alarm_platform, "140", null, "platformAlarm",false,true);	//1
+		//超时驾驶 (平台产生) 		145
+		this.fillObject(rootElement.lang.report_haiju_driver_alarm, rootElement.lang.monitor_alarm_platform, "145", null, "platformAlarm",false,true);	//1
+	}
+	
+	//主动安全设备
+	//后方接近报警
+	if(!this.isRemoveSafety){
+		this.fillObject(rootElement.lang.report_approach, rootElement.lang.monitor_alarm_safety, "633", "683", "activeSafety",false,true);	//1
+		//左侧后方接近报警
+		this.fillObject(rootElement.lang.left_rear, rootElement.lang.monitor_alarm_safety, "634", "684", "activeSafety",false,true);	//1
+		//右侧后方接近报警
+		this.fillObject(rootElement.lang.right_rear, rootElement.lang.monitor_alarm_safety, "635", "685", "activeSafety",false,true);	//1
+		//胎压报警
+		this.fillObject(rootElement.lang.net_alarm_type_sb_tpms, rootElement.lang.monitor_alarm_safety, "632", "682", "activeSafety",false,true);	//1
+		//驾驶员异常报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_abnormal, rootElement.lang.monitor_alarm_safety, "627", "677", "activeSafety",false,true);	//1
+		//驾驶员异常报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_abnormal, rootElement.lang.monitor_alarm_safety, "626", "676", "activeSafety",false,true);	//1
+		//分神驾驶报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_distracted_driving, rootElement.lang.monitor_alarm_safety, "625", "675", "activeSafety",false,true);	//1
+		//分神驾驶报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_distracted_driving, rootElement.lang.monitor_alarm_safety, "624", "674", "activeSafety",false,true);	//1
+		//分神驾驶报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_distracted_driving+"("+rootElement.lang.alarmSource_platform+")", rootElement.lang.monitor_alarm_safety, "637", "687", "activeSafety",false,true);	//1
+		//抽烟报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_smoking, rootElement.lang.monitor_alarm_safety, "623", "673", "activeSafety",false,true);	//1
+		//抽烟报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_smoking, rootElement.lang.monitor_alarm_safety, "622", "672", "activeSafety",false,true);	//1
+		//接打电话报警  2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_answer_the_call, rootElement.lang.monitor_alarm_safety, "621", "671", "activeSafety",false,true);	//1
+		//接打电话报警  1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_answer_the_call, rootElement.lang.monitor_alarm_safety, "620", "670", "activeSafety",false,true);	//1
+		//疲劳驾驶报警 2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_fatigue_driving, rootElement.lang.monitor_alarm_safety, "619", "669", "activeSafety",false,true);	//1
+		//疲劳驾驶报警 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_fatigue_driving, rootElement.lang.monitor_alarm_safety, "618", "668", "activeSafety",false,true);	//1
+		//驾驶员变更事件 2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_change, rootElement.lang.monitor_alarm_safety, "631", null, "activeSafety",false,true);	//1
+		//驾驶员变更事件 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_change, rootElement.lang.monitor_alarm_safety, "630", null, "activeSafety",false,true);	//1
+		//自动抓拍事件 2级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_auto, rootElement.lang.monitor_alarm_safety, "629", null, "activeSafety",false,true);	//1
+		//自动抓拍事件 1级 
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_auto, rootElement.lang.monitor_alarm_safety, "628", null, "activeSafety",false,true);	//1
+		//主动抓拍事件 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_active, rootElement.lang.monitor_alarm_safety, "617", null, "activeSafety",false,true);	//1
+		//主动抓拍事件 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_active, rootElement.lang.monitor_alarm_safety, "616", null, "activeSafety",false,true);	//1
+		//道路标志识别事件 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_sign, rootElement.lang.monitor_alarm_safety, "615", null, "activeSafety",false,true);	//1
+		//道路标志识别事件 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_sign, rootElement.lang.monitor_alarm_safety, "614", null, "activeSafety",false,true);	//1
+		//障碍物报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_obstacle, rootElement.lang.monitor_alarm_safety, "613", "663", "activeSafety",false,true);	//1
+		//障碍物报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_obstacle, rootElement.lang.monitor_alarm_safety, "612", "662", "activeSafety",false,true);	//1
+		//道路标识超限报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_road_marking_over_limit, rootElement.lang.monitor_alarm_safety, "611", "661", "activeSafety",false,true);	//1
+		//道路标识超限报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_road_marking_over_limit, rootElement.lang.monitor_alarm_safety, "610", "660", "activeSafety",false,true);	//1
+		//频繁变道  2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_frequent_lane_change, rootElement.lang.monitor_alarm_safety, "609", "659", "activeSafety",false,true);	//1
+		//频繁变道  1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_frequent_lane_change, rootElement.lang.monitor_alarm_safety, "608", "658", "activeSafety",false,true);	//1
+		//行人碰撞报警  2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_hit_pedestrian, rootElement.lang.monitor_alarm_safety, "607", "657", "activeSafety",false,true);	//1
+		//行人碰撞报警  1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_hit_pedestrian, rootElement.lang.monitor_alarm_safety, "606", "656", "activeSafety",false,true);	//1
+		//车距过近报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_near_car, rootElement.lang.monitor_alarm_safety, "605", "655", "activeSafety",false,true);	//1
+		//车距过近报警 1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_near_car, rootElement.lang.monitor_alarm_safety, "604", "654", "activeSafety",false,true);	//1
+		//车道偏离报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_ldw, rootElement.lang.monitor_alarm_safety, "603", "653", "activeSafety",false,true);	//1
+		//车道偏离报警1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_ldw, rootElement.lang.monitor_alarm_safety, "602", "652", "activeSafety",false,true);	//1
+		//前向碰撞报警 2级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l2_fcw, rootElement.lang.monitor_alarm_safety, "601", "651", "activeSafety",false,true);	//1
+		//前向碰撞报警1级
+		this.fillObject(rootElement.lang.net_alarm_type_sb_l1_fcw, rootElement.lang.monitor_alarm_safety, "600", "650", "activeSafety",false,true);	//1
+		//驾驶员识别报警
+		this.fillObject(rootElement.lang.net_alarm_type_sb_driver_identification, rootElement.lang.monitor_alarm_safety, "636", "686", "activeSafety",false,true);	//1
+		 if(rootElement.myUserRole && rootElement.myUserRole.isIsSunglassFailure()){ 
+			//墨镜失效一级报警   
+			this.fillObject( rootElement.lang.net_alarm_type_sb_l1_sunglass_failure, rootElement.lang.monitor_alarm_safety, "639", "689", "activeSafety",false,true);	//1
+			//墨镜失效2级报警   
+			this.fillObject( rootElement.lang.net_alarm_type_sb_l2_sunglass_failure, rootElement.lang.monitor_alarm_safety, "640", "690", "activeSafety",false,true);	//1
+		 }
+        if(!enableSubiao()){
+            //驾驶员IC卡异常报警1级
+            this.fillObject(rootElement.lang.net_alarm_type_sb_l1_driver_ic_abnormal, rootElement.lang.monitor_alarm_safety, "641", "691", "activeSafety",false,true);	//1
+            //驾驶员IC卡异常报警2级
+            this.fillObject(rootElement.lang.net_alarm_type_sb_l2_driver_ic_abnormal, rootElement.lang.monitor_alarm_safety, "642", "692", "activeSafety",false,true);	//1
+            //驾驶员身份识别事件
+            this.fillObject(rootElement.lang.net_event_type_sb_l1_driver_ident, rootElement.lang.monitor_alarm_safety, "643", null, "activeSafety",false,true);	//1
+        }
+	}
+    //GSensor启动
+    this.fillObject(rootElement.lang.alarm_GSensorStart, rootElement.lang.alarm_GSensor_type, "439", "489", "gSensor",false,true);
+    //GSensor停止
+    this.fillObject(rootElement.lang.alarm_GSensorStop, rootElement.lang.alarm_GSensor_type, "440", "490", "gSensor",false,true);
+    //GSensor侧翻
+    this.fillObject(rootElement.lang.alarm_GSensorRollOver, rootElement.lang.alarm_GSensor_type, "441", "491", "gSensor",false,true);
+    this.fillObject(rootElement.lang.alarm_type_rapidAcceleration, rootElement.lang.alarm_GSensor_type, "246", "296", "gSensor",false,true);	//1
+    this.fillObject(rootElement.lang.alarm_type_rapidDeceleration, rootElement.lang.alarm_GSensor_type, "247", "297", "gSensor",false,true);	//1
+    //碰撞侧翻
+    this.fillObject(rootElement.lang.alarm_type_rollover, rootElement.lang.alarm_GSensor_type,"219","269","gSensor",false,true);	//1
+    //急转弯
+    this.fillObject(rootElement.lang.alarm_type_sharpTurn, rootElement.lang.alarm_GSensor_type, "444", "494", "gSensor",false,true);
+	//上下线报警
+	this.fillObject(rootElement.lang.alarm_type_device_online, rootElement.lang.monitor_alarm_login, "17", null, "loginAlarm",true,true);	//1
+	this.fillObject(rootElement.lang.alarm_type_device_disOnline, rootElement.lang.monitor_alarm_login,"67",null,"loginAlarm",true,true);	//1
+	if(alarmType === 10){ //报警推送设置需要查岗、督办等自定义报警 苏标报警附件上传完成通知事件
+	//自定义报警
+		//平台查岗
+        this.fillObject(rootElement.lang.platformInspect, rootElement.lang.manage_my_government,((113<<16)+21).toString(),null,"government",false,true);	//1
+		//报警督办
+        this.fillObject(rootElement.lang.alarmSupervision, rootElement.lang.manage_my_government,((113<<16)+29).toString(),null,"government",false,true);	//1
+        //this.fillObject(rootElement.lang.alarm_type_custom_alarm, rootElement.lang.alarm_type_custom_alarm,"113",null,"customAlarm",true,true);	//1
+		this.fillObject(rootElement.lang.alarmAttachmentUploaded, rootElement.lang.alarm_type_custom_alarm,"638",null,"customAlarm",false,true);	//1
+	}
+} 
+
+/**
+ * 报警初始化数据信息
+ * @param name  报警名称
+ * @param parentName  报警父节点名称  用于联动
+ * @param armType     报警开始标识
+ * @param armEnd	报警结束标识
+ * @param classify  报警分类
+ * @param isPolice  是否警员类型
+ * @param isAlarmLinkage 是否报警联动需要的类型
+ */
+AlarmManager.prototype.fillObject = function(name,parentName,armType,armEnd,classify,isPolice,isAlarmLinkage){
+	//如果是报警联动，则只需要加载所需的报警类型
+	if((this.isAlarmLinkage && isAlarmLinkage) || !this.isAlarmLinkage) {
+		var obj = new alarmTypeObject();
+		obj.setName(name);
+		obj.setParentName(parentName);
+		obj.setArmType(armType);
+		obj.setArmEnd(armEnd);
+		obj.setClassify(classify);
+		if(isPolice != undefined && isPolice != null){
+			obj.setIsPolice(isPolice);
+		}
+		if(isAlarmLinkage != undefined && isAlarmLinkage != null){
+			obj.setAlarmLinkage(isAlarmLinkage);
+		}
+		this.addAlarmObject(obj);
+	}
+}
+
+//新增alarmObject
+AlarmManager.prototype.addAlarmObject = function(alarmObject){
+	var lstClass = this.lstAlarmClassify;
+	var classType = alarmObject.classify;
+	var isExist = true;//是否已经存在
+	if(alarmObject.isVehicle){
+		isExist = false;//默认当前数据可以新增
+		if(lstClass.length > 0){
+			for(var i = 0 ; i < lstClass.length ; i++){
+				if(lstClass[i].id == classType){
+					isExist = true;
+					break;
+				}
+			}
+		}
+	}
+	if(!isExist){
+		this.lstAlarmClassify.push({id : classType, name : alarmObject.parentName});
+	}
+	
+	var val = alarmObject.armType;
+	if(alarmObject.armEnd != null && alarmObject.armEnd != ""){
+		val +=","+alarmObject.armEnd;
+	}
+	alarmObject.realType = val;
+	this.lstAlarmTypeOjbect.push(alarmObject);
+}
+
+//初始化报警类型树
+//type  1为联动报警  2屏蔽联动
+//type  1报警类型存为开始报警类型   2报警类型存为报警开始类型,报警结束类型
+AlarmManager.prototype.initAlarmTree = function(type){
+	//加载树树
+	var that = this;
+	var alarmTree = new dhtmlXTreeObject("alarm_tree", "100%", "100%", 0);
+	alarmTree.setImagePath("../../js/dxtree/imgs/");
+	alarmTree.enableCheckBoxes(1);
+	alarmTree.enableThreeStateCheckboxes(true);
+	if(rootElement.myUserRole && rootElement.myUserRole.isPolice()) {
+		for(var i = 0 ;  i < that.lstAlarmTypeOjbect.length  ; i ++){
+			if(that.lstAlarmTypeOjbect[i].isPolice){
+				if(type == 1){
+					alarmTree.insertNewItem("0", that.lstAlarmTypeOjbect[i].armType, that.lstAlarmTypeOjbect[i].name, 0, "all_group.gif", "all_group.gif", "all_group.gif", 'SELECT');
+				}else if(type == 2){
+					alarmTree.insertNewItem("0", that.lstAlarmTypeOjbect[i].realType, that.lstAlarmTypeOjbect[i].name, 0, "all_group.gif", "all_group.gif", "all_group.gif", 'SELECT');
+				}
+			}
+		}
+	}else{
+		//保存分类
+		for(var i = 0 ;  i < that.lstAlarmClassify.length  ; i ++){
+			alarmTree.insertNewItem("0", that.lstAlarmClassify[i].id, that.lstAlarmClassify[i].name, 0, "all_group.gif", "all_group.gif", "all_group.gif", 'SELECT');
+		}
+		//保存到对应的分类里面
+		for(var j = 0 ; j < that.lstAlarmTypeOjbect.length ; j ++){
+			if(that.lstAlarmTypeOjbect[j].isVehicle){
+				if(type == 1){
+					alarmTree.insertNewItem(that.lstAlarmTypeOjbect[j].classify, that.lstAlarmTypeOjbect[j].armType, that.lstAlarmTypeOjbect[j].name, 0, "all_group.gif", "all_group.gif", "all_group.gif", 'SELECT');
+				}else if(type == 2){
+					alarmTree.insertNewItem(that.lstAlarmTypeOjbect[j].classify, that.lstAlarmTypeOjbect[j].realType, that.lstAlarmTypeOjbect[j].name, 0, "all_group.gif", "all_group.gif", "all_group.gif", 'SELECT');
+				}
+			}
+		}
+	}
+	alarmTree.closeAllItems();	
+	return alarmTree;
+};
+
+//初始化报警类型数组
+AlarmManager.prototype.initAlarmTypes = function() {
+	var that = this;
+	var  alarmTypes = [];
+	var allTypes = [];
+	if(rootElement.myUserRole && rootElement.myUserRole.isPolice()) {
+		for(var i = 0 ;  i < that.lstAlarmTypeOjbect.length  ; i ++){
+			if(that.lstAlarmTypeOjbect[i].isPolice){
+				allTypes.push(that.lstAlarmTypeOjbect[i].armType);
+			}
+		}
+		if(allTypes.length > 0){
+			alarmTypes.push({id :allTypes.join(','), name : rootElement.lang.all});
+		}
+		for(var i = 0 ;  i < that.lstAlarmTypeOjbect.length  ; i ++){
+			if(that.lstAlarmTypeOjbect[i].isPolice){
+				alarmTypes.push({id :that.lstAlarmTypeOjbect[i].armType, name : that.lstAlarmTypeOjbect[i].name});
+                that.allId.push(that.lstAlarmTypeOjbect[i].armType);
+			}
+		}
+	}else{
+		for(var i = 0 ;  i < that.lstAlarmTypeOjbect.length  ; i ++){
+			if(that.lstAlarmTypeOjbect[i].isVehicle){
+				allTypes.push(that.lstAlarmTypeOjbect[i].armType);
+			}
+		}
+		if(allTypes.length > 0){
+			alarmTypes.push({id :allTypes.join(','), name : rootElement.lang.all});
+		}
+		for(var i = 0 ;  i < that.lstAlarmTypeOjbect.length  ; i ++){
+			if(that.lstAlarmTypeOjbect[i].isVehicle){
+				alarmTypes.push({id :that.lstAlarmTypeOjbect[i].armType, name : that.lstAlarmTypeOjbect[i].name});
+				that.allId.push(that.lstAlarmTypeOjbect[i].armType);
+			}
+		}
+	}
+	return alarmTypes;
+}
+
+/**
+ * 当勾选下线报警时
+ */
+AlarmManager.prototype.addOutLineAction = function (tree) {
+	
+	// private
+	var hideVideoBus = function () {
+		$('.th-preview').parent().hide();
+		$('.th-previewChannel').parent().hide();
+		$('.th-previewTime').parent().hide();
+	}
+	
+	var showVideoBus = function () {
+		$('.th-preview').parent().show();
+		$('.th-previewChannel').parent().show();
+		$('.th-previewTime').parent().show();
+	}
+	// 处理业务
+	var dealBus = function (nodeId) {
+		if (nodeId && nodeId == 67) {
+			hideVideoBus();
+		} else {
+			showVideoBus();
+		}
+	}
+	
+	var onTreeClick = function () {
+		// 获取选中的节点
+		var nodeId = tree.getSelectedItemId();
+		// 如果只选中设备下线，则屏蔽掉视频业务
+		dealBus(nodeId);
+	}
+	
+	var onSelectFun = function () {
+		// 获取选中的节点 不包括父节点
+		var clickNode = tree.getAllChecked();
+		dealBus(clickNode);
+	}
+	
+	$('.dhx_bg_img_fix').on('click',onSelectFun);
+	
+	tree.attachEvent("onClick", onTreeClick);
+}
+
+
+/**
+ * 初始化Tab框
+ * @returns {Array}
+ */
+AlarmManager.prototype.initGroupModel = function(){
+	var mod = [];
+
+    var that = this;
+    var widths = [screenWidth/8+'px',screenWidth/8+'px',screenWidth/8+'px',screenWidth/8+'px'];
+
+    if(rootElement.myUserRole && rootElement.myUserRole.isPolice()) {
+        var name = [];
+        var display = [];
+        for(var i = 0 ;  i < that.lstAlarmTypeOjbect.length  ; i ++){
+            if(that.lstAlarmTypeOjbect[i].isPolice){
+				name.push(that.lstAlarmTypeOjbect[i].armType);
+                display.push(that.lstAlarmTypeOjbect[i].name);
+            }
+        }
+        mod.push({
+            title :{display: rootElement.lang.alarmPushConfig,pid : 0, pclass : 'clearfix',hide:false,tabshide:true},
+            colgroup:{width: widths},
+            tabs: {display: display,name: name}
+        });
+    }else{
+        for(var i = 0 ;  i < that.lstAlarmClassify.length  ; i ++){
+            var subDisplay = [];
+            var name = [];
+            var display = [];
+            subDisplay.push(that.lstAlarmClassify[i].name);
+            for(var j = 0 ; j < that.lstAlarmTypeOjbect.length ; j ++) {
+                if (that.lstAlarmTypeOjbect[j].isVehicle && that.lstAlarmTypeOjbect[j].classify == that.lstAlarmClassify[i].id) {
+                    name.push(that.lstAlarmTypeOjbect[j].armType);
+                    display.push(that.lstAlarmTypeOjbect[j].name);
+                }
+            }
+            mod.push({
+                title :{display: subDisplay,pid : that.lstAlarmClassify[i].id, pclass : 'clearfix',hide:false,tabshide:true},
+                colgroup:{width: widths},
+                tabs: {display: display,name: name}
+            });
+        }
+	}
+	return mod;
+}

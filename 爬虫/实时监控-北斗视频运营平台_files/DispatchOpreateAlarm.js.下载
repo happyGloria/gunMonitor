@@ -1,0 +1,96 @@
+
+/**
+ * 调度事件  用uuid作为id 来一条 新增一条
+ */
+function DispatchOpreateAlarm(){
+	this.alarmTableObj = null; //报警信息表格对象
+}
+
+DispatchOpreateAlarm.prototype.initialize = function(){
+	//任务汇报
+	this.initTaskAlarmTable();
+};
+
+//初始化任务汇报状态列表
+DispatchOpreateAlarm.prototype.initTaskAlarmTable = function() {
+	var myMonitorAlarm = this;
+	var buttons = [
+	       	    {separator: false, hidename: "", name: parent.lang.clear, bclass: "flexDelete",
+	       	    	bimage: "", tooltip: parent.lang.clear, id: "dispatchAlarmClear",
+	       	    	onpress: function() {
+	       	    		myMonitorAlarm.clearAlarmTableEvent();
+	       	    	}
+	       	    }
+	       	];
+	
+	this.alarmTableObj = $("#dispatchReportEventTable").flexigrid({
+		url: "",	
+		dataType: 'json',
+		colModel : [
+			{display: parent.lang.dispatcher_member_name, name : 'vehiIdno', width : 100, sortable : true, align: 'center'},
+			{display: parent.lang.call_report_group, name : 'group',  width : 200,  align: 'center'},
+			{display: parent.lang.department, name : 'department',width : 100, align: 'center'},
+			{display: parent.lang.dispatcher_time, name : 'time',  width : 120,  align: 'center'},
+			{display: parent.lang.dispatche_type, name : 'type',width : 100, align: 'center'},
+			{display: parent.lang.other_information, name : 'others',  width : 200,  align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		onChangeSort: true,
+		buttons: buttons,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	//本类对象
+	var myMonitorStatus = this;
+	this.alarmTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorStatus.fillAlarmTable(p, row, idx, index);	
+	});
+}
+
+//清空报警列表
+DispatchOpreateAlarm.prototype.clearAlarmTableEvent = function(){
+	if(this.alarmTableObj != null) {
+		this.alarmTableObj.flexClear();
+	}
+};
+
+
+
+//调度操作 报警信息
+DispatchOpreateAlarm.prototype.doRecvAlarm = function(data){
+	this.showAlarmMessage();
+	var rows = [];
+	rows.push(data);
+	this.alarmTableObj.flexAppendRowJson(rows, true);
+};
+
+DispatchOpreateAlarm.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充报警信息列表
+DispatchOpreateAlarm.prototype.fillAlarmTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var ret = "";
+	if(row[name]){
+		ret = row[name];
+	}
+	return this.getColumnTitle(ret);
+};
+
+
+//提示报警有新的报警信息
+DispatchOpreateAlarm.prototype.showAlarmMessage = function() {
+	//如果当前选择的是  GPS监控  或者 系统事件列表，当接收到报警时，需要将  报警信息字体变红，
+	//展现已经接收到了报警，及时提示用户
+	if(!$('#gps-dispatchReport').hasClass('active') || !isMinSize) {//未选中  并且非 最小化化
+		$('#gps-dispatchReport_title').css('background-color','#FF0000');
+	}
+}

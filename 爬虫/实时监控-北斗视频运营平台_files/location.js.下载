@@ -1,0 +1,3552 @@
+var vehiTree;   //车辆树
+var dispatchTree;//协同小组树
+
+var monitorStatus = null;	//车辆状态监听类，用于获取车辆实时状态
+var monitorAlarm = null;	//车辆报警监听类，用于获取车辆报警状态
+var monitorMenu = null;   //监控树右键菜单处理类
+var alarmMotion = null;  //报警联动处理类
+var monitorMedia = null; //车辆媒体文件处理类
+var paneInfo = null;	//车辆列表下方的信息面板，包括车辆信息，语音，ptz，颜色
+var monitorMapTip = null; //车辆在地图的tip处理类
+var monitorLine = null;   //监控线路处理类（公交和环卫）
+var monitorChemical = null;   //危化信息处理类
+var ttxMap = null;		//地图对象
+var mapWidth = 300;		//地图宽度
+var ttxVideo = null;
+var lang =  _getRootFrameElement().lang;
+var is_mouse_down = false;
+var src_posi_Y = 0, dest_posi_Y = 0, move_Y = 0, destHeight = 30,mapHeight;
+var currentPage = null;
+var enableFocusTree = true;
+var damageTime = 72;  //定损时长,超时小时数,可以配置
+var DEF_DAMAGE_TIME = "damageTime";
+var DEF_Request_Video = 'RequestVideo';
+var DEF_Video_Set = 'VideoSet';
+var DEF_Refresh_Interval = 'RefreshInterval';
+var DEF_Geocoder_mapType = 'geocoderMapType';
+var DEF_Alarm_Refresh_Interval = 'AlarmRefInterval';
+var refinterval = 0;
+var alarmrefinterval = 0;
+var popTipsObject = new Hashtable();//页面弹出框对象集合
+var DEF_Enable_Marker_Cluster = "EnableMarkerCluster";
+var DEF_Max_Cluster_Zoom = "MaxClusterZoom";
+var DEF_Min_Cluster_Size = "MinClusterSize";
+var isExistOpenEndHandler = false; //树列表是否存在点击节点打开子节点事件
+var allVehicles =  _getRootFrameElement().lang.policeManage ;
+var whVehicles =  _getRootFrameElement().lang.china;
+var searchDevice =	rootName =  _getRootFrameElement().lang.searchPoliceTeam;;
+var DEF_velocityType = 'velocityType';//2017/08/22 新增速度单位配置
+
+var governmentAlarm = null;
+var governmentAlarmTypes = null;
+var governmentAlarmDialog = false;//开启弹窗
+var governmentAlarmAudio = false;//开启语音
+
+
+var safetyAlarm = null;//主动安全相关的
+var monitorSafetyAlarmDialog = false;//开启弹窗
+var monitorSafetyAlarmAudio = false;//开启语音
+
+var monitorDriverEventDialog = false;//驾驶员识别事件弹窗
+
+var tastAlarm = null;
+var dispatchAlarm = null;
+var dispatchMedia = null;
+var dispatchPlay = null;
+
+var openAlram = null;
+var openStatus = null;
+$(document).ready(function () {
+	$('body').flexShowLoading(true);
+	loadReadPage();
+});
+
+function loadReadPage() {
+	if(_getRootFrameElement().realTimePage){
+		currentPage = _getRootFrameElement().realTimePage;
+	}else{
+		_getRootFrameElement().realTimePage = currentPage;
+	}
+	
+	loadLang();
+	loadPageInfo();
+	//初始化设备树下方的面板信息
+	paneInfo = new monitorPaneInfo();
+	paneInfo.initPaneInfo();
+	setPanelWidth(fixHeight);
+	//车辆媒体文件处理类
+	monitorMedia = new monitorVehicleMedia();
+	monitorMedia.initialize();
+	//车辆状态监听类
+	monitorStatus = new monitorVehicleStatus();
+	var interval = $.cookie(DEF_Refresh_Interval);
+	if(interval != null){
+		refinterval = interval * 1000;
+		monitorStatus.setFlashStatusInterval(refinterval);
+	}
+	monitorStatus.initialize();
+	//车辆报警监听类
+	monitorAlarm = new monitorVehicleAlarm();
+	var alarminterval = $.cookie(DEF_Alarm_Refresh_Interval);
+	if(alarminterval != null){
+		alarmrefinterval = alarminterval * 1000;
+		monitorAlarm.setFlashAlarmInterval(alarmrefinterval);
+	}else{
+		if(_getRootFrameElement().myUserRole.isDispatcher()){//调度用户5秒一刷新
+			monitorAlarm.setFlashAlarmInterval(5000);
+		}
+	}
+	monitorAlarm.initialize();
+	_getRootFrameElement().alarmClass = monitorAlarm;
+	//监控树右键菜单处理类
+	monitorMenu = new monitorTreeMenu();
+	monitorMenu.setRoleCls(_getRootFrameElement().myUserRole);
+	//报警联动处理类
+	alarmMotion = new vehicleAlarmMotion();
+	alarmMotion.initialize();
+	//车辆在地图的tip处理类
+	monitorMapTip = new monitorVehicleMapTip();
+	monitorMapTip.setRoleCls(_getRootFrameElement().myUserRole);
+	monitorMapTip.setMapType(_getRootFrameElement().mapTypeLoaction);
+	//中石油打卡记录
+	if(_getRootFrameElement().myUserRole.isZSYRoadList()){
+		tastAlarm = new TaskVehicleAlarm();
+		tastAlarm.initialize();
+	}
+	if(_getRootFrameElement().myUserRole.isGovernmentHandle()){
+		//政府督办
+		governmentAlarmTypes = [
+		                    	{id :1, name :  _getRootFrameElement().lang.alarm_type_overspeed},
+		                    	{id :2, name :  _getRootFrameElement().lang.alarm_type_fatigue},
+		                    	{id :3, name :  _getRootFrameElement().lang.alarm_type_emergency_alarm},
+		                    	{id :4, name :  _getRootFrameElement().lang.alarm_type_enterArea},
+		                    	{id :5, name :  _getRootFrameElement().lang.alarm_type_leaveArea},
+		                    	{id :6, name :  _getRootFrameElement().lang.alarm_type_roadBlockage},
+		                    	{id :7, name :  _getRootFrameElement().lang.alarm_type_dangerousRoad},
+		                    	{id :8, name :  _getRootFrameElement().lang.alarm_type_beyond_bounds},
+		                    	{id :9, name :  _getRootFrameElement().lang.alarm_type_burglary},
+		                    	{id :10, name :  _getRootFrameElement().lang.alarm_type_robber},
+		                    	{id :11, name :  _getRootFrameElement().lang.alarm_type_offRoute},
+		                    	{id :12, name :  _getRootFrameElement().lang.alarm_type_vehicleMove},
+		                    	{id :13, name :  _getRootFrameElement().lang.alarm_type_overtimeDriving},
+		                    	{id :14, name :  _getRootFrameElement().lang.alarm_type_other}
+		                        ];
+		governmentAlarm = new GovernmentVehicleAlarm();
+		governmentAlarm.initialize();
+	}
+	
+//	safetyAlarm = new monitorSafetyAlarm();
+//	safetyAlarm.initialize();
+	
+	//调度事件  只有调度用户才有
+	if(_getRootFrameElement().myUserRole.isDispatcher()){
+		dispatchAlarm = new DispatchOpreateAlarm();
+		dispatchAlarm.initialize();
+		dispatchMedia = new DispatchOpreateMedia();
+		dispatchMedia.initialize();
+	}
+	
+	//监控线路处理类
+	if(_getRootFrameElement().myUserRole.isManageLine()) {
+		monitorLine = new monitorVehicleLine();
+		monitorLine.setRoleCls(_getRootFrameElement().myUserRole);
+		monitorLine.initialize();
+		$('#gps-line').addClass('active').show();
+		$('#gpsLine').addClass('active');
+		$('#gps-stationReport').show();
+	}else if(_getRootFrameElement().myUserRole.isChemicals()) {//危化管理
+		monitorChemical = new monitorChemicalProcess();
+		monitorChemical.setRoleCls(_getRootFrameElement().myUserRole);
+		monitorChemical.initialize();
+		$('#gps-monitor').addClass('active');
+		$('#gpsMonitor').addClass('active');
+	}else if(_getRootFrameElement().myUserRole.isSanitationTruck()) {//环卫
+		monitorLine = new monitorHWCLine();
+		monitorLine.setRoleCls(_getRootFrameElement().myUserRole);
+		monitorLine.initialize();
+		$('#gps-line').addClass('active').show();
+		$('#gpsLine').addClass('active');
+	}else {
+		//有警员管理的权限
+		if(_getRootFrameElement().myUserRole.isPolice()) {//警员管理（康佳）
+			$('#gps-people').show();
+			$('#gps-monitor').hide();
+			$('#gps-people').removeClass().addClass("left active").show();
+			$('.gps_box #gpsPeople').removeClass().addClass("active");
+		}else{
+			if(_getRootFrameElement().myUserRole.isPoliceOperation()) {
+				$('#gps-people').show();
+			}
+			$('#gps-monitor').addClass('active');
+			$('#gpsMonitor').addClass('active');
+		}
+	}
+	
+
+	//获取地图位置中心点
+	getMapCenter();
+	//初始化地图
+	initTtxMap();
+	//初始化视频插件
+	initTtxVideo();
+	//加载车辆树
+	if(_getRootFrameElement().myUserRole.isDispatcher()){//协调小组树
+		loadUserDispatchTree();
+	}else{//组织结构树
+		loadVehiTree();
+		//非调度系统     方便调用以前的查看视频等方法 弹窗事件
+//		bindAlarmDialogEvent();
+	}
+	//获取服务器信息
+	getGatewayServer();
+	//报警联动
+	if(_getRootFrameElement().myUserRole.isAlarmLinkageSupport()) {
+		$('.icon_alarm_linkage').css('display','inline-block');
+	};
+	//报警屏蔽
+	if(_getRootFrameElement().myUserRole.isAlarmScreen()) {
+		$('.icon_alarm_mask').css('display','inline-block');
+	};
+	//物流企业状态，交通部门和交警部门显示
+	if(_getRootFrameElement().myUserRole.isChemicals() && 
+			(_getRootFrameElement().myUserRole.isAdmin() || _getRootFrameElement().myUserRole.isTrafficCompany() || 
+					_getRootFrameElement().myUserRole.isTrafficPoliceCompany())) {
+		$('.icon_company_status').css('display','inline-block');
+	}
+	
+	var src = $('.dm_map #frameMap').attr('src');
+	if(_getRootFrameElement().myUserRole && _getRootFrameElement().myUserRole.isPolice()){//警员
+		src = src +""+"&isPolice=1";
+		$('.dm_map #frameMap').attr('src',src)
+	}
+
+	//加载完成
+	$('body').flexShowLoading(false);
+	
+
+	hideIsRealVedioGps(_getRootFrameElement().myUserRole.IsRealVedioGps());
+	$('.show_page').find('div').on('click',function(){
+		  var index = $(".show_page div").index(this);
+		  if(index == 0){
+			  showMonitorPage('shipin');
+		  }else{
+			  showMonitorPage('weizhi');
+		  }
+	});
+
+}
+
+
+function hideIsRealVedioGps(show){
+	if(show) {
+		$('.show_page').show();
+	}else{
+		$('.show_page').hide();
+	}
+}
+
+
+/**
+ * 文件上报弹窗 事件绑定  占时车载系统
+ */
+function bindAlarmDialogEvent(){
+	lastRefush = true;
+	var className =	$('body',parent.document).find('#all-weizhi');
+	var h = className.height()
+    var w = className.width();
+	$('#alarm_dialog_main').css('top',h/2-351);
+	$('#alarm_dialog_main').css('left',w/2-267);
+	$('#alarm_dialog_main').css('width','100px');
+	$('#alarm_dialog_main').css('width','100px');
+	$('#alarm_dialog_main').css('position','absolute');
+	$('#alarm_dialog_main').css('background-color','aqua');
+	var mover = new Mover(document.getElementById("alarm_dialog"));
+	$('#alarm_dialog_head_close,#el-button-default').on('click',
+			function(){
+			$('#alarm_dialog_main').removeClass().addClass("hide");
+	});
+	
+	$('#el-button-submit').on('click',
+			function(){
+			$('#alarm_dialog_main').removeClass().addClass("hide");
+			$.dialog.tips("报警处理成功", 1);
+	});
+	/**
+	 * 通知上级领导
+	 */
+	$('.icon-notifyMaster').on('click',
+			function(){
+			$.dialog.tips("发送成功", 1);
+	});
+	/**
+	 * 切换操作事件
+	 * 
+	 */
+	$('.tool_tip_info>span').each(
+		function(){
+			$(this).on('click',
+					function(){
+				//自己新增  兄弟元素移除
+				$(this).addClass("active").siblings().removeClass("active");
+		});
+	});
+	var  vehIdno = null;
+	/**
+	 * 播放视频 doDbClickTreeVehi(item)
+	 */
+	$('.icon-shishishipin1').on('click',
+			function(){
+		//预览的车牌号  车载平台  直接车牌号   
+		vehIdno = $('#alarm_dialog_head_title').attr('data-id');
+		doDbClickTreeVehi(vehIdno.split('$')[0]);
+	});
+	/**
+	 * 对讲paneInfo.doTalkback(vehiIdno.toString());
+	 */
+	$('.icon-fasongxiaoxi').on('click',
+			function(){
+		vehIdno = $('#alarm_dialog_head_title').attr('data-id');
+		//预览的车牌号
+		paneInfo.doTalkback(vehIdno.split('$')[0]);
+	});
+	/**
+	 * 抓拍monitorMedia.beforeImageCapture(popId, vehiIdno.toString());
+	 */
+	$('.icon-tupianzhuapai').on('click',
+			function(){
+		vehIdno = $('#alarm_dialog_head_title').attr('data-id');
+		//预览的车牌号
+		monitorMedia.beforeImageCapture(vehIdno.split('$')[1], vehIdno.split('$')[0]);
+	});
+	/**
+	 * 下发文字
+	 */
+	$('.icon-xiaoxi1').on('click',
+			function(){
+		vehIdno = $('#alarm_dialog_head_title').attr('data-id');
+		var devIdno = "";
+		var vehicle = _getRootFrameElement().vehicleManager.getVehicle(vehIdno.split('$')[0]);
+		if (vehicle == null) {
+			return;
+		}
+		var device = vehicle.getVideoDevice();
+		if(device){
+			devIdno = device.getIdno();
+		}else{
+			device = vehicle.getGpsDevice();
+			devIdno = device.getIdno();
+		}
+		monitorMenu.issuedInformation(vehicle.getParentId(),vehIdno.split('$')[0], devIdno);
+	});
+}
+
+var lastRefush = false;//报警上来就允许更新
+function handleAlarmDialogInfos(data){
+	if(!lastRefush){
+		return;
+	}
+	var vehicle = _getRootFrameElement().vehicleManager.getVehicle(data.vehiIdno);
+	if(vehicle != null ) {
+			var position = data.position;//结束位置  纬度,经度
+			$('#alarm_dialog_head_title').text(data.vehiIdno);
+			var vehIdno =data.vehiIdno+"$"+(data.chn != undefined ?data.chn : 0); //车牌号_通道
+			$('#alarm_dialog_head_title').attr('data-id', vehIdno);
+			var  alarmTime = data.time;//endTime 默认使用结束时间报警
+			var  alarmType =  data.type;//报警类型  
+			var  driverInfo = vehicle.getVehicleDriver();//姓名+电话
+			var companyName =  data.company;;//上级公司id
+			var device = vehicle.getGpsDevice();
+			if(device){
+			}else{
+				device = vehicle.getVideoDevice();
+			}
+			var  speedStr = device.getSpeedString();//获取速度值
+			
+			var desc = "";
+			if(data.desc){
+				desc = data.desc;
+			}
+			htmlpartnt_ = '';
+			htmlpartnt_ = '<div id = "handle_alarm_detail_only"></div>';
+			$('#handle_alarm_top').empty();
+			$('#handle_alarm_top').append(htmlpartnt_);
+			alarmDialogHtml_ = '';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_alarType">'+
+				'<div id="alarm_dialog_type">'+alarmType+'</div><div id="alarm_dialog_kaoqin"></div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal>'+"公司："+'</lebal><div class="alarm_dialog_detail_info">'+companyName+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"司机："+'</lebal><div class="alarm_dialog_detail_info">'+driverInfo+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"车速："+'</lebal><div class="alarm_dialog_detail_info">'+speedStr+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"时间："+'</lebal><div class="alarm_dialog_detail_info">'+alarmTime+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"位置："+'</lebal><div class="alarm_dialog_detail_position">'+position+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"描述："+'</lebal><div class="alarm_dialog_detail_info">'+desc+'</div></div>';
+			
+			$('#handle_alarm_detail_only').empty();
+			$('#handle_alarm_detail_only').append(alarmDialogHtml_);
+			$('#alarm_dialog_main').removeClass().addClass("show");
+	}
+}
+
+
+var alarmManager_dialog = new AlarmManager();
+alarmManager_dialog.initObject();//初始化
+var armTypes_dialog = alarmManager_dialog.initAlarmTypes();
+function showAlarmDialogInfos(data){
+		if(!lastRefush){
+				return;
+			}
+	var vehicle = _getRootFrameElement().vehicleManager.getVehicle(data.vehiIdno);
+	if(vehicle != null ) {
+			var position = data.endPos;//结束位置  纬度,经度
+			if(position && position != null){
+			}else{
+				position = data.startPos;
+			}
+			var postionStr =  getPosition(position.split(',')[1], position.split(',')[0]);
+			if(postionStr && postionStr != null){
+				position = postionStr;
+			}
+			$('#alarm_dialog_head_title').text(data.vehiIdno);
+			var vehIdno =data.vehiIdno+"$"+(data.chn != undefined ?data.chn : 0); //车牌号_通道
+			$('#alarm_dialog_head_title').attr('data-id', vehIdno);
+//			var icon = vehicle.getVehicleIcon();//获取车辆图标
+			var  alarmTime = data.endTime;//endTime 默认使用结束时间报警
+			if(alarmTime && alarmTime != null){
+			}else{
+				alarmTime = data.startTime;
+			}
+			var  alarmType =  data.type;//报警类型  
+			if(alarmType && alarmType != null){
+			}else{
+				alarmType = getArrayName(armTypes_dialog, data.armType);//结束报警解析不出来
+			}
+			if(alarmType && alarmType != null &&  alarmType !=  _getRootFrameElement().lang.unknown){//未知报警类型
+			}else{
+				return;
+			}
+			
+			var  desc = "";
+			if(data.desc){
+				desc = data.desc;
+			}
+			
+			var  driverInfo = vehicle.getVehicleDriver();//姓名+电话
+			var companyName = '';//上级公司id
+			for(var i = 0; i < _getRootFrameElement().vehiGroupList.length; i++) {
+				if(_getRootFrameElement().vehiGroupList[i].id == vehicle.parentId) {
+					companyName = _getRootFrameElement().vehiGroupList[i].name;
+				}
+			}
+			var device = vehicle.getGpsDevice();
+			if(device){
+			}else{
+				device = vehicle.getVideoDevice();
+			}
+			var  speedStr = device.getSpeedString();//获取速度值
+			htmlpartnt_ = '';
+			htmlpartnt_ = '<div id = "handle_alarm_detail_only"></div>';
+			$('#handle_alarm_top').empty();
+			$('#handle_alarm_top').append(htmlpartnt_);
+			alarmDialogHtml_ = '';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_alarType">'+
+				'<div id="alarm_dialog_type">'+alarmType+'</div><div id="alarm_dialog_kaoqin"></div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal>'+"公司："+'</lebal><div class="alarm_dialog_detail_info">'+companyName+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"司机："+'</lebal><div class="alarm_dialog_detail_info">'+driverInfo+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"车速："+'</lebal><div class="alarm_dialog_detail_info">'+speedStr+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"时间："+'</lebal><div class="alarm_dialog_detail_info">'+alarmTime+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"位置："+'</lebal><div class="alarm_dialog_detail_position">'+position+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_only">'+
+			'<lebal >'+"描述："+'</lebal><div class="alarm_dialog_detail_info">'+desc+'</div></div>';
+			
+			
+			$('#handle_alarm_detail_only').empty();
+			$('#handle_alarm_detail_only').append(alarmDialogHtml_);
+			needUpdateHtml_ = [];
+			needUpdateHtml_.push({'id':'handle_alarm_detail_only','name':htmlpartnt_});
+			needUpdateHtml_.push({'id':'0','name':alarmDialogHtml_});
+			_getRootFrameElement().htmlDialogParent_.info = needUpdateHtml_;
+			_getRootFrameElement().htmlDialogParent_.vehicle = data.vehiIdno;
+			$('#alarm_dialog_main').removeClass().addClass("show");
+	}
+}
+
+
+var  needUpdateHtml_ = [];
+/**
+ * 获取经纬度转码后的数据
+ * @param jingDu
+ * @param weiDu
+ * @returns
+ */
+function getPosition(jingDu, weiDu){
+	var  toMapType =  _getRootFrameElement().toMap;
+	if(_getRootFrameElement().toMapLoaction != null){
+		toMapType =  _getRootFrameElement().toMapLoaction;
+	}
+	var position = ttxMap.getGeoAddress(jingDu, weiDu, toMapType);
+	if(position != null && position.address != null) {
+		return position.address;
+	}else{
+		var	key =	jingDu + "-" + weiDu+"-"+toMapType;
+		$('.alarm_dialog_detail_position').attr('data-id',key);
+		var userDate = {};
+		userDate.mapType = toMapType;
+		ttxMap.geocoderAddress(key, jingDu, weiDu, updateDialogPosition, userDate);
+		return null;
+	}
+}
+
+function updateDialogPosition(key, jingDu, weiDu, address, city){
+	var key =	$('.alarm_dialog_detail_position').attr('data-id');
+	var curKey = jingDu + "-" + weiDu;
+	if(address && key == curKey){//更新
+		$('.alarm_dialog_detail_position').text(address);
+	}
+}
+
+
+function getMediaData(index){
+	var data = monitorMedia.mediaListAlarm.get(Number(index));
+	if(data){
+		var type = 0;
+		if(data.stType){
+			type = data.stType;
+		}
+		showAlarmDialogDetail(data, type);
+	}
+}
+
+
+
+/**
+ * 显示具体信息 // 包含媒体文件的
+ * @param data
+ */
+var alarmDialogHtml_ = '';
+var alarmDialogMediaHtml_ = '';
+var htmlpartnt_  = '';
+var  vedioSrc_ = '';
+function showAlarmDialogDetail(data, type){
+		if(!lastRefush){
+			return;
+		}	
+		if(data && data.recType == 1){//报警才弹窗 常规不弹窗
+		var vehicle = _getRootFrameElement().vehicleManager.getVehicle(data.vehiIdno);
+		if(vehicle != null ) {
+			var position = data.endPos;//结束位置  纬度,经度
+			var postionStr =  getPosition(position.split(',')[1], position.split(',')[0]);
+			if(postionStr && postionStr != null){
+				position = postionStr;
+			}
+			htmlpartnt_ = '';
+			htmlpartnt_ = '<div id = "handle_alarm_media_infos"></div><div id = "handle_alarm_detail_infos"></div>';
+			$('#handle_alarm_top').empty();
+			$('#handle_alarm_top').append(htmlpartnt_);
+			alarmDialogHtml_ = "";
+			alarmDialogMediaHtml_ = '';
+			
+			$('#alarm_dialog_head_title').text(data.vehiIdno);
+			var vehIdno =data.vehiIdno+"$"+(data.chn != undefined ?data.chn : 0); //车牌号_通道
+			$('#alarm_dialog_head_title').attr('data-id', vehIdno);
+//			var icon = vehicle.getVehicleIcon();//获取车辆图标
+			var  alarmTime = data.endTime;//endTime 默认使用结束时间报警
+			if(alarmTime && alarmTime != null){
+			}else{
+				alarmTime = data.bgTime;
+			}
+			var  driverInfo = vehicle.getVehicleDriver();//姓名+电话
+			var companyName = "";//上级公司id
+			for(var i = 0; i < _getRootFrameElement().vehiGroupList.length; i++) {
+				if(_getRootFrameElement().vehiGroupList[i].id == vehicle.parentId) {
+					companyName = _getRootFrameElement().vehiGroupList[i].name;
+				}
+			}
+			var device = vehicle.getGpsDevice();
+			if(device){
+			}else{
+				device = vehicle.getVideoDevice();
+			}
+			var  speedStr = device.getSpeedString();//获取速度值
+			var desc = "";
+			if(data.desc){
+				desc = data.desc;
+			}
+			var alarmType = getArrayName(armTypes_dialog, type);//结束报警解析不出来
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_alarType">'+
+				'<div id="alarm_dialog_type">'+alarmType+'</div><div id="alarm_dialog_kaoqin"></div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_head">'+
+			'<lebal>'+"公司："+'</lebal><div id="alarm_dialog_detail_info">'+companyName+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_head">'+
+			'<lebal >'+"司机："+'</lebal><div id="alarm_dialog_detail_info">'+driverInfo+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_head">'+
+			'<lebal >'+"车速："+'</lebal><div id="alarm_dialog_detail_info">'+speedStr+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_head">'+
+			'<lebal >'+"时间："+'</lebal><div id="alarm_dialog_detail_info">'+alarmTime+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_head">'+
+			'<lebal >'+"位置："+'</lebal><div class="alarm_dialog_detail_position">'+position+'</div></div>';
+			alarmDialogHtml_ += '<div class="alarm_dialog_info_head">'+
+			'<lebal >'+"描述："+'</lebal><div class="alarm_dialog_detail_info">'+desc+'</div></div>';
+			
+			$('#handle_alarm_detail_infos').empty();
+			$('#handle_alarm_detail_infos').append(alarmDialogHtml_);
+			
+			//添加到表格中  用于下载文件
+			var media = {};
+			media.vehiIdno = vehicle.getIdno(); //车牌号
+			media.devIdno = data.idno; //设备号
+			media.time = data.time; //下载完成时间
+			media.srcType = data.srcType; //1是图片，2是录像 ，3音频
+			media.chn = data.chn != undefined ?data.chn : 0 ;  //通道
+			if(vehicle.channels != null && vehicle.channels.length > 0) {
+				media.channel = getChnName(vehicle.channels, media.chn);
+			}else {
+				media.channel = 'CH'+(Number(media.chn) + 1);
+			}
+			media.recType = data.recType; //1表示报警，2还是常规
+			media.len = data.size; //文件大小
+			media.loc = data.loc;//存储位置 2存储服务器 4下载服务器
+			media.file = data.src;  //路径
+			media.res = data.res;  //录像时长
+			media.bgTime = data.bgTime;  //录像开始时间
+			media.svr = data.svr;  //服务器ID
+			media.status =  _getRootFrameElement().lang.downloaded; //已下载
+			if(media.srcType == 2) {
+				media.isMedia = true; //是否是下载的媒体文件
+			} else {
+				media.isMedia = false; //是否是下载的媒体文件
+			}
+			media.endTime = dateTime2TimeString(dateStrLongTime2Date(media.bgTime).getTime() + media.res * 1000);
+			media.beg = shortHour2Second(media.bgTime.substring(11, 19));
+			media.end = media.beg + media.res;
+			if(Number(media.bgTime.substring(8, 10)) != Number(media.endTime.substring(8, 10))) {
+				media.fileTime = media.bgTime + ' - ' + media.endTime;
+			}else {
+				media.fileTime = media.bgTime + ' - ' + media.endTime.substring(11, 19);
+			}
+			if(data.srcType == 2){//2是录像
+				//获取视频文件播放的服务器信息,然后播放
+				//获取视频文件播放的服务器信息,成功后回放视频文件信息
+				doReplayVehicleServerNew(media);
+			    alarmDialogMediaHtml_  +=  '<video  width="260"  id ="dialog_media" height="210" autoplay = "autoplay" controls autobuffer>'+
+			    	'<source  src=\"'+vedioSrc_+'\"  type="video/mp4">'+
+			    '</video>';
+			}else{//1是图片 ，3音频
+				var src =	doImagesSrc(media)
+				alarmDialogMediaHtml_ += '<img width="260" height="210"  src=\''+src+'\' />';
+			}
+			$('#handle_alarm_media_infos').empty();
+			$('#handle_alarm_media_infos').append(alarmDialogMediaHtml_);
+			needUpdateHtml_ = [];
+			needUpdateHtml_.push({'id':'handle_alarm_detail_infos,handle_alarm_media_infos','name':htmlpartnt_});
+			needUpdateHtml_.push({'id':'0','name':alarmDialogHtml_});
+			needUpdateHtml_.push({'id':'1','name':alarmDialogMediaHtml_});
+			_getRootFrameElement().htmlDialogParent_.info = needUpdateHtml_;
+			_getRootFrameElement().htmlDialogParent_.vehicle = data.vehiIdno;
+			_getRootFrameElement().htmlDialogParent_.srcType = data.srcType;//视频还是文件
+			$('#alarm_dialog_main').removeClass().addClass("show");
+		}
+	}
+}
+
+//获取通道名称
+function getChnName(channels, chn) {
+	if(channels != null && channels.length > 0) {
+		for (var i = 0; i < channels.length; i++) {
+			if(channels[i].index == chn) {
+				return channels[i].name;
+			}
+		}
+	}
+	return "CH"+(Number(chn)+1);
+}
+
+
+function doImagesSrc(image){
+	if(image.baseAlarm && (image.baseAlarm == 146 || image.baseAlarm == 147)){
+		var offset = 0;
+		var length = 0;
+		if(image.offset){
+			offset = image.offset;
+		}
+		if(image.len){
+			length = image.len;
+		}
+		return  "StandardReportMediaAction_getImage.action?filePath=" 
+		+ encodeURI(encodeURI(image.file)) + "&fileOffset=" + offset + "&fileSize=" +  length;
+	}
+	var src = 'StandardTTSAction_addImage.action';
+	src += '?FLENGTH='+ image.length;
+	src += '&FOFFSET='+ image.offset;
+	src += '&FPATH=' + encodeURI(encodeURI(image.file));
+	src += '&MTYPE=1';
+	if(!isBrowseFirefox() && !isBrowseSafari()) {
+		var saveName = image.vehiIdno+ '_' + image.channel + '_' + image.time.replaceAll('-','').replaceAll(':','').replaceAll(' ','');
+		src += "&SAVENAME="+ encodeURI(saveName);
+	}else {
+		var saveName = image.devIdno+ '_' + image.channel + '_' + image.time.replaceAll('-','').replaceAll(':','').replaceAll(' ','');
+		src += "&SAVENAME="+ encodeURI(saveName);
+	}
+	return src;
+}
+
+
+function doReplayVehicleServerNew(fileInfo){
+	if(fileInfo.baseAlarm && (fileInfo.baseAlarm == 146 || fileInfo.baseAlarm == 147)){
+		vedioSrc_ =  "StandardVideoTrackAction_downLoad.action?isTure=1&path=" + encodeURI(encodeURI(fileInfo.file));
+		return;
+	}
+	//获取之前先取消上次的请求
+	if(this.ajaxDownloadVehicleServerObj != null) {
+		this.ajaxDownloadVehicleServerObj.abort();
+	}
+	var param = {};
+	if(fileInfo.loc == 1) {
+		param.did = fileInfo.devIdno;
+	}else {
+		param.did = fileInfo.vehiIdno;
+	}
+	param.loc = fileInfo.loc;
+	param.ftp = fileInfo.svr; //
+	//数据库取实时服务器信息
+	$.myajax.showLoading(true,  _getRootFrameElement().lang.findDownloadAddress);
+	this.ajaxDownloadVehicleServerObj = monitorMedia.doAjaxSubmit('StandardVideoTrackAction_queryDownloadServer.action', param, function(server) {
+		doDownloadVideoFileInfoNew(fileInfo, server);
+	});
+}
+//下载视频文件信息  存在异步过程
+function doDownloadVideoFileInfoNew(fileInfo, dwServer) {
+	var devIdno = fileInfo.devIdno;
+	if(fileInfo.loc != 1) {
+		devIdno = fileInfo.vehiIdno;
+	}
+	
+	var url = "StandardTTSAction_doDownloadVideoFileInfo.action";
+	url += "?DevIDNO="+ devIdno;
+	url += "&ip="+ dwServer.ip;
+	url += "&port="+ dwServer.port;
+	url += "&FLENGTH="+ fileInfo.len;
+	url += "&FOFFSET=0";
+	url += "&MTYPE=1";
+	url += "&FPATH="+ encodeURI(encodeURI(fileInfo.file));
+	var paths = fileInfo.file.split('/');
+	if (paths.length == 1) {
+		paths = fileInfo.file.split('\\');
+	}
+	if(!isBrowseFirefox() && !isBrowseSafari()) {
+		var saveName = fileInfo.vehiIdno + "-" + paths[paths.length - 1];
+		url += "&SAVENAME="+ encodeURI(saveName);
+	}else {
+		url += "&SAVENAME="+ encodeURI(paths[paths.length - 1]);
+	}
+	vedioSrc_ = url;
+    document.getElementById("dialog_media").src= url;
+    document.getElementById("dialog_media").play();
+    alarmDialogMediaHtml_ 	= '';
+    alarmDialogMediaHtml_  +=  '<video  width="260"  id ="dialog_media" height="210" autoplay = "autoplay" controls autobuffer>'+
+	'<source  src=\"'+url+'\"  type="video/mp4">'+
+	'</video>';
+}
+
+
+
+function fillDispatcherAlarm(data){
+	if(data.flush){
+		var func = loadUserDispatchTree;
+		_getRootFrameElement().getUserDispatchGroup(func);	
+	}
+	dispatchAlarm.doRecvAlarm(data);
+}
+
+function loadLang() {
+	//单警员系统 隐藏介质报警
+	if(_getRootFrameElement().myUserRole.isPolice()){
+		$('#gps-storage .storage-alarm').hide();
+	}
+	if(_getRootFrameElement().myUserRole.isZSYRoadList()){
+		$('#gps-taskReport').show();
+		$('#gps-taskReport_title').text( _getRootFrameElement().lang.task_submit);
+	}
+	
+	if(_getRootFrameElement().myUserRole.isDispatcher()){
+		$('#gps-dispatchReport_title').text( _getRootFrameElement().lang.dispatch_event_report);
+		$('#gps-dispatchMedia_title').text( _getRootFrameElement().lang.vehicle_alarmaction_audioFile);
+		$('#icon_dispatch_play').show();
+		$('#gps-dispatchReport').show();
+		$('#gps-dispatchMedia').show();
+	}
+	
+	$('#vehiIdnoOnTree').attr('placeholder',searchDevice);
+	$('#memberOnTree').attr('placeholder',searchDevice);
+	
+	$('#vehicleTreeTip').text( _getRootFrameElement().lang.vehicle_tree_title);
+	$('#dispatchTreeTip').text( _getRootFrameElement().lang.dispatch_tree_title);
+	
+	$('#gps_line_title').text( _getRootFrameElement().lang.monitor_lineMonitor);
+	$('#gps_monitor_title').text( _getRootFrameElement().lang.monitor_gpsMonitor);
+	
+	$('#gps_people_title').text( _getRootFrameElement().lang.policeVideoManage);
+	
+	$('#gps_alarm_title').text( _getRootFrameElement().lang.monitor_alarmInfo);
+	$('#gps_mediaFiles_title').text( _getRootFrameElement().lang.monitor_mediaFiles);
+	$('#gps_system_title').text( _getRootFrameElement().lang.monitor_systemEvent);
+	$('#gps_stationReport_title').text( _getRootFrameElement().lang.monitor_stationReport);
+	
+	if(_getRootFrameElement().myUserRole.isGovernmentHandle()){
+		$('#gps-government').show();
+		$('#gps_government_title').text("上级监管平台");
+	}
+	//$('#gps_safetyAlarm_title').text("主动安全报警");
+	$('#show_page_vedio span').text(_getRootFrameElement().lang.vedio_page);
+	$('#show_page_gps span').text(_getRootFrameElement().lang.map_page);
+	
+	
+//	$('#gps-status .status-monitor .status-title').text( _getRootFrameElement().lang.monitor_labelMonitor);
+//	$('#gps-status .status-online .status-title').text( _getRootFrameElement().lang.monitor_labelOnline);
+//	$('#gps-status .status-alarm .status-title').text( _getRootFrameElement().lang.monitor_labelAlarm);
+//	$('#gps-status .status-offline .status-title').text( _getRootFrameElement().lang.monitor_labelOffline);
+//	$('#gps-status .status-parking .status-title').text( _getRootFrameElement().lang.monitor_labelParking);
+//	$('#gps-status .status-parked .status-title').text( _getRootFrameElement().lang.monitor_labelParked);
+//	$('#gps-status .status-invalid .status-title').text( _getRootFrameElement().lang.monitor_labelInvalid);
+	$('#gps-storage .storage-alarm .status-title').text( _getRootFrameElement().lang.monitor_labelStorageAlarm);
+
+	$('#gps-storage .storage-online .status-title').text( _getRootFrameElement().lang.monitor_labelStorageOnline);
+	$('#gps-storage .storage-damage .status-title').text( _getRootFrameElement().lang.monitor_labelStorageDamage);
+	$('#gps-storage .storage-all .status-title').text( _getRootFrameElement().lang.monitor_labelStorageAll);
+	$('#gps-storage .storage-onlinerates .status-title').text( _getRootFrameElement().lang.monitor_labelStorageOnlineRates);
+	$('#gps-storage .storage-damagerates .status-title').text( _getRootFrameElement().lang.monitor_labelStorageDamageRates);
+	
+	$('.onlineMarkSpan').text( _getRootFrameElement().lang.monitor_vehicle_online);
+	$('.alarmMarkSpan').text( _getRootFrameElement().lang.monitor_vehicle_alarm);
+	$('.offlineMarkSpan').text( _getRootFrameElement().lang.monitor_vehicle_offline);
+	
+	//单警员系统
+	if(!_getRootFrameElement().myUserRole.isPolice()){
+		$('.parkingMarkSpan').text( _getRootFrameElement().lang.monitor_vehicle_parking);
+	}else{
+		$('#gps-storage .storage-damage').hide();
+		$('#gps-storage .storage-damagerates').hide();
+		$('.parkingMarkSpan').parent().hide();
+	}
+	
+	$('.parkedMarkSpan').text( _getRootFrameElement().lang.monitor_vehicle_parked);
+	
+	$('.invalidMarkSpan').text( _getRootFrameElement().lang.monitor_vehicle_invalid);
+}
+
+
+
+
+function closeWin(){
+	$.dialog({id:'sendDispacthInfo'}).close();
+}
+
+function loadPageInfo() {
+	 //pz是车辆列表工具栏的左边参数操作按钮，dh_tips是车辆列表工具栏右边的提示按钮
+	 $(".pz,.dh_tips").hover(
+	 	function(){
+			$(this).find("ul").show();
+			},
+		function(){
+			$(this).find("ul").hide();
+	 });
+	//so是车辆列表工具栏的搜索弹出框
+	 $(".so").hover(
+	 	function(){
+			$(this).find(".so_box").show();
+			},
+		function(){
+			$(this).find(".so_box").hide();
+	});
+	 
+	//pro_list 车辆列表
+	//d_main 主界面
+	//slider_btn 车辆列表的展开和伸缩按钮
+	//左侧隐藏显示
+	$(".slider_btn").click(function(){
+		if( (typeof($(".slider_btn").attr("rel"))=="undefined") ){
+			$(".pro_list").css("left","-262px");	
+			$(".d_main").css("marginLeft","0");
+			$(".slider_btn").attr("rel","1");
+			$(this).find("i").removeClass("icon_side").addClass("icon_side_right");
+		}else{
+			$(".pro_list").css("left","0px");
+			$(".d_main").css("marginLeft","262px");
+			$(".slider_btn").removeAttr("rel");
+			$(this).find("i").removeClass("icon_side_right").addClass("icon_side");
+		}
+	});
+	$(".slider_btn").attr("display","none");
+	//slider_btn_right 视频界面的展开和收缩按钮
+	//dm_map 地图窗口
+	//dm_video 视频窗口
+	//右侧隐藏显示
+	$(".slider_btn_right").click(function(){
+		if( (typeof($(".slider_btn_right").attr("rel"))=="undefined") ){
+			var right = (mapWidth * -1 );
+			$(".dm_map").css("right", right + "px");
+			$(".dm_video").css("marginRight","0");
+			$(".slider_btn_right").attr("rel","1");
+			$(this).find("i").removeClass("icon_side_right").addClass("icon_side_left");
+		}else{
+			$(".dm_map").css("right","0px");
+			$(".dm_video").css("marginRight", mapWidth + "px");
+			$(".slider_btn_right").removeAttr("rel");
+			$(this).find("i").removeClass("icon_side_left").addClass("icon_side_right");
+		}
+	});
+	//位置定位拖动高度
+    $(".map_drag_box").mousedown(function(e){
+        src_posi_Y = e.pageY;
+        is_mouse_down = true;
+        $('#mapMoveDiv').show();
+    });
+    $(document).bind("click mouseup",function(e){
+    	ttxMapDocumentMouseClick();
+    }).mousemove(function(e){
+    	ttxMapDocumentMouseMove(e);
+    });
+    $('#dispatch_group').hide();
+    
+    
+    if(_getRootFrameElement().myUserRole.isDispatcher()){//调度员账号
+    	$('#dispatch_group').show();
+//    	进入、强拉，强拆、离开、消息（群发）
+    	var buttons = '';
+    	if(_getRootFrameElement().myUserRole.isChangeGroup()){
+    		buttons += '<button  type="button"  class="memberIn normal"  id="memberIn" title = '+ _getRootFrameElement().lang.dispatch_op_in+'></button>'; //isChangeGroup
+    		buttons += '<button  type="button"  class="memberLeave normal" id="memberLeave" title = '+ _getRootFrameElement().lang.dispatch_op_out+'></button>'; //isChangeGroup
+    	}
+    	if(_getRootFrameElement().myUserRole.isTTSSupport()){
+    		buttons += '<button  type="button" class="sendMessage normal"  id="sendMessage"  title = '+ _getRootFrameElement().lang.dispatch_op_message+'></button>'; //isChangeGroup
+    	}
+    	
+    	if(_getRootFrameElement().myUserRole.isDispatchPush()){
+    		buttons += '<button  type="button"  class="memberPush normal"  id="memberPush"  title = '+ _getRootFrameElement().lang.dispatch_op_push+'></button>'; //isChangeGroup
+    	}
+    	
+    	if(_getRootFrameElement().myUserRole.isDispatchPop()){
+    		buttons += '<button  type="button" class="memberPop normal" id="memberPop"  title = '+ _getRootFrameElement().lang.dispatch_op_pop+'></button>'; //isChangeGroup
+    	}
+     	buttons += '<button  type="button"  class="refulshGroup normal"  id="refulshGroup"  title = '+ _getRootFrameElement().lang.refresh+'></button>'; //isChangeGroup
+    	$("#dispatch_group_tool").append(buttons);
+    	
+     	$("#dispatch_group_tool #refulshGroup").click(function (){
+    		var func = loadUserDispatchTree;
+    		_getRootFrameElement().getUserDispatchGroup(func);
+    	});
+     	var buttons1
+     	buttons1 = '<button  type="button" class = "broadcast"  style="width:60px;margin-top:7px; height:60px;border:0; background:url(\'image/ptt/dlg_ptt_groupcall_normal.jpg\') no-repeat left top"    title = '+ _getRootFrameElement().lang.dispatch_op_pop+'></button>'; //isChangeGroup
+     	buttons1 += '<button  type="button" class = "soundrecord"   style="width:60px; margin-left: 10px;margin-top:7px;height:60px;border:0; background:url(\'image/ptt/dlg_ptt_recording_normal.jpg\') no-repeat left top"    title = '+ _getRootFrameElement().lang.refresh+'></button>'; //isChangeGroup
+    	$("#dispatch_group_tool1").append(buttons1);
+    	
+    	$('.broadcast').hide();
+    	
+    	
+    	$("#dispatch_group_tool #sendMessage").click(function (){
+    		if(dispatchTree){
+    			var item = dispatchTree.getSelectedItemId();//1$vehidno //协同小组$人员设备号
+    			var type = 1;// 1 小组节点   2 成员节点
+    			var id = 0;
+    			var sendUser = _getRootFrameElement().loginAccount;//当前登录调度员账号   车辆号 设备号完全一致
+    			var groupId  = Number(item.split('_')[1]); //'0'  位最高级 
+    			var selectName = '';
+				if(dispatchTree.isMemberItem(item)){//协同小组人员 判断是否在线
+					id  = item.split('$')[1];//当前调度员  车牌号和设备号完全相同的
+					type = 2;
+					selectName = _getRootFrameElement().lang.group_member_dev+"： "+id;//调度终端 车牌号
+					var vehicle = _getRootFrameElement().vehicleManager.getVehicle(id);//判断车辆是否在线
+					if(!vehicle.isOnline()){//车辆不在线
+						$.dialog.tips( _getRootFrameElement().lang.select_member_online, 1);
+						return;
+					}
+					id = _getRootFrameElement().allDevMapId.get(id);
+				}else if(dispatchTree.isGroupItem(item) && groupId){//非最高级的小组节点
+					var group = _getRootFrameElement().vehicleManager.getDispatch(groupId);//得到选择的群组
+					id = groupId;
+					selectName = _getRootFrameElement().lang.dispatcher_report_group+group.name;//小组名称
+				}else{
+					$.dialog.tips( _getRootFrameElement().lang.select_member_group, 1);
+					return;
+				}
+    			var url = 'url:LocationManagement/sendMessageDispatch.html?type='+type+'&sendUser='+sendUser+'&id='+id;
+    			$.dialog({id:'sendDispacthInfo', title: selectName, content: url,
+    				width: '446px', height: '480px', min:true, max:false, lock:true,fixed:false,
+    				resize:false/*, parent:api*/});
+    		}
+    	});
+    	if(_getRootFrameElement().myUserRole.isDispatchPop()){
+    	  	//强拆
+    		$("#dispatch_group_tool #memberPop").click(function (){
+				if(dispatchTree){
+					var item = dispatchTree.getSelectedItemId();//1$vehidno //协同小组$人员设备号
+					if(dispatchTree.isMemberItem(item)){//协同小组人员
+						var action = 'StandardCooperateAction_memberPop.action';
+	    				var data = {};
+	    				data.groupId = item.split('$')[0];//协同小组id
+	    				data.vehIdno = item.split('$')[1];//当前调度员编号 
+	    				dispatchOperation(action, data);//重新刷新来代替 button启用禁用
+					}else{
+						$.dialog.tips( _getRootFrameElement().lang.select_member_tip, 1);
+					}
+				}
+        	});
+    	}
+    	if(_getRootFrameElement().myUserRole.isDispatchPush()){
+    		//强拉
+        	$("#dispatch_group_tool #memberPush").click(function (){
+    			if(dispatchTree){
+    				var item = dispatchTree.getSelectedItemId();//1$vehidno //协同小组$人员设备号
+    				if(dispatchTree.isMemberItem(item)){//协同小组人员
+    					var action = 'StandardCooperateAction_memberPush.action';
+        				var data = {};
+        				data.groupId = item.split('$')[0];//协同小组id
+        				data.vehIdno = item.split('$')[1];//当前调度员编号 
+        				dispatchOperation(action, data);
+    				}else{
+    					$.dialog.tips( _getRootFrameElement().lang.select_member_tip, 1);
+    				}
+    			}
+        	});
+    	}
+    	if(_getRootFrameElement().myUserRole.isChangeGroup()){
+    		//进入
+        	$("#dispatch_group_tool #memberIn").click(function (){
+        			if(dispatchTree){
+        				var item = dispatchTree.getSelectedItemId();//*_id //协同小组id
+        				var groupId  = Number(item.split('_')[1]); //'0'  位最高级 
+        				if(dispatchTree.isGroupItem(item) && groupId){//协同小组
+        					var action = 'StandardCooperateAction_memberIn.action';
+            				var data = {};
+            				data.groupId = groupId;//协同小组id
+            				data.vehIdno = GetCookie('account');//当前调度员编号   当前用户
+            				dispatchOperation(action, data);
+        				}else{
+        					$.dialog.tips( _getRootFrameElement().lang.select_group_tip, 1);
+        				}
+        			}
+        	});
+        	//离开
+        	$("#dispatch_group_tool #memberLeave").click(function (){
+    			if(dispatchTree){
+    				var item = dispatchTree.getSelectedItemId();//*_id //协同小组id
+    				var groupId  = Number(item.split('_')[1]); //'0'  位最高级 
+    				if(dispatchTree.isGroupItem(item) && groupId){//协同小组
+    					var action = 'StandardCooperateAction_memberOut.action';
+        				var data = {};
+        				data.groupId = groupId;//协同小组id
+        				data.vehIdno = GetCookie('account');//当前调度员编号 
+        				dispatchOperation(action, data);
+    				}else{
+    					$.dialog.tips( _getRootFrameElement().lang.select_group_tip, 1);
+    				}
+    			}
+        	});
+    	}
+    }
+	//列表缩小，放大
+	$(".min_s").click(function(){
+		$('.gps_box').show();
+		if($(this).hasClass("icon_s")){
+			$(".map_action").css("height",$(window).height() - 38 < 59 ? $(window).height() - 38 : 59);
+			$(".dm_video").height($(window).height() - $('.map_action').height());
+			$(".dm_map").height($(window).height() - $('.map_action').height());
+			$(".dm_line").height($(window).height() - $('.map_action').height());
+			$('.gps_box .flexigrid').each(function() {
+				$(this).height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('#gps-storage').height());
+				$(this).find(".bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+			});
+			$(this).removeClass("icon_s").addClass("icon_s_re");//最小化
+			$(".min_big").removeClass("icon_s_re").addClass("icon_big");
+			setTooltip('.icon_s_re',  _getRootFrameElement().lang.window_windowing);
+			setTooltip('.icon_big',  _getRootFrameElement().lang.window_maximize);
+			isMinSize = false;
+		}else{
+			$(".map_action").css("height",$(window).height() - 38 > 260 ? 260 : $(window).height() - 38);
+			$(".dm_video").height($(window).height() - $('.map_action').height());
+			$(".dm_map").height($(window).height() - $('.map_action').height());
+			$(".dm_line").height($(window).height() - $('.map_action').height());
+			$('.gps_box .flexigrid').each(function() {
+				$(this).height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('#gps-storage').height());
+				$(this).find(".bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+			});
+			$(this).removeClass("icon_s_re").addClass("icon_s");
+			setTooltip('.icon_s',  _getRootFrameElement().lang.window_minimum);
+			isMinSize = true;
+		}
+		$('#mapMoveDiv').css("height",$(".map_action").height());
+		$('#mapMoveDiv').css("top",$(window).height() - $(".map_action").height());
+		fixHeight();
+	});
+	//列表最大化
+	$(".min_big").click(function(){
+		$('.gps_box').show();
+		if($(this).hasClass("icon_s_re")){
+			$(".map_action").css("height",$(window).height() - 38 > 260 ? 260 : $(window).height() - 38);
+			$(".dm_video").height($(window).height() - $('.map_action').height());
+			$(".dm_map").height($(window).height() - $('.map_action').height());
+			$(".dm_line").height($(window).height() - $('.map_action').height());
+			$('.gps_box .flexigrid').each(function() {
+				$(this).height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('#gps-storage').height());
+				$(this).find(".bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+			});
+			$(this).removeClass("icon_s_re").addClass("icon_big");
+			$(".min_s").removeClass("icon_s_re").addClass("icon_s");
+			setTooltip('.icon_big',  _getRootFrameElement().lang.window_maximize);
+		}else {
+			$(".map_action").css("height",$(window).height());
+			$(".dm_video").height($(window).height() - $('.map_action').height());
+			$(".dm_map").height($(window).height() - $('.map_action').height());
+			$(".dm_line").height($(window).height() - $('.map_action').height());
+			$('.gps_box .flexigrid').each(function() {
+				$(this).height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('#gps-storage').height());
+				$(this).find(".bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+			});
+			$(".min_s").removeClass("icon_s_re").addClass("icon_s");
+			$(this).removeClass("icon_big").addClass("icon_s_re");
+			setTooltip('.icon_s_re',  _getRootFrameElement().lang.window_windowing);
+		}
+		setTooltip('.icon_s',  _getRootFrameElement().lang.window_minimum);
+		$('#mapMoveDiv').css("height",$(".map_action").height());
+		$('#mapMoveDiv').css("top",$(window).height() - $(".map_action").height());
+		fixHeight();
+	});
+	
+	setTooltip('.icon_s',  _getRootFrameElement().lang.window_minimum);
+	setTooltip('.icon_s_re',  _getRootFrameElement().lang.window_windowing);
+	setTooltip('.icon_big',  _getRootFrameElement().lang.window_maximize);
+	setTooltip('.icon_alarm_linkage',  _getRootFrameElement().lang.monitor_alarm_linkage);
+	setTooltip('.icon_alarm_mask',  _getRootFrameElement().lang.monitor_alarm_shield);
+	setTooltip('.icon_company_status',  _getRootFrameElement().lang.company_status);
+	
+	//setTooltip('.icon_open_alarm_window', '开启报警弹窗');
+	
+	//在树列表查询车辆
+	$("#vehiIdnoOnTree").on('keyup', findVehicleByTree);
+	$("#memberOnTree").on('keyup', findMemberByTree);
+	//切换事件列表
+	$(".map_action .map_tab li").click(function(){
+		var _index2 = $(this).index();
+		if($(this).attr('id') != 'gps-export' && $(this).attr('id') != 'gps-status' && $(this).attr('id') != 'gps-storage') {
+			$('.gps_box').show();
+			$(this).addClass("active").siblings().removeClass("active");
+			$(".gps_box li").eq(_index2).addClass("active").siblings().removeClass("active");
+			$(".gps_box li").eq(_index2).find('.bDiv').height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+			$(this).find('a').css('background-color','#fff');
+			if($(".min_big").hasClass("icon_big") && $(".min_s").hasClass("icon_s_re")) {
+				$('.min_s').click();//最大化
+				isMinSize = true;
+			}
+		}
+	});
+	
+	//点击监控参数弹出存储介质等报表
+	$('#storage-status').on('click', queryStorage);
+	//点击设置报警联动
+	$('.icon_alarm_linkage').on('click',setAlarmLinkage);
+	//点击设置报警屏蔽
+	$('.icon_alarm_mask').on('click',setAlarmShielded);
+	//点击物流企业状态查看
+	$('.icon_company_status').on('click', findCompanyStatus);
+	
+	//切换进行是否开启报警
+//	$('.icon_open_alarm_window').on('click', function(){
+//		 $(this).toggleClass("open");
+//		 lastRefush   = !lastRefush;
+//		 if(lastRefush){
+//			setTooltip('.icon_open_alarm_window', '关闭报警弹窗');
+//		 }else{
+//			setTooltip('.icon_open_alarm_window', '开启报警弹窗');
+//		 }
+//	});
+	
+	//禁止系统右键
+	disableSysRight('body',true);
+	//获取设置定损时长
+	damageTime = Number($.cookie(DEF_DAMAGE_TIME));
+	if(isNaN(damageTime) || damageTime < 24 || damageTime > 240) {
+		if(_getRootFrameElement().myUserRole.isZSYRoadList()){
+			damageTime = 168;
+		}else {
+			damageTime = 72;
+		}
+	}
+	
+   if(_getRootFrameElement().myUserRole.isDispatcher()){//调度员账号
+    	 $('#vehicle_tree').hide();
+    	 $('.pro_list .dh').hide();
+   }
+}
+
+function dispatchOperation(action, data){
+	disableForm(true);
+	$.myajax.showLoading(true,  _getRootFrameElement().lang.saving);
+	$.myajax.jsonPost( action, data, false, function(json, success) {
+		disableForm(false);
+		$.myajax.showLoading(false);
+		if (success) {
+			$.dialog.tips( _getRootFrameElement().lang.saveok, 1);
+			//刷新列表
+			var func = loadUserDispatchTree;
+			_getRootFrameElement().getUserDispatchGroup(func);
+    		dispatchTree.setCheck('*_0',true);//设置选中根节点
+    		doClickDispactherVehi('*_0',true);
+		}
+	});
+}
+
+
+//提示报警有新的报警信息
+function  userOpenPlay(id) {
+	var src = dispatchMedia.alarmMediaAllMap.get(id);
+	//如果上一个未完成播放
+	if(dispatchPlay.className && id != dispatchPlay.className){
+		dispatchMedia.changeStatus(dispatchPlay.className,  _getRootFrameElement().lang.dispatcher_operate_play_stop, 3);
+	}
+	//当前选中的处于播放中
+	dispatchMedia.changeStatus(id,  _getRootFrameElement().lang.dispatcher_operate_play_playing, 1);
+	dispatchPlay.src = src;
+	dispatchPlay.className = id;
+	dispatchPlay.play();
+}
+
+/**
+ * 提示当前用户所在小组  谁在说话 通过报警来追加
+ */
+function setDispatchTips(){
+	$('#dispatch_tips').empty();
+	var members =  _getRootFrameElement().vehicleManager.getAllDispatchGroupMembers();//得到所有的协同成员
+	//查找当前用户所在小组
+	if(members && members.length > 0){
+		var  cur = _getRootFrameElement().loginAccount;//当前登录账号 
+		for(var i = 0; i < members.length; i++){
+			if(members[i].name == cur && members[i].status == 1){
+				var group	= _getRootFrameElement().vehicleManager.getDispatch(members[i].parentId);//获取协同小组
+				if(group){
+					var div_ = '<div style="margin-top: 2px;margin-bottom: 2px;">'+ _getRootFrameElement().lang.beyong_group+group.name+'</div>';
+					$('#dispatch_tips').append(div_);
+				}
+				break;
+			}
+		}
+	}
+}
+
+
+
+var isMinSize = false;//默认非最小化
+//保存定损时长
+function setDamageTime(value) {
+	$.cookie(DEF_DAMAGE_TIME, value, { expires: 365 });
+}
+
+function countGroupVehiOnline(treeGroupId) {
+	var items = vehiTree.getSubItems(treeGroupId);
+	var data = {};
+	data.count = 0;
+	data.onlineCount = 0;
+	
+	if(items != null && items != '') {
+		var itemIds = items.split(',');
+		for (var j = 0; j < itemIds.length; j++) {
+			if (vehiTree.isChannelItem(itemIds[j])) {
+				continue;
+			}
+			if(!vehiTree.isGroupItem(itemIds[j]) && itemIds[j] != '') {
+				data.count++;
+				var vehicle = _getRootFrameElement().vehicleManager.getVehicle(itemIds[j]);
+				if(vehicle.isOnline()) {
+					data.onlineCount++;
+				}
+			} else {
+				var sum = countGroupVehiOnline(itemIds[j]);
+				data.count += sum.count;
+				data.onlineCount += sum.onlineCount;
+			}
+		}
+	}
+	
+	if (treeGroupId == vehiTree.getMyRootItemId()) {
+		var newName = allVehicles + '&nbsp;&nbsp;('+ data.onlineCount + '/' + data.count +')';
+		vehiTree.setItemText(treeGroupId, newName, vehiTree.getItemTooltip(treeGroupId));
+	} else {
+		var team = _getRootFrameElement().vehicleManager.getTeam(vehiTree.getVehiGroupId(treeGroupId));
+		if (team != null) {
+			var newName = team.getName() + '&nbsp;&nbsp;('+ data.onlineCount + '/' + data.count +')';
+			vehiTree.setItemText(treeGroupId, newName, vehiTree.getItemTooltip(treeGroupId));
+		}
+	}
+	return data;
+}
+
+function countGroupVehiOnlineEx() {
+	var sid = getCompanySid();
+	var teams = [];
+	if(_getRootFrameElement().myUserRole.isAdmin()) {
+		var teams_ = _getRootFrameElement().vehicleManager.getAllVehiTeam();
+		if(teams_) {
+			for (var i = 0; i < teams_.length; i++) {
+				if(teams_[i].parentId == sid) {
+					teams.push(teams_[i].id);
+				}
+			}
+		}
+	}else {
+		teams.push(sid);
+	}
+	var data = {};
+	data.count = 0;
+	data.onlineCount = 0;
+	for (var i = 0; i < teams.length; i++) {
+		var sum = countGroupVehiOnlineExResult(teams[i]);
+//		if(parent.myUserRole.isAdmin()) {
+			data.onlineCount += sum.onlineCount;
+			data.count += sum.count;
+//		}
+	}
+//	if(parent.myUserRole.isAdmin()) { //顶级都显示为监控中心
+	var treeGroupId = vehiTree.getTreeGroupId(sid);
+	var newName = allVehicles + '&nbsp;&nbsp;('+ data.onlineCount + '/' + data.count +')';
+	vehiTree.setItemText(treeGroupId, newName, vehiTree.getItemTooltip(treeGroupId));
+//	}
+}
+
+function countGroupVehiOnlineExResult(sid) {
+	var data = {};
+	data.count = 0;
+	data.onlineCount = 0;
+	data.offlineCount = 0;
+	if(sid) {
+		var team = _getRootFrameElement().vehicleManager.getTeam(sid);
+		if(team) {
+			if(team.getOnlineVehiIdnos()) {
+				data.onlineCount = team.getOnlineVehiIdnos().length;
+			}
+			if(team.getOfflineVehiIdnos()) {
+				data.offlineCount = team.getOfflineVehiIdnos().length;
+			}
+			data.count = data.onlineCount + data.offlineCount;
+			
+			var childTeams = team.getChildTeams();
+			if(childTeams && childTeams.length > 0) {
+				for (var i = 0; i < childTeams.length; i++) {
+					var sum = countGroupVehiOnlineExResult(childTeams[i]);
+					data.onlineCount += sum.onlineCount;
+					data.count += sum.count;
+				}
+			}
+			
+			var treeGroupId = vehiTree.getTreeGroupId(sid);
+			var newName = team.getName() + '&nbsp;&nbsp;('+ data.onlineCount + '/' + data.count +')';
+			vehiTree.setItemText(treeGroupId, newName, vehiTree.getItemTooltip(treeGroupId));
+		}
+	}
+	return data;
+}
+
+/*
+ * 获取公司父结点id
+ */
+function getCompanySid() {
+	var sid = _getRootFrameElement().companyId;
+	if(_getRootFrameElement().myUserRole.isChemicals()) {//如果是危化管理
+		//如果是生产仓储企业
+	}
+	return sid;
+}
+
+
+//function quicksort(arr)
+//{
+//    if (arr.length == 0)
+//        return [];
+//    var left = new Array();
+//    var right = new Array();
+//    var pivot = arr[0];
+//    for (var i = 1; i < arr.length; i++) {
+//        if (arr[i].name < pivot.name) {
+//           left.push(arr[i]);
+//        } else {
+//           right.push(arr[i]);
+//        }
+//    }
+//    return quicksort(left).concat(pivot, quicksort(right));
+//};
+
+//function  sortInfo(data1, data2) {
+//	//先判断是否在线，在判断是否停车，在线排在前面
+//	//如果两个参数均为字符串类型
+//	var bnum1 = Number(data1.name);
+//	var bnum2 = Number(data2.name);
+//	
+//	 // return a.v - b.v || a.oldIndex - b.oldIndex;
+//    if(!bnum1 && !bnum2){
+//    	var Regx = /^[A-Za-z0-9]*$/;
+//    	var flag1 = Regx.test(data1.name); //字母
+//    	var flag2 = Regx.test(data2.name);
+//		if(flag1 || flag2) {//按字母排序
+//			if(flag1 && !flag2) {
+//				return -1;
+//			}
+//			if(!flag1 && flag2) {
+//				return 1;
+//			}
+//			if(flag1 && flag2) {
+//				var str1 = data1.name.toLowerCase();
+//				var str2 = data2.name.toLowerCase();
+//				if(str1 > str2) return 1;
+//	            if(str1 == str2) return 0;
+//	            if(str1 < str2) return -1;
+//			}
+//		}
+//		//存在异常
+//        return data1.name.localeCompare(data2.name, "zh");
+//    }
+//    //如果参数1为数字，参数2为字符串
+//    if(bnum1 && !bnum2){
+//        return -1;
+//    }
+//    //如果参数1为字符串，参数2为数字
+//    if(!bnum1 && bnum2){
+//        return 1;
+//    }
+//    //如果两个参数均为数字
+//    if(bnum1 && bnum2){
+//    	var num1 = parseInt(data1.name, 10);
+//		var num2 = parseInt(data2.name, 10);
+//        if(num1> num2) return 1;
+//        if(num1 == num2) return 0;
+//        if(num1 < num2) return -1;
+//    }
+//}
+
+/*
+ * 加载车辆树
+ *  
+ */
+function loadVehiTree() {
+	$('.pro_list').flexShowLoading(true);
+	if(_getRootFrameElement().isLoadVehiList && _getRootFrameElement().isLoadPermitVehiGroupList) {
+		//公交线路 或者环卫
+		if(_getRootFrameElement().myUserRole.isManageLine() || _getRootFrameElement().myUserRole.isSanitationTruck()) {
+			//将所有线路加入线路列表
+			monitorLine.loadLineToTable();
+		}
+		//加载完车辆信息，才启动定时器进行刷新车辆状态和报警数据
+		if(openAlram == null){
+			openAlram =  monitorAlarm.runAlarmTimer();
+//			 setTimeout(function () {//模拟点击事件 切换到主页
+//			        $('body',parent.document).find("#tab-monitore").trigger('click');
+//			    }, 10);
+		}
+		$("#vehicle_tree").hide();
+		//加载车辆树
+		vehiTree = new dhtmlXTreeObject("vehicle_tree", "100%", "100%", 0);
+		vehiTree.setImagePath("../../js/dxtree/imgs/");
+//		vehiTree.enableDragAndDrop(true);
+//		vehiTree.setDragHandler(doDragItem);
+		vehiTree.enableCheckBoxes(1);
+		vehiTree.enableThreeStateCheckboxes(true);
+		vehiTree.setOnDblClickHandler(doDbClickTreeVehi); //双击事件
+		vehiTree.setOnCheckHandler(doCheckTreeVehi); //选中事件
+		vehiTree.setOnClickHandler(doClickTreeVehi); //单击事件
+		vehiTree.setOnRightClickHandler(rightClickHandlerOnTree);//右键事件
+		//如果是危化管理的生产仓储企业，加载车辆的方式不同
+		if(_getRootFrameElement().myUserRole.isChemicals() && _getRootFrameElement().myUserRole.isProduceCompany()) {
+			//初始化车辆列表
+			//加载公司
+			vehiTree.fillCompany([], 0, whVehicles);
+			var vehiList = _getRootFrameElement().vehicleManager.getAllVehicle();
+			for (var i = 0; i < vehiList.length; i++) {
+				vehiList[i].parentId = 0;
+			}
+//			vehiList.sort(sortInfo);//车排序
+			vehiTree.setVehicleList(vehiList, true);
+			monitorChemical.initVehicleList();
+		}else {
+			var vehiTeams_ = [];
+			if(_getRootFrameElement().myUserRole.isSanitationTruck()) {//环卫
+				vehiTeams_ = _getRootFrameElement().vehicleManager.getNoLineVehiTeam();
+			}else {
+				vehiTeams_ = _getRootFrameElement().vehicleManager.getAllVehiTeam();
+			}
+			for (var i = 0; i < vehiTeams_.length; i++) {
+				vehiTeams_[i].oldIndex = i;
+	        }
+//			vehiTeams_.sort(sortInfo);
+			var sid = getCompanySid();
+			//动态进行加载车辆列表，避免车辆太多时，造成的页面卡住的问题
+			//如果车辆大于1000辆，则加载1000辆，后续点击公司再加载
+			if(_getRootFrameElement().vehicleListEx && _getRootFrameElement().vehicleListEx.length > 500) {
+				isExistOpenEndHandler = true;
+				//加载公司
+				if (_getRootFrameElement().myUserRole.isChemicals()) {
+					vehiTree.fillGroup(vehiTeams_, 0, whVehicles, true);
+				} else {
+					vehiTree.fillGroup(vehiTeams_, sid, allVehicles, true);
+				}
+				vehiTree.setOnOpenEndHandler(doOpenOrCloseTree); //节点展开/合拢结束事件
+				vehiTree.closeAllItems();
+				vehiTree.setVehicleList([], true);
+			}else {
+				//加载公司
+				if (_getRootFrameElement().myUserRole.isChemicals()) { // 如果是危化，根节点不一样
+					vehiTree.fillGroup(vehiTeams_, 0, whVehicles, false);
+				} else {
+					vehiTree.fillGroup(vehiTeams_, sid, allVehicles, false);
+				}
+				vehiTree.setVehicleList(_getRootFrameElement().vehicleManager.getAllVehicle(), true);
+			}
+		}
+	
+		//每次只加载500毫秒的时间，超过了，则开启另外个定时器，避免界面挂住的情况
+		//加载公司完成后加载
+		dynamicLoadVehicle();//从授权车辆列表加载
+	}else {
+		setTimeout(loadVehiTree,50);
+	}
+}
+
+/*
+ * 加载车辆树  协同小组树
+ */
+function loadUserDispatchTree(refulsh) { //车牌号 -小组id  唯一索引  可能多次出现车牌号
+	$('.pro_list').flexShowLoading(true);
+	if(_getRootFrameElement().isLoadUserDispatchGroupList && _getRootFrameElement().isLoadAllVehiList) {//加载协同小组信息成功
+		$("#dispatch_group").hide();
+		if(refulsh){
+			 $('#dispatch_tree').empty();
+		}
+		//加载车辆树
+		dispatchTree = new dhtmlXTreeObject("dispatch_tree", "100%", "100%", 0);
+		//加载车辆树
+		vehiTree = new dhtmlXTreeObject("vehicle_tree", "100%", "100%", 0);
+		dispatchTree.setImagePath("../../js/dxtree/imgs/");
+		dispatchTree.enableCheckBoxes(1);
+		dispatchTree.enableThreeStateCheckboxes(true);
+		dispatchTree.setOnDblClickHandler(doDbClickDispactherVehi); //双击事件
+		dispatchTree.setOnCheckHandler(doCheckDispatcherTreeVehi); //选中事件
+		dispatchTree.setOnClickHandler(doClickDispactherVehi); //单击事件 走原来的接口
+//		dispatchTree.setOnRightClickHandler(rightClickHandlerOnGroupTree);//右键事件、
+		var sid = 0;
+		var vehiTeams_ = _getRootFrameElement().vehicleManager.getAllDispatchGroup();
+		dispatchTree.fillDispacth(vehiTeams_, 0,  _getRootFrameElement().lang.cooperate_group_information, false, true);
+		dispatchTree.dynamicLoadAllMember()
+		//初始化监控树右键菜单
+//		monitorMenu.initializeDispatchMemu();
+		//添加监控树右键菜单
+//		if(!isExistOpenEndHandler) {
+//			monitorMenu.addDispatchMenu(dispatchTree.trueMemberItems.toString());//1$车牌号 ，2$车牌号，i$车牌号
+//		}
+		if(refulsh){
+			$("#dispatch_group").css("");
+		}
+		if(openAlram == null && !refulsh){//开启报警
+			openAlram =  monitorAlarm.runAlarmTimer();
+		}
+		if(openStatus == null && !refulsh){
+			//车辆信息加载成功后，才启动定时器刷新车辆状态
+			 monitorStatus.monitorDevIdnos = "";
+			 openStatus = monitorStatus.runStatusTimer();
+		}
+		$("#dispatch_group").show();
+		//加载完成以后设置用户所在小组提示
+		monitorStatus.initDispatcherStatusCount();
+		setDispatchTips();
+		var  height = $('#dispatch_group').height() - 200;
+		var maxHeigtt = $('.pro_list').height() - 260;
+//		$('#dispatch_tree').css("height",(height)+"px");
+		$('#dispatch_tree').css({"height":(height)+"px","margin-top":"11px"});
+		
+		//加载完成
+		$('.pro_list').flexShowLoading(false);
+	}else {
+		setTimeout(loadUserDispatchTree,50);
+	}
+}
+//窗体改变时触发
+window.onresize = changeContainer;
+//动态改变大小 响应式
+function changeContainer(){
+	var  height = $('#dispatch_group').height() - 200;
+	var maxHeigtt = $('.pro_list').height() - 260;
+	$('#dispatch_tree').css("height",(height)+"px");
+	
+	$('#vehicle_tree').css("height",(maxHeigtt+20)+"px");
+}
+
+
+//协同小组双击看视频  通道或者设备节点
+function doDbClickDispactherVehi(item){
+	if(dispatchTree.isMemberChannelItem(item)){
+		//视频权限
+		if(_getRootFrameElement().myUserRole.isVideoSupport() ) {
+			var channel = dispatchTree.getChannelIndex(item);
+			previewVideo(dispatchTree.getChannelVehiIdno(item), channel);//x$车牌号
+		}else {
+//			updatePaneVehicleInfo(item);
+		}
+	}
+	if(dispatchTree.isMemberItem(item)){
+		//视频权限
+		if(_getRootFrameElement().myUserRole.isVideoSupport() ) {
+			previewVideo(item, -1); //x$车牌号
+		}else {
+//			updatePaneVehicleInfo(item);
+		}
+	}
+}
+
+
+//协同小组树的右键点击事件
+function rightClickHandlerOnGroupTree(itemId) {
+	if(dispatchTree.isMemberItem(itemId)){
+		dispatchTree.selectItem(itemId);
+		dispatchTree.focusItem(itemId);
+		//菜单
+		monitorMenu.rightClickHandlerOnGroupTree(itemId);
+	}
+}
+
+//车辆树的右键点击事件
+function rightClickHandlerOnTree(itemId) {
+	vehiTree.selectItem(itemId);
+	vehiTree.focusItem(itemId);
+	//菜单
+	monitorMenu.rightClickHandlerOnTree(itemId);
+	////初始化设备信息
+	updatePaneVehicleInfo(itemId);
+}
+
+function dynamicLoadVehicle() {
+	//组织结构公司级别加载完成以后  否则等待
+	if(vehiTree.loadGroupSuccess){
+		if (!vehiTree.dynamicLoadVehicle()) {
+			setTimeout(dynamicLoadVehicle, 80);
+		} else {
+			//计算数目
+//			var sid = getCompanySid();
+//			countGroupVehiOnline(vehiTree.getTreeGroupId(sid));
+			countGroupVehiOnlineEx();
+			//初始化车辆设备数目
+			monitorStatus.initVehicleStatusCount();
+			//车辆信息加载成功后，才启动定时器刷新车辆状态
+			monitorStatus.runStatusTimer();
+			//启动定时器获取公司状态
+			if(_getRootFrameElement().myUserRole.isChemicals() 
+					&& (_getRootFrameElement().myUserRole.isAdmin() || _getRootFrameElement().myUserRole.isTrafficCompany() 
+							|| _getRootFrameElement().myUserRole.isTrafficPoliceCompany())) {
+				monitorChemical.flashCompanyStatus();
+			}
+			//
+			$("#vehicle_tree").show();
+			//初始化监控树右键菜单
+			monitorMenu.initialize();
+			//添加监控树右键菜单
+			if(!isExistOpenEndHandler) {
+				monitorMenu.addVehicleMenu(vehiTree.loadVehiIdnos.toString());
+				monitorMenu.addChannelMenu(vehiTree.channelIndex.toString());
+			}
+			//加载完成
+			$('.pro_list').flexShowLoading(false);
+		}
+	}else{
+		setTimeout(dynamicLoadVehicle, 80);
+	}
+}
+/*
+ * 选中车辆事件
+ */
+function doCheckDispatcherTreeVehi(item,check) {
+	doClickDispactherVehi(item,check);
+	if(check){//选择定位
+		//选中最后一次勾选的
+		dispatchTree.selectItem(item);
+		dispatchTree.focusItem(item);
+		if(dispatchTree){
+			if(dispatchTree.isMemberItem(item)){
+				var items = item.split('$')[1];//得到车牌号
+				//查询所有小组 ids  10$items
+				var arrayGroupIds =	_getRootFrameElement().vehicleManager.getMemberInAllGroup(items);
+				if(arrayGroupIds && arrayGroupIds.length > 1){
+					for(var i = 0; i <  arrayGroupIds.length; i++){
+						dispatchTree.setCheck(arrayGroupIds[i]+"$"+items,true);
+					}
+				}
+				var isShowMap = monitorStatus.findMonitorVehicle(items);
+				if(isShowMap){//地图存在
+					monitorStatus.selectVehicle(items, false, isShowMap, isShowMap);
+				}else{//地图不存在 
+					doCheckTreeVehi(items,true);
+				}
+			}else if (dispatchTree.isGroupItem(item)){
+				var groupId = item.split('_')[1];//小组id
+				var groupIds = [];
+				if(groupId == 0){
+					groupIds = _getRootFrameElement().vehicleManager.getAllDispatchGroupIds();
+				}else{
+					groupIds.push(groupId);
+				}
+				for(var id = 0; id < groupIds.length; id++){
+					var group = _getRootFrameElement().vehicleManager.getDispatch(parseInt(groupIds[id]));//得到选择的群组
+					var memberList = group.memberList;	//小组下的所有成员
+					if(memberList && memberList.length > 0){
+						for(var i = 0; i < memberList.length; i++){
+							var items = memberList[i].name.toString();//车牌号
+							var arrayGroupIds =	_getRootFrameElement().vehicleManager.getMemberInAllGroup(items);
+							if(arrayGroupIds && arrayGroupIds.length > 1){
+								for(var j = 0; j <  arrayGroupIds.length; j++){
+									dispatchTree.setCheck(arrayGroupIds[j]+"$"+items,true);
+								}
+							}
+							var isShowMap = monitorStatus.findMonitorVehicle(items);
+							if(isShowMap){//地图存在
+								monitorStatus.selectVehicle(items, false, isShowMap, isShowMap);
+							}else{//地图不存在 
+								doCheckTreeVehi(items,true);
+							}
+						}
+					}
+				}
+			}else{
+				$.dialog.tips( _getRootFrameElement().lang.select_member_tip, 1);
+			}
+		}
+	}else{
+		if(dispatchTree){
+			if(dispatchTree.isMemberItem(item)){//选择车辆节点
+				var items = item.split('$')[1];//得到车牌号
+				//查询所有小组 ids  10$items
+				var arrayGroupIds =	_getRootFrameElement().vehicleManager.getMemberInAllGroup(items);
+				if(arrayGroupIds && arrayGroupIds.length > 1){
+					for(var i = 0; i <  arrayGroupIds.length; i++){
+						dispatchTree.setCheck(arrayGroupIds[i]+"$"+items,false);
+					}
+				}
+				doCheckTreeVehi(items,false);//清除
+			}else if (dispatchTree.isGroupItem(item)){//选择小组节点
+				var groupId = item.split('_')[1];//小组id 
+				var groupIds = [];
+				if(groupId == 0){
+					groupIds = _getRootFrameElement().vehicleManager.getAllDispatchGroupIds();
+				}else{
+					groupIds.push(groupId);
+				}
+				for(var id = 0; id < groupIds.length; id++){
+					var group = _getRootFrameElement().vehicleManager.getDispatch(parseInt(groupIds[id]));//得到选择的群组
+					var memberList = group.memberList;	//小组下的所有成员
+					if(memberList && memberList.length > 0){
+						for(var i = 0; i < memberList.length; i++){
+							var items = memberList[i].name.toString();//车牌号
+							var arrayGroupIds =	_getRootFrameElement().vehicleManager.getMemberInAllGroup(items);
+							if(arrayGroupIds && arrayGroupIds.length > 1){
+								for(var j = 0; j <  arrayGroupIds.length; j++){
+									dispatchTree.setCheck(arrayGroupIds[j]+"$"+items,false);
+								}
+							}
+							doCheckTreeVehi(items,false);//清除
+						}
+					}
+				}
+			}else{
+				$.dialog.tips( _getRootFrameElement().lang.select_member_tip, 1);
+			}
+		}
+	}
+//	monitorStatus.doCheckVehi(itemId, check);
+}
+/*
+ * 选中车辆事件
+ */
+function doCheckTreeVehi(itemId,check) {
+	monitorStatus.doCheckVehi(itemId, check);
+}
+//点击车辆  判断组织结构是否选择 选中就居中  否则无效果
+function doClickDispactherVehi(itemId,check){
+	//设置选中
+//	dispatchTree.setCheck(itemId,check);
+	//启用所有按钮
+	if($('#memberPush').length > 0){
+		$('#memberPush').get(0).disabled = false;
+		$("#memberPush").removeClass().attr("class", "memberPush normal");
+	}
+	if($('#memberPop').length > 0){
+		$('#memberPop').get(0).disabled = false;
+		$("#memberPop").removeClass().attr("class", "memberPop normal");
+	}
+	if($('#memberIn').length > 0){
+		$('#memberIn').get(0).disabled = false;
+		$("#memberIn").removeClass().attr("class", "memberIn normal");
+	}
+	if($('#memberLeave').length > 0){
+		$('#memberLeave').get(0).disabled = false;
+		$("#memberLeave").removeClass().attr("class", "memberLeave normal");
+	}
+	//父级节点  得到协同小组的id  和  成员id  来进入 离开 强拉 强拆启用禁用
+	if(dispatchTree.isMemberItem(itemId)){//成员节点 进入 \离开 按钮 禁用
+		if($('#memberIn').length > 0){
+			$('#memberIn').get(0).disabled = true;
+			$("#memberIn").removeClass().attr("class", "memberIn unable");
+		}
+		if($('#memberLeave').length > 0){
+			$('#memberLeave').get(0).disabled = true;
+			$("#memberLeave").removeClass().attr("class", "memberLeave unable");
+		}
+		var groupId = _getRootFrameElement().vehicleManager.getMemberInGroup(itemId.split('$')[1]);
+		if(groupId){
+			if(itemId.split('$')[0] == groupId){
+				if($('#memberPush').length > 0){
+					$('#memberPush').get(0).disabled = true;
+					$("#memberPush").removeClass().attr("class", "memberPush unable");
+				}
+			}else{
+				if($('#memberPop').length > 0){
+					$('#memberPop').get(0).disabled = true;
+					$("#memberPop").removeClass().attr("class", "memberPop unable");
+				}
+			}
+		}else{
+			if($('#memberPop').length > 0){
+				$('#memberPop').get(0).disabled = true;
+				$("#memberPop").removeClass().attr("class", "memberPop unable");
+			}
+		}
+	}
+	if(dispatchTree.isGroupItem(itemId)){//小组节点
+		if($('#memberPush').length > 0){
+			$('#memberPush').get(0).disabled = true;
+			$("#memberPush").removeClass().attr("class", "memberPush unable");
+		}
+		if($('#memberPop').length > 0){
+			$('#memberPop').get(0).disabled = true;
+			$("#memberPop").removeClass().attr("class", "memberPop unable");
+		}
+		if(!Number(itemId.split('_')[1])){
+			if($('#memberLeave').length > 0){
+				$('#memberLeave').get(0).disabled = true;
+				$("#memberLeave").removeClass().attr("class", "memberLeave unable");
+			}
+			if($('#memberIn').length > 0){
+				$('#memberIn').get(0).disabled = true;
+				$("#memberIn").removeClass().attr("class", "memberIn unable");
+			}
+			return;
+		}else{//前缀协同小组id 不能为0  account为姓名了 非账号
+			var groupId = _getRootFrameElement().vehicleManager.getMemberInGroup(_getRootFrameElement().loginAccount);//获取当前用户所在小组
+			if(groupId){
+				if(itemId.split('_')[1] == groupId){
+					if($("#memberIn").length > 0){
+						$("#memberIn").get(0).disabled = true;
+						$("#memberIn").removeClass().attr("class", "memberIn unable");
+					}
+				}else{
+					if($('#memberLeave').length > 0){
+						$('#memberLeave').get(0).disabled = true;
+						$("#memberLeave").removeClass().attr("class", "memberLeave unable");
+					}
+				}
+			}else{
+				if($('#memberLeave').length > 0){
+					$('#memberLeave').get(0).disabled = true;
+					$("#memberLeave").removeClass().attr("class", "memberLeave unable");
+				}
+			}
+		}
+	}
+	//设备是否在线  启用禁用发送消息
+	//	1$设备号  这种模式  非车辆 禁止
+	if(itemId.includes('$')){//成员节点
+		itemId = itemId.split('$')[1];
+	}else{//非成员节点 暂时忽略
+		return;
+	}
+	var isShowMap = monitorStatus.findMonitorVehicle(itemId);
+	if(isShowMap){
+		monitorStatus.selectVehicle(itemId, false, isShowMap, isShowMap);
+	}else{
+		updatePaneVehicleInfo(itemId);
+		//显示信息在下面
+		return;
+	}
+	//先移除再新增 传对应车牌号  走原来的方法   判断标记点是否存在 存在就居中  否则新增 并勾选组织结构
+}
+
+
+/*
+ * 点击车辆转换到车辆所在位置
+ */
+function doClickTreeVehi() {
+	var selId = vehiTree.getSelectedItemId();
+	if (selId != null && selId != "") {
+		if (vehiTree.isChannelItem(selId)) {
+			var vehiId = vehiTree.getChannelVehiIdno(selId);
+			//车辆加载到地图上，也会加载到列表中
+			var isShowMap = monitorStatus.findMonitorVehicle(vehiId);
+			monitorStatus.selectVehicle(vehiId, false, isShowMap, isShowMap);
+			if(!isShowMap) {
+				updatePaneVehicleInfo(vehiId);
+			}
+		} else if (vehiTree.isVehicleItem(selId)) {
+			//单击车辆结点时，不展开，afu 150628
+			//vehiTree.closeAllItems();
+			//vehiTree.openItem(selId);
+			var isShowMap = monitorStatus.findMonitorVehicle(selId);
+			monitorStatus.selectVehicle(selId, false, isShowMap, isShowMap);
+			if(!isShowMap) {
+				updatePaneVehicleInfo(selId);
+			}
+		}else {
+			vehiTree.openItem(selId);
+			monitorStatus.selectedVehiIdno = '';
+			updatePaneVehicleInfo(selId);
+		}
+	}
+}
+
+function dynamicLoadVehicleEx(func) {
+	if (!vehiTree.dynamicLoadVehicleEx()) {
+		setTimeout(function() {
+			dynamicLoadVehicleEx(func);
+		}, 80);
+	} else {
+		//添加监控树右键菜单
+		monitorMenu.addVehicleMenu(vehiTree.loadVehiIdnos.toString());
+		monitorMenu.addChannelMenu(vehiTree.channelIndex.toString());
+		//加载完成
+		$('.pro_list').flexShowLoading(false);
+		if(typeof func == 'function') {
+			func();
+		}
+	}
+}
+
+//节点展开/合拢结束事件
+function doOpenOrCloseTree(itemId,check) {
+	if(check == 1) {
+		//如果是分组节点
+		if(vehiTree.isGroupItem(itemId)) {
+			loadTeamTree(vehiTree.getVehiGroupId(itemId));
+		}
+	}else {
+//		alert(11+','+itemId);
+//		alert(vehiTree.isGroupItem(itemId));
+	}
+//	if(check == -1) {
+//		//不是车辆则先关闭所有节点
+//		if(!vehiTree.isVehicleItem(itemId)) {
+//			vehiTree.closeAllItems();
+//		}
+//		//不是根节点就打开父节点
+//		if(!vehiTree.isRootItem(itemId)) {
+//			vehiTree.openItem(vehiTree.getParentId(itemId));
+//		}
+//	}
+}
+
+//刷新节点下的所有车辆
+function reflashTeamTree(teamId) {
+	var team_ = _getRootFrameElement().vehicleManager.getTeam(teamId);
+	//如果是加载的全部则不需要判断节点是否打开过，否则，节点打开后才需要执行
+	if(team_ && (!isExistOpenEndHandler || team_.isLoadSuccess())) {
+		var online_ = team_.getOnlineVehiIdnos();//在线车辆
+		var offline_ = team_.getOfflineVehiIdnos();//离线
+		var vehiIdnos = [];
+		if(online_) {
+			online_.sort(vehiTree.sortInfo);
+			vehiIdnos = online_;
+		}
+		if(offline_) {
+			offline_.sort(vehiTree.sortInfo);
+			vehiIdnos = vehiIdnos.concat(offline_);
+		}
+		if(vehiIdnos && vehiIdnos.length > 0) {
+			//需要先删除车辆节点，再增加车辆节点
+			for (var i = 0; i < vehiIdnos.length; i++) {
+				vehiTree.deleteItem(vehiIdnos[i], vehiTree.getTreeGroupId(teamId));
+			}
+			//新增节点
+			vehiTree.setVehiIdnoList(vehiIdnos, true);
+			dynamicLoadVehicleEx(function() {
+				//如果已经勾选了的，需要重新勾选
+				//取监控列表的车辆集合，进行判断
+				if(monitorStatus.vehicleList && monitorStatus.vehicleList.length > 0) {
+					var vehicleList = monitorStatus.vehicleList;
+					for (var i = 0; i < vehicleList.length; i++) {
+						//包含车辆，则勾选
+						if(vehiIdnos.in_array(vehicleList[i].getIdno())) {
+							vehiTree.setCheck(vehicleList[i].getIdno(), true);
+						}
+					}
+					//判断当前选中的车辆
+					if(monitorStatus.selectedVehiIdno != null && monitorStatus.selectedVehiIdno != ''
+						&& vehiIdnos.in_array(monitorStatus.selectedVehiIdno)) {
+						vehiTree.selectItem(monitorStatus.selectedVehiIdno);
+						vehiTree.focusItem(monitorStatus.selectedVehiIdno);
+					}
+				}
+			});
+		}
+	}
+}
+
+//加载节点下的所有车辆
+function loadTeamTree(teamId, func) {
+	var team_ = _getRootFrameElement().vehicleManager.getTeam(teamId);
+	//如果没有加载，则加载  //存在树列表点击打开菜单事件
+	if(team_ && !team_.isLoadSuccess() && isExistOpenEndHandler) {
+		$('.pro_list').flexShowLoading(true);
+		if(!team_.getChildTeams()) {
+			vehiTree.deleteChildItems(vehiTree.getTreeGroupId(teamId));
+		}
+		team_.setLoadSuccess(true);
+		var online_ = team_.getOnlineVehiIdnos();
+		var offline_ = team_.getOfflineVehiIdnos();
+		var vehiIdnos = [];
+		if(online_) {
+			online_.sort(vehiTree.sortInfo);
+			vehiIdnos = online_;
+		}
+		if(offline_) {
+			offline_.sort(vehiTree.sortInfo);
+			vehiIdnos = vehiIdnos.concat(offline_);
+		}
+		if(vehiIdnos && vehiIdnos.length > 0) {
+			vehiTree.setVehiIdnoList(vehiIdnos, true);
+			dynamicLoadVehicleEx(func);
+		}else {
+			if(typeof func == 'function') {
+				func();
+			}
+			$('.pro_list').flexShowLoading(false);
+		}
+	}else {
+		if(typeof func == 'function') {
+			func();
+		}
+	}
+}
+
+/*
+ * 树列表搜索车辆
+ * @param idno
+ */
+function addVehicleByTree(idno) {
+	if(_getRootFrameElement().myUserRole && parent.myUserRole.isDispatcher()){
+		//如果没有添加到树列表则添加
+		var vehicle = _getRootFrameElement().vehicleManager.getVehicle(idno);
+		if(vehicle) {
+			//查询所有小组 ids  10$items
+			var arrayGroupIds =	_getRootFrameElement().vehicleManager.getMemberInAllGroup(idno);
+			if(arrayGroupIds && arrayGroupIds.length > 1){
+				for(var i = 0; i <  arrayGroupIds.length; i++){
+					dispatchTree.setCheck(arrayGroupIds[i]+"$"+idno,true);
+				}
+				//不要选中 不然又要判断
+				dispatchTree.selectItem(arrayGroupIds[0]+"$"+idno);
+				doClickDispactherVehi(arrayGroupIds[0]+"$"+idno, true);
+			}
+			var isShowMap = monitorStatus.findMonitorVehicle(idno);
+			if(isShowMap){//地图存在
+				monitorStatus.selectVehicle(idno, false, isShowMap, isShowMap);
+			}else{//地图不存在 
+				doCheckTreeVehi(idno,true);
+			}
+		}
+	}else{
+		if(!vehiTree.isItemChecked(idno)) {
+			//如果没有添加到树列表则添加
+			var vehicle = _getRootFrameElement().vehicleManager.getVehicle(idno);
+			if(vehicle) {
+				loadTeamTree(vehicle.getParentId(), function() {
+					vehiTree.selectItem(idno);
+					vehiTree.focusItem(idno);
+					vehiTree.setCheck(idno, true);
+					monitorStatus.doCheckVehi(idno, true);
+				});
+			}
+			//要去订阅报警信息
+			//	monitorAlarm.flashVehicleAlarm();
+		}else {
+			monitorStatus.selectVehicle(idno, true, true, true);
+		}
+	}
+}
+
+/*
+ * 搜索协同小组树上的终端
+ */
+function findMemberByTree(){
+	setTimeout(function() {
+		$('#so_tree_memberList ul').empty();
+		$('#so_tree_memberList').css('border','0 none');
+		$('#so_tree_memberList').css('height','auto');
+		var name = $.trim($("#memberOnTree").val());
+		if (name != "" && _getRootFrameElement().isLoadUserDispatchGroupList && _getRootFrameElement().isLoadAllVehiList) {
+			searchMemberOnMap(name);
+		} 
+	}, 200);
+
+}
+
+
+/*
+ * 搜索车辆树上的车辆
+ */
+function findVehicleByTree() {
+	setTimeout(function() {
+		$('#so_tree_vehiList ul').empty();
+		$('#so_tree_vehiList').css('border','0 none');
+		$('#so_tree_vehiList').css('height','auto');
+		var name = $.trim($("#vehiIdnoOnTree").val());
+		if (name != "" && _getRootFrameElement().isLoadVehiList) {
+			searchVehicleOnMap(name);
+		} 
+	}, 200);
+}
+
+/*
+* 在地图上查找车辆  包含公司节点
+*/
+function searchMemberOnMap(name) {
+	var index = 0;
+	var tree_vehiList = document.getElementById('so_tree_memberList');
+	var isTop = false;
+	//不加载查询协同小组
+	_getRootFrameElement().vehicleManager.mapDispatchGroup.each(function(key,value){//协同小组   
+		if(!isTop) {
+			var flag = true;
+			if(value && value.memberList && value.memberList.length > 0){
+				for(var i = 0; i < value.memberList.length; i++){
+					if(value.memberList[i].name.indexOfNotCase(name) >= 0){
+						var name_  =	value.memberList[i].name+"_"+value.name;//设备号_协同小组名称
+						$('ul', tree_vehiList).append('<li data-id= '+key+':'+name_+'>'+name_+'</li>');
+						flag = false;
+						index++;
+					}
+				}
+			}
+			if(index >= 100) {
+				isTop = true;
+			}
+		}
+	});
+	if(index > 0) {
+		$(tree_vehiList).show();//显示
+		$(tree_vehiList).css('border','1px solid #d6d6d6');
+		$('li', tree_vehiList).each(function() {
+			$(this).on('click',function() {
+				var dataId = $(this).attr('data-id');//协同小组id:车牌号_小组名称
+				if(dataId.includes(':')  && dataId.includes('_')){
+					var  groupId = dataId.split(':')[0];
+					var vehIdno = dataId.split(':')[1].split('_')[0];
+					dispatchTree.selectItem(groupId+"$"+vehIdno);// id$车牌号
+					dispatchTree.focusItem(groupId+"$"+vehIdno);
+					doClickDispactherVehi(groupId+"$"+vehIdno, 1);
+					$(tree_vehiList).hide();//显示
+				}
+			});	
+		});
+	}
+	if(index > 7) {
+		$(tree_vehiList).height(200);
+	}
+}
+
+/*
+* 在地图上查找车辆  包含公司节点
+*/
+function searchVehicleOnMap(name) {
+	var index = 0;
+	var tree_vehiList = document.getElementById('so_tree_vehiList');
+	var isTop = false;
+	_getRootFrameElement().vehicleManager.mapVehiTeam.each(function(key,value){
+		if(!isTop) {
+			var flag = true;
+			if(value.name.indexOfNotCase(name) >= 0) {
+				$('ul', tree_vehiList).append('<li data-id= "0:'+key+'">'+value.name+'</li>');
+				flag = false;
+				index++;
+			}
+			if(index >= 100) {
+				isTop = true;
+			}
+		}
+	});
+	
+	_getRootFrameElement().vehicleManager.mapVehiList.each(function(key,value){
+		if(!isTop) {
+			var flag = true;
+			if(value.getIdno().indexOfNotCase(name) >= 0) {
+				$('ul', tree_vehiList).append('<li data-id= "'+key+'">'+key+'</li>');
+				flag = false;
+				index++;
+			}
+			if(flag) {
+				var devList = value.getDevList();
+				if(devList != null && devList.length > 0) {
+					for (var i = 0; i < devList.length; i++) {
+						var device = devList[i];
+						if(flag && device.getIdno().indexOfNotCase(name) >= 0) {
+							$('ul', tree_vehiList).append('<li data-id= "'+key+'">'+key+'</li>');
+							flag = false;
+							index++;
+						}
+						if(flag && device.getSimCard() != null && device.getSimCard().indexOfNotCase(name) >= 0) {
+							$('ul', tree_vehiList).append('<li data-id= "'+key+'">'+key+'</li>');
+							flag = false;
+							index++;
+						}
+					}
+				}
+			}
+			if(flag && value.getDriverName() != null && value.getDriverName().indexOfNotCase(name) >= 0) {
+				$('ul', tree_vehiList).append('<li data-id= "'+key+'">'+key+'</li>');
+				flag = false;
+				index++;
+			}
+			if(index >= 100) {
+				isTop = true;
+			}
+		}
+	});
+	
+	if(index > 0) {
+		$(tree_vehiList).css('border','1px solid #d6d6d6');
+		$('li', tree_vehiList).each(function() {
+			$(this).on('click',function() {
+				var dataId = $(this).attr('data-id');
+				var arrId = dataId.split(":");
+				if (arrId.length == 2) {
+					vehiTree.searchCompItem(arrId[1]);
+				} else {
+					addVehicleByTree(dataId);
+				}
+			});	
+		});
+	}
+	if(index > 7) {
+		$(tree_vehiList).height(200);
+	}
+}
+
+function fixHeight() {
+	$('#alarmTable').flexFixHeight();
+	$('#gpsMonitorTable').flexFixHeight();
+	$('#mediaFilesTable').flexFixHeight();
+	$('#serverEventTable').flexFixHeight();
+	$('#gpsLineTable').flexFixHeight();
+	$('#stationReportTable').flexFixHeight();
+	$('#gpsPeopleTable').flexFixHeight();
+	//中石油
+	$('#taskReportEventTable').flexFixHeight();
+	//协同调度
+	$('#dispatchReportEventTable').flexFixHeight();
+	$('#dispatchMediaEventTable').flexFixHeight();
+	
+	
+}
+
+/*
+ *设置页面大小
+ */
+function setPanelWidth(callBackFun) {
+	//地图高度不能超出
+	var _height = $(window).height();
+	$(".pro_list").height(_height);			//左边面板
+	if(paneInfo != null) {
+		paneInfo.resizeVehiTree();	//车辆列表和信息面板
+	}
+	//$("#vehicle_tree").height(_height - $('.pro_list .dh').height() - $('.tab_state').height());	//车辆列表
+	$(".d_main").height(_height);		//主界面
+	
+	
+	//事件栏
+//	$(".flexigrid .bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.flexigrid .hDiv').height());
+	if($(".min_s").hasClass("icon_s")){
+		$(".map_action").css("height",_height - 38 > 260 ? 260 : _height - 38);
+	}else {
+		$(".map_action").css("height", $(".map_action").height() > _height - 59 ?   _height - 59 : $(".map_action").height());
+		$(".map_action").css("height", $(".map_action").height() < 59 ? 59 : $(".map_action").height());
+	}
+	if($(".min_big").hasClass("icon_s_re")){
+		$(".map_action").css("height",_height);
+	}else {
+		$(".map_action").css("height", $(".map_action").height() > _height - 59 ?   _height - 59 : $(".map_action").height());
+		$(".map_action").css("height", $(".map_action").height() < 59 ? 59 : $(".map_action").height());
+	}
+	$('#mapMoveDiv').css("height",$(".map_action").height());
+	$('#mapMoveDiv').css("top",$(window).height() - $(".map_action").height());
+	$(".dm_video").height(_height - $('.map_action').height());	//视频界面
+	$(".dm_map").height(_height - $('.map_action').height());	//地图界面
+	$(".dm_line").height(_height - $('.map_action').height()); //线路监控界面
+	$('.gps_box .flexigrid').each(function() {
+		$(this).height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('#gps-storage').height());
+		$(this).find(".bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+	});
+	if (typeof callBackFun == "function") {
+		callBackFun();
+	}
+}
+
+function showMonitorPage(name) {
+	var _width = $(window).width();
+	//左边 262
+	//视频和地图按比例进行显示 
+	mapWidth = (_width - $(".pro_list").width()) * 25 / 100;
+	if (mapWidth < 300) {
+		mapWidth = 300;
+	} else if (mapWidth > 600) {
+		mapWidth = 600;
+	}
+	mapWidth = parseInt(mapWidth, 10);
+	currentPage = name;
+	if(name == 'weizhi' || name == 'shipin') {
+		_getRootFrameElement().realTimePage = name;
+		_getRootFrameElement().setCookiePage(name);
+	}
+	if(name == 'weizhi') {
+		hideIsRealVedioGps(_getRootFrameElement().myUserRole.IsRealVedioGps());
+		$('.dm_line').hide();
+		
+		$('.dm_video').css("position","absolute");
+		$('.dm_video').css("left","-9999px");
+	
+		$('.dm_map').css("width","auto");
+		$('.dm_map').css("position","relative");
+		$('.dm_map').css("right","0px");
+		
+		if (ttxMap != null) {
+			ttxMap.hideToolbar(false);
+		}
+		if(paneInfo != null){
+			paneInfo.setPTZcolorButtonStatus(true);
+		}
+		//$('.slider_btn_right').removeClass("show").addClass("hide");
+	}else if(name == 'shipin') {
+		hideIsRealVedioGps(_getRootFrameElement().myUserRole.IsRealVedioGps());
+		$('.dm_line').hide();
+		
+		$('.dm_map').css("width", mapWidth + "px");
+		$('.dm_map').css("position","absolute");
+		$('.dm_map').css("right","0px");
+		
+		$('.dm_video').css("position","relative");
+		$('.dm_video').css("left","0px");
+		$(".dm_video").css("marginRight", mapWidth + "px");
+		
+		if (ttxMap != null) {
+			ttxMap.hideToolbar(true);
+		}
+		if(paneInfo != null){
+			paneInfo.setButtonForPtzColor();
+		}
+		//$('.slider_btn_right').removeClass("hide").addClass("show");
+		//$(".slider_btn_right").removeAttr("rel");
+		//$(".slider_btn_right i").removeClass("icon_side_left").addClass("icon_side_right");
+	}else if(name == 'xianlu') {
+		hideIsRealVedioGps(false);
+		
+		$('.dm_map').css("position","absolute");
+		$('.dm_map').css("right","-9999px");
+		
+		$('.dm_video').css("position","absolute");
+		$('.dm_video').css("left","-9999px");
+		
+		$('.dm_line').show();
+		
+		//初始化线路监控概览
+		if(monitorLine != null) {
+			monitorLine.initLineOverview();
+		}
+		if (ttxMap != null) {
+			ttxMap.hideToolbar(true);
+		}
+		if(paneInfo != null){
+			paneInfo.setButtonForPtzColor();
+		}
+	}
+}
+
+
+
+
+function doDbClickTreeVehi(item) {
+	//如果视频窗口没展现，则不响应
+	//双击启动视频预览
+	if (vehiTree.isChannelItem(item)) {
+		//视频权限
+		if(_getRootFrameElement().myUserRole.isVideoSupport() ) {
+			var channel = vehiTree.getChannelIndex(item);
+			previewVideo(vehiTree.getChannelVehiIdno(item), channel);
+		}else {
+			updatePaneVehicleInfo(item);
+		}
+	}
+	//双击启动视频预览
+	if (vehiTree.isVehicleItem(item)) {
+		//视频权限
+		if(_getRootFrameElement().myUserRole.isVideoSupport() ) {
+			previewVideo(item, -1);
+		}else {
+			updatePaneVehicleInfo(item);
+		}
+	}
+}
+
+////初始化设备信息
+function updatePaneVehicleInfo(item){
+	
+	if(item && (vehiTree.isChannelItem(item) || vehiTree.isVehicleItem(item))){
+		var vehiIdno = null;
+		if(vehiTree.isChannelItem(item)){
+			vehiIdno = vehiTree.getChannelVehiIdno(item);
+		}else{
+			vehiIdno = item;
+		}
+		paneInfo.initPaneDevice(vehiIdno);
+	}else{
+		paneInfo.initPaneDevice();
+	}
+}
+
+function initTtxVideo() {
+	ttxVideo = new TtxVideo("framePreview");
+	if(ttxVideo != null) {
+		ttxVideo.initialize(ttxVideoLoadSuc);
+	}
+}
+
+//视频加载成功后的回调
+function ttxVideoLoadSuc() {
+	if(ttxVideo == null) {
+		return;
+	}
+	ttxVideo.disableSysRight('.map_btn',true);
+}
+
+function initTtxMap() {
+	ttxMap = new TtxMap('frameMap');
+	if(ttxMap != null) {
+		ttxMap.initialize(function() {
+			//我的地图
+			if(_getRootFrameElement().myUserRole.isMyMapSupport()) {
+				ttxMap.enableMyMap(true);
+				
+				//危化地图
+				if(_getRootFrameElement().myUserRole.isChemicals()){
+					ttxMap.enableChemicalMap(true);
+				}
+			}
+			//启用保存地图中心
+			ttxMap.enableSaveMapCenter(true);
+			if(currentPage == 'weizhi') {
+				ttxMap.hideToolbar(false);
+			} else {
+				ttxMap.hideToolbar(true);
+			}
+			ttxMapLoadSuc();
+		});
+	}
+}
+
+/*
+ * 地图加载成功后的回调
+ */
+function ttxMapLoadSuc() {
+	if(ttxMap == null) {
+		return;
+	}
+	ttxMap.disableSysRight('body',true);
+	//初始化地图点聚合参数
+	monitorMapTip.loadMarkerClusterParam(true);
+	
+	//危化新增显示自己公司的按钮
+	if(_getRootFrameElement().myUserRole.isChemicals() && !_getRootFrameElement().myUserRole.isAdmin() 
+			&& !_getRootFrameElement().myUserRole.isRescueCompany()) {//危化管理
+		showCompanyLocation();
+	}
+	//环卫 
+	if(_getRootFrameElement().myUserRole.isSanitationTruck()) {//环卫
+		//添加复选框到地图导航栏
+		monitorLine.addCheckboxToMapTool();
+	}
+	//进行添加车辆到地图上的操作
+	if(monitorStatus.mapVehicleList != null && monitorStatus.mapVehicleList.size() > 0) {
+		monitorStatus.fillVehi2Map();
+	}
+	//拉框查找车辆的区域标记
+	var marker = ttxMap.findMarker(rectangleMarkId);
+	if(marker == null && rectangleMark != null) {
+		var lngs = rectangleMark.jindu.split(',');
+		var lats = rectangleMark.weidu.split(',');
+		var gps1 = convertBaiduGoogle(lats[0], lngs[0], _getRootFrameElement().toMap);
+		rectangleMark.jindu = gps1.lng;
+		rectangleMark.weidu = gps1.lat;
+		var gps2 = convertBaiduGoogle(lats[1], lngs[1], _getRootFrameElement().toMap);
+		rectangleMark.jindu += ',' +  gps2.lng;
+		rectangleMark.weidu += ',' +  gps2.lat;
+		addVehicleRectangleMarker(rectangleMark.id,rectangleMark.name,rectangleMark.jindu,rectangleMark.weidu);
+		//危化管理
+		if(_getRootFrameElement().myUserRole.isChemicals()) {
+			monitorChemical.addAllProduceMarker(_getRootFrameElement().toMap);
+		}
+	}
+	//中石油打卡记录
+	if(_getRootFrameElement().myUserRole.isZSYRoadList()){
+		//刷新所有车辆中石油刷卡记录
+		tastAlarm.flashAllVehicleZSYPosition();
+	}
+}
+
+
+
+
+
+//危化新增显示自己公司
+var whCompanyInfoId = 800000000;
+function showCompanyLocation() {
+	if(_getRootFrameElement().currentCompanyInfo != null) {
+		if(_getRootFrameElement().currentCompanyInfo.jingDu
+				&& _getRootFrameElement().currentCompanyInfo.weiDu) {
+			var showTitle_ = "";
+			if(_getRootFrameElement().myUserRole.isLogisticCompany() || _getRootFrameElement().myUserRole.isProduceCompany()) {
+				showTitle_ =  _getRootFrameElement().lang.show_company_address;
+			}else {
+				showTitle_ =  _getRootFrameElement().lang.show_department_address;
+			}
+			//如果不存在
+			if(!monitorMapTip.findMarker(whCompanyInfoId)) {
+				var html = [];
+				if(_getRootFrameElement().myUserRole.isLogisticCompany() || _getRootFrameElement().myUserRole.isProduceCompany()) {
+					html.push('<span class="b">'+ _getRootFrameElement().lang.legal_person+'：</span>&nbsp;<span>' + $.trim(_getRootFrameElement().currentCompanyInfo.legal) + '</span><br/>');
+				}
+				html.push('<span class="b">'+ _getRootFrameElement().lang.track_labelTelPhone+'</span>&nbsp;<span>' + $.trim(_getRootFrameElement().currentCompanyInfo.linkPhone) + '</span><br/>');
+				html.push('<span class="b">'+ _getRootFrameElement().lang.address+'：</span>&nbsp;<span>' + $.trim(_getRootFrameElement().currentCompanyInfo.address) + '</span><br/>');
+				html.push('<span class="b">'+ _getRootFrameElement().lang.email_address+'：</span>&nbsp;<span>' + $.trim(_getRootFrameElement().currentCompanyInfo.email) + '</span><br/>');
+				if(_getRootFrameElement().myUserRole.isLogisticCompany() || _getRootFrameElement().myUserRole.isProduceCompany()) {
+					html.push('<span class="b">'+ _getRootFrameElement().lang.transportmanger_businessScope+'：</span>&nbsp;<span>' + $.trim(_getRootFrameElement().currentCompanyInfo.businessScope) + '</span><br/>');
+				}
+				if(_getRootFrameElement().myUserRole.isLogisticCompany() || _getRootFrameElement().myUserRole.isProduceCompany()) {
+					html.push('<span class="b">'+ _getRootFrameElement().lang.brief_introduction+'：</span>&nbsp;<span>' + $.trim(_getRootFrameElement().currentCompanyInfo.introduction) + '</span><br/>');
+				}
+				//添加线路到地图上
+				monitorMapTip.insertMarker(whCompanyInfoId);
+				//经纬度转换
+				var lineGps = {};
+				if(monitorMapTip.mapType != _getRootFrameElement().currentCompanyInfo.mapType) {
+					lineGps = monitorMapTip.getConvertBaiduGoogle(_getRootFrameElement().currentCompanyInfo.jingDu, _getRootFrameElement().currentCompanyInfo.weiDu, _getRootFrameElement().currentCompanyInfo.mapType);
+				}else {
+					lineGps.lng = _getRootFrameElement().currentCompanyInfo.jingDu;
+					lineGps.lat = _getRootFrameElement().currentCompanyInfo.weiDu;
+				}
+				
+				//更新线路信息
+				monitorMapTip.updateMarker(whCompanyInfoId, 1, _getRootFrameElement().currentCompanyInfo.name,
+						lineGps.lng, lineGps.lat, 0, '', html.join(""), 0);
+				
+			}
+			monitorMapTip.selectMarker(whCompanyInfoId);
+			
+			//添加点击事件
+			/*var that = this;
+			monitorMapTip.addMarkerEventListener(whCompanyInfoId, 'click', function() {
+				
+			});*/
+			
+			ttxMap.addBtnToMapTool(true, 'showCompanyLocation', showTitle_, function() {
+				monitorMapTip.selectMarker(whCompanyInfoId);
+			});
+		}
+	}else {
+		setTimeout(showCompanyLocation, 50);
+	}
+}
+
+/*
+ * 处理地图全屏
+*/
+function ttxMapFullScreen(isFull) {
+	fullMapScreen();
+}
+
+function ttxMapDocumentMouseClick() {
+	if(is_mouse_down){
+		$('.gps_box').show();
+        is_mouse_down = false;
+        $(".dm_video").css("height", mapHeight);
+		$(".dm_map").css("height", mapHeight);
+		$(".dm_line").css("height", mapHeight);
+		
+		$(".map_action").css("height", $('#mapMoveDiv').height());
+		if(mapHeight <= 38) {
+			$(".min_s").removeClass("icon_s_re").addClass("icon_s");
+			$(".min_big").removeClass("icon_big").addClass("icon_s_re");
+			setTooltip('.icon_s',  _getRootFrameElement().lang.window_minimum);
+			setTooltip('.icon_s_re',  _getRootFrameElement().lang.window_windowing);
+			$(".dm_video").css("height", 0);
+			$(".dm_map").css("height", 0);
+			$(".dm_line").css("height", 0);
+			$(".map_action").css("height",$(window).height());
+		}
+		
+		if(destHeight <= 59) {
+			$(".min_s").removeClass("icon_s").addClass("icon_s_re");
+			$(".min_big").removeClass("icon_s_re").addClass("icon_big");
+			setTooltip('.icon_s_re',  _getRootFrameElement().lang.window_windowing);
+			setTooltip('.icon_big',  _getRootFrameElement().lang.window_maximize);
+		}
+		$('.gps_box .flexigrid').each(function() {
+			$(this).height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('#gps-storage').height());
+			$(this).find(".bDiv").height($('.map_action').height()- $('.map_drag_box').height() - $('.map_tab').height() - $('.gps_box .active .flexigrid .hDiv').height() - $('.gps_box .active .flexigrid .tDiv').height() - $('#gps-storage').height());
+		});
+		$("#mapMoveDiv").css("height", $('.map_action').height());
+		$('#mapMoveDiv').css("top",$(window).height() - $('#mapMoveDiv').height());
+		$('#mapMoveDiv').hide();
+		
+		fixHeight();
+	}
+}
+
+function ttxMapDocumentMouseMove(e) {
+	if(is_mouse_down){
+		$('.gps_box').show();
+		dest_posi_Y = e.pageY;
+		move_Y = src_posi_Y - dest_posi_Y;
+		src_posi_Y = dest_posi_Y;
+
+		destHeight = $("#mapMoveDiv").height() + move_Y;
+    	mapHeight = $(window).height() - destHeight;
+		
+		if (mapHeight < 2 || destHeight < 59) {
+		} else {
+			if($(".min_big").hasClass("icon_s_re")){
+				$('#mapMoveDiv').css("height", destHeight > $(window).height() ? $(window).height() : destHeight);
+			}else {
+				$('#mapMoveDiv').css("height",destHeight > $(window).height() - 38 ? $(window).height() - 38 : destHeight);
+			}
+			
+			$('#mapMoveDiv').css("top",$(window).height() - $('#mapMoveDiv').height());
+		}
+		fixHeight();
+	}
+}
+
+
+//保存地图解析类型参数
+function savePageMapType(type) {
+	_getRootFrameElement().Event.trigger('loactionMapTypeChange',type);
+	_getRootFrameElement().saveMapTypeLoaction(type);
+}
+
+
+function getMapType(){
+	return _getRootFrameElement().mapTypeLoaction;}
+
+
+
+/*
+ * 重新加载地图
+ */
+function ttxMapReload(type) {
+
+	
+	savePageMapType(type);
+	//设置地图类型
+	monitorMapTip.setMapType(_getRootFrameElement().mapTypeLoaction);
+	//将地图上所有公交线路置为未显示
+	//公交线路
+	if(_getRootFrameElement().myUserRole.isManageLine()) {
+		_getRootFrameElement().vehicleManager.mapVehiTeam.each(function(key, value){
+			displayLineOnMap(value.getId(), 0, 0);
+			displayLineOnMap(value.getId(), 1, 0);
+		});
+	}
+	//重新查询车辆状态
+	monitorStatus.preFillVehi2Map(function() {
+		$('#frameMap').attr('src', $('#frameMap').attr('src'));
+		if(ttxMap != null) {
+			//ttxMap.doReload();
+			ttxMap.initialize(function() {
+				//我的地图
+				if(_getRootFrameElement().myUserRole.isMyMapSupport()) {
+					ttxMap.enableMyMap(true);
+					
+					//危化地图
+					if(_getRootFrameElement().myUserRole.isChemicals()){
+						ttxMap.enableChemicalMap(true);
+					}
+				}
+				if(currentPage == 'weizhi') {
+					ttxMap.hideToolbar(false);
+				} else {
+					ttxMap.hideToolbar(true);
+				}
+				setTimeout(ttxMapLoadSuc, 5000);
+			});
+		}
+	});
+}
+
+
+/**
+ * 设置当前地图类型 ttxmap下拉
+ * @param type
+ */
+function setMapCurrentType(type) {
+    if(type == 0) { // 谷歌地图
+    	_getRootFrameElement().mapConfig.currentMapType = 1;
+    } else if(type == 3) { // 百度
+    	_getRootFrameElement().mapConfig.currentMapType = 2;
+    } else { // 高德
+    	_getRootFrameElement().mapConfig.currentMapType = 3;
+    }
+}
+
+
+/**
+ * 地图上车辆Tip进行操作
+ * @param vehiIdno  车牌号
+ * @param menuId  菜单Id
+ * @param popId  子菜单Id
+ */
+function ttxMapClickmenuitem(vehiIdno, menuId, popId) {
+	monitorMapTip.ttxMapClickmenuitem(vehiIdno, menuId, popId);
+}
+
+/*
+ * 地图上进行画线等操作
+ */
+function ttxMapDrawMarker(type, jingdu, weidu, param) {
+	/*#define MAP_MARKER_TYPE_POINT			1		//自定义点
+	#define MAP_MARKER_TYPE_RECTANGLE		2		//矩形
+	#define MAP_MARKER_TYPE_POLYGON			3		//多边形
+	危废管理新增搜索生产仓储企业 param = 3表示物流公司查询,param = 4表示安监部门查询,param = 5表示环保部门查询,param = 6表示应急救援中心查询
+	#define MAP_MARKER_TYPE_SEARCH			4		//搜索车辆(矩形，param=1表示查找当前车辆，param=2表示查找历史车辆)
+	#define MAP_MARKER_TYPE_FULLSCREEN		5		//全屏显示
+	#define MAP_MARKER_TYPE_EXPAND			6		//扩展、收缩
+	#define MAP_MARKER_TYPE_CENTER			7		//配置中心点，经度 +　纬度　＋　级别
+	#define MAP_MARKER_TYPE_SWITCH_MAP		8		//切换地图，地图类型MAP_TYPE_GOOGLE, MAP_TYPE_MAPINFO, MAP_TYPE_BAIDU
+	#define MAP_MARKER_TYPE_LINE			9		//画线路
+	#define MAP_MARKER_TYPE_CIRCLE			10		//圆形
+	#define	MAP_MARKER_TYPE_DISTANCE		11		//测距
+	#define MAP_MARKER_TYPE_ZOOMIN			12		//拉框放大
+	#define	MAP_MARKER_TYPE_ZOOMOUT		13		//拉框缩小
+	#define MAP_MARKER_TYPE_CRUISE			14		//漫游
+	#define	MAP_MARKER_TYPE_COUNTRY		15		//全国
+	#define MAP_MARKER_TYPE_AREA			16		//测量面积
+	#define	MAP_MARKER_TYPE_PRINT		17		//打印
+	#define MAP_MARKER_TYPE_CAPTURE		18		//截图 */
+	
+	//alert(type + " - " + jingdu + " - " + weidu + " - " + param);
+	if (type == 4) {
+		if (param == 1) {
+			//查找当前车辆 
+			searchVehicleByRectangle(jingdu, weidu, param);
+		} else if(param == 2){
+			//查找历史车辆
+			searchVehicleByRectangle(jingdu, weidu, param);
+		}
+		//alert(ttxMap.isPointInRect("113.23", "23.43", jingdu, weidu));
+	} else if(type == 1 || type == 2 || type == 3 || type == 9 || type == 10){
+		//地图上画图操作
+	}else if(type == 7) {
+		saveMapCenter(jingdu, weidu, param);
+	}
+}
+
+function ttxPlayerDocumentMouseClick() {
+	ttxMapDocumentMouseClick();
+//	ttxMap.geocoderAddress("12341324", "113.1234", "23.132412", function(key, jingdu, weidu, address, city) {
+//		alert(key + " - " + jingdu + " - " + weidu + " - " + address + " - " + city);
+//	});
+}
+
+//切换地理位置坐标  无脑点击可能存在异常position1
+function changeMapAddress(obj, jingDu, weiDu, vehiIdno, callback) {
+	var position1 = $.trim($(obj).attr('data-position'));
+	var position2 = $.trim($(obj).html());
+	$(obj).attr('data-position',position2);
+	var dataType = $.trim($(obj).attr('data-type'));
+	if(dataType == '1') {//点击GPS监控列表
+		monitorStatus.isClickPosition = true;
+	}
+	if(position1 != null && position1 != '' && position2 && position1 != position2) {
+		$(obj).html(position1);
+		$(obj).attr('title',position1);
+		if(dataType == '1') {//点击GPS监控列表
+			paneInfo.switchPosition(position1, position2, vehiIdno);
+		}else if(dataType == '2') {//点击车辆信息
+			monitorStatus.switchPosition(position1, position2, vehiIdno);
+		}
+		if(callback != null &&  typeof callback == 'function' ) {
+			callback();
+		}
+	}else {
+		//此时 position2 为经纬度信息
+		if(ttxMap != null) {
+			var jingWeiDus = position2.split(",");
+			var userDate = {};
+			var  toMapType =  _getRootFrameElement().toMap;
+			if(_getRootFrameElement().toMapLoaction != null){
+				toMapType =  _getRootFrameElement().toMapLoaction;
+			}
+			userDate.position2 = position2;
+			userDate.mapType = toMapType;
+			userDate.vehIdno = vehiIdno;
+			userDate.obj = obj;
+			userDate.topLeave = 1;
+			ttxMap.geocoderAddress(jingWeiDus[0]+','+jingWeiDus[1], jingWeiDus[1], jingWeiDus[0], function(key, jingDu, weiDu, address, city, objs) {
+				if(address != null && address != '') {
+					var obj = objs.obj;
+					$(obj).html(address);
+					$(obj).attr('title',address);
+					var vehiIdno =	objs.vehIdno ;
+					if(dataType == '1') {//点击GPS监控列表  判断当前面板车辆是否一致
+						paneInfo.switchPosition(address, objs.position2, vehiIdno);
+					}else if(dataType == '2') {//点击车辆信息
+						monitorStatus.switchPosition(address, objs.position2, vehiIdno);
+					}
+					var vehicle = _getRootFrameElement().vehicleManager.getVehicle(vehiIdno);//授权设备取
+					if(vehicle != null) {
+						vehicle.lastJingWeiDu =weiDu+","+jingDu;
+						vehicle.lastPostion = address;
+						var data = vehicle.gpsParseTrackStatus();
+						data.id = vehiIdno;
+						data.address = address;
+						//添加到车辆状态列表
+						if(data != null) {
+							monitorMapTip.updateStatusInMapNew(vehiIdno, data);
+						}
+					}
+					if(callback != null &&  typeof callback == 'function' ) {
+						callback();
+					}
+				}
+			}, userDate);
+			
+			
+		}
+	}
+}
+
+function ttxPlayerDocumentMouseMove(e) {
+	ttxMapDocumentMouseMove(e);
+}
+
+function ttxPlayerListenMsg(type) {
+	paneInfo.onListenMsg(type);
+}
+
+function ttxPlayerTalkbackMsg(type) {
+	paneInfo.onTalkbackMsg(type);
+}
+
+/**
+ * 预览视频
+ * @param vehiIdno  车牌号
+ * @param channel   通道
+ * @param stream    码流
+ * @param viewCloseTime  关闭时间
+ * @param armType  报警信息
+ */
+function previewVideo(vehiIdno, channel , stream, viewCloseTime, armType) {
+	//500车 36画面卡死一个窗口需要 500ms+ 6s+
+	//9画面 200ms+ 1000ms以下
+	//如果视频窗口没展现，则跳转到视频窗口界面
+	if (currentPage == "weizhi") {
+//		_getRootFrameElement().switchTopMenuPage('shipin');
+		showMonitorPage('shipin');
+	}
+	
+	if(ttxVideo == null) {
+		return;
+	}
+	
+	if(vehiIdno.includes('$')){//id$车牌号  协同小组传入的设备节点
+		vehiIdno = vehiIdno.split('$')[1];
+	}
+	
+	//判断车辆是否存在
+	var vehicle = _getRootFrameElement().vehicleManager.getVehicle(vehiIdno);
+	
+	if (vehicle == null) {
+		return ;
+	}
+	//服务期限
+	if(!vehicle.isServicePeriod()){
+		$.dialog.tips( _getRootFrameElement().lang.service_period, 1);
+		return;
+	}
+	//判断是否有视频权限
+	if(!vehicle.isSupportVideo()) {
+		$.dialog.tips( _getRootFrameElement().lang.vehicle_deny_video, 1);
+		return ;
+	}
+	//车辆禁用
+	if (vehicle.getIsDisable()) {
+		$.dialog.tips( _getRootFrameElement().lang.unStatus, 1);
+		return ;
+	}
+	
+	//var stream = 1;		//默认预览子码流视频
+	if(stream == null){
+		var videoRequest = $.cookie(DEF_Request_Video);
+		if(videoRequest != null){
+			stream = videoRequest;
+		}else{
+			stream = ttxVideo.STREAM_SUB;
+		}
+	}
+	//判断视频设备
+	var device = vehicle.getVideoDevice();
+	
+	if (device == null) {
+		$.dialog.tips( _getRootFrameElement().lang.gps_not_support_preview, 1);
+//		alert(lang.gps_not_support_preview);	//不是视频设备不支持预览
+		return ;
+	} 
+	//acc关闭状态 + 808标准协议
+	if (!device.isAccOpen() && device.isJT808Protocol()) {
+		$.dialog.tips( _getRootFrameElement().lang.acc_status_close, 1);
+        return;
+	}
+	
+	if (!device.isOnline()) {
+		$.dialog.tips( _getRootFrameElement().lang.video_not_online_device, 1);
+//		alert(lang.video_not_online_device);	//不是视频设备不支持预览
+		return;
+	}
+	if (!device.getUseStatus()) {//设备非使用状态 null
+		$.dialog.tips( _getRootFrameElement().lang.devUnStatus, 1);
+		return;
+	}
+	
+//	if (!isChannelPTZAllow) {
+//		$.dialog.tips( _getRootFrameElement().lang.video_not_online_device, 1);
+////		alert(lang.video_not_online_device);	//不是视频设备不支持预览
+//		return;
+//	}
+//	alert("通道："+channel+", isChannelVideoAllow:  "+isChannelVideoAllow+", isChannelPTZAllow: " +isChannelPTZAllow);
+	
+//	if (!device.isOnline()) {
+//		$.dialog.tips( _getRootFrameElement().lang.video_not_online_device, 1);
+////		alert(lang.video_not_online_device);	//不是视频设备不支持预览
+//		return;
+//	}
+	var isVedio = false;
+	if(device.module != null){//判断是否具备切换摄像头功能
+		if((device.module >> 13)&1 > 0){
+			isVedio = true;
+		}
+	}
+	
+
+	if(device.status.network == 0 || device.status.network == 3){ //3G状态 /4G状态
+        //判断设备使用流量是否已达上限
+        if(vehicle.isOverFlowLimit()) {
+            $.dialog.tips( _getRootFrameElement().lang.flowDeviceUpperLimit, 1);
+            return;
+        }
+	}
+
+	
+	var devIdno = device.getIdno();
+	var arrChn = [];
+	var arrTitle = [];
+	var streamStr = '';
+	if(stream == ttxVideo.STREAM_MAIN) {
+		streamStr =  _getRootFrameElement().lang.main_stream;
+	}
+	
+	if (channel == -1) {
+		//如果没有配置通道数目，则认为是通道1
+		var count = device.getChnCount();
+		if (count <= 0) {
+			arrChn.push(0);
+			arrTitle.push(vehicle.getName() + " - " + device.getSingleChnName(0));
+		}else{
+			for (var i = 0; i < count; ++ i) {
+				var isChannelVideoAllow = vehicle.isChannelVideoAllow(i);//通道是否具备摄像头
+				var isChannelPTZAllow = vehicle.isChannelPTZAllow(i);
+				var isChannelStatus = vehicle.isChannelStatus(i);
+				if (!isChannelStatus) {
+					continue;
+				}
+				if (!isChannelVideoAllow) {
+					continue;
+				}
+				
+				arrChn.push(i);
+				if(streamStr != '') {
+					arrTitle.push(vehicle.getName() + " - " + device.getSingleChnName(i)+ " - " + streamStr);
+				}else {
+					arrTitle.push(vehicle.getName() + " - " + device.getSingleChnName(i));
+				}
+			}
+		}
+	} else {
+		//判断通道是否在视频设备上
+		if(vehicle.isChannelVideoDevice(channel)) {
+			var isChannelVideoAllow = vehicle.isChannelVideoAllow(channel);//通道是否具备摄像头
+			var isChannelPTZAllow = vehicle.isChannelPTZAllow(channel);
+			var isChannelStatus = vehicle.isChannelStatus(channel);
+			if (!isChannelStatus) {
+				$.dialog.tips( _getRootFrameElement().lang.channelDisabled, 1);
+				return;
+			}
+			if (!isChannelVideoAllow) {
+				$.dialog.tips( _getRootFrameElement().lang.channelTypeDisabled, 1);
+				return;
+			}
+			
+			arrChn.push(channel);
+			if(streamStr != '') {
+				arrTitle.push(vehicle.getName() + " - " + device.getSingleChnName(channel) + " - " + streamStr);
+			}else {
+				arrTitle.push(vehicle.getName() + " - " + device.getSingleChnName(channel));
+			}
+		}else {
+			$.dialog.tips( _getRootFrameElement().lang.gps_not_support_preview, 1);
+			//alert(lang.gps_not_support_preview);
+			return;
+		}
+	}
+	if(arrChn.length < 1){
+		$.dialog.tips( _getRootFrameElement().lang.dev_allchn_unused, 1);
+		return;
+	}
+	enableFocusTree = false;
+	ttxVideo.previewVideo(devIdno, arrChn, stream, arrTitle, viewCloseTime, armType,isVedio);
+	enableFocusTree = true;
+}
+
+//视频窗口选中事件
+function ttxPlayerViewSelect(devIdno, channel) {
+	var vehicle = _getRootFrameElement().vehicleManager.getVehiByDevIdno(devIdno);
+	if (vehicle != null) {
+		monitorStatus.selectVehicle(vehicle.getIdno(), false, true, true);
+		if (enableFocusTree) {
+			var device = _getRootFrameElement().vehicleManager.getDevice(devIdno);
+			if (device != null) {
+				//如果没有通道结点，则选中车辆结点
+				if (device.getChnCount() == 0) {
+					//选中通道结点
+					vehiTree.selectItem(vehicle.getIdno());
+					vehiTree.focusItem(vehicle.getIdno());
+				} else {
+					var chnItem = vehiTree.getTreeChannelId(vehicle.getIdno(), channel);
+					//选中通道结点
+					vehiTree.selectItem(chnItem);
+					vehiTree.focusItem(chnItem);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * 如果窗口没有设备信息，则不会调用此方法
+ * 视频右键点击前事件（主要是生成视频右键菜单）
+ * @param index 窗口下标
+ * @param devIdno 设备号
+ * @param chn 通道号
+ * @param isPreview 是否正在预览
+ */
+function ttxVideoRightBeforeMsg(index, devIdno, chn, isPreview) {
+	if(ttxVideo != null) {
+		//添加菜单之前，清空菜单
+		ttxVideo.clearVideoMenu(index);
+		var vehicle = _getRootFrameElement().vehicleManager.getVehiByDevIdno(devIdno);
+//		判断通道
+		if(vehicle != null) {
+			if(isPreview) {//如果正在预览
+				//添加菜单1.停止预览2.停止所有通道视频3.预览所有通道视频
+				ttxVideo.addVideoMenu(index, 'stopVideo',  _getRootFrameElement().lang.preview_stop_video, 1);
+				ttxVideo.addVideoMenu(index, 'stopAllVideo',  _getRootFrameElement().lang.preview_stop_all_video, 1);
+			}else {//如果停止预览
+				//添加菜单1.预览所有通道视频
+			}
+			ttxVideo.addVideoMenu(index, 'startAllVideo',  _getRootFrameElement().lang.preview_start_all_video, 1);
+			//监听 添加开始监听，停止监听
+			if (vehicle.isMonitorSupport() && vehicle.getMonitorDevice().isOnline()) {
+				if(paneInfo != null && (typeof paneInfo.isVehiListening) == 'function') {
+					if (paneInfo.isVehiListening(vehicle.getName(), chn)){//如果窗口在监听
+						ttxVideo.addVideoMenu(index, 'stopListen',  _getRootFrameElement().lang.stopMonitor, 1);
+					} else {
+						ttxVideo.addVideoMenu(index, 'startListen',  _getRootFrameElement().lang.startMonitor, 1);
+					}
+				}
+			}
+			//对讲 添加开始对讲，停止对讲 
+			if (vehicle.isTalkbackSupport() && vehicle.getTalkbackDevice().isOnline()) {
+				if(paneInfo != null && (typeof paneInfo.isVehiTalking) == 'function') {
+					if (paneInfo.isVehiTalking(vehicle.getName())){//如果窗口在对讲
+						ttxVideo.addVideoMenu(index, 'stopTalkback',  _getRootFrameElement().lang.stopTalkback, 1);
+					} else {
+						ttxVideo.addVideoMenu(index, 'startTalkback',  _getRootFrameElement().lang.startTalkback, 1);
+					}
+				}
+			}
+		}
+		
+		
+		
+	}
+}
+
+/**
+ * 处理视频右键菜单点击事件
+ * @param index
+ * @param menuid
+ * @param devIdno
+ * @param chn
+ */
+function ttxVideoRightMenuClickMsg(index, menuId, devIdno, chn) {
+	if(ttxVideo != null) {
+		var vehicle = _getRootFrameElement().vehicleManager.getVehiByDevIdno(devIdno);
+		//车辆存在并且服务期限内
+		if(vehicle != null) {
+			if(menuId == 'stopVideo') {//停止预览
+				ttxVideo.stopIndexWindowPreview(index);
+			} else if(menuId == 'stopAllVideo') {//停止所有通道视频
+				if(monitorMenu != null && (typeof monitorMenu.stopAllVehiVideo) == 'function') {
+					monitorMenu.stopAllVehiVideo(vehicle.getIdno().toString());
+				}
+			} else if(menuId == 'startAllVideo') {//预览所有通道视频
+				previewVideo(vehicle.getIdno().toString(), -1);
+			} else if(menuId == 'startListen' || menuId == 'stopListen') {//监听
+				if(paneInfo != null && (typeof paneInfo.doListen) == 'function') {
+					paneInfo.doListen(vehicle.getIdno().toString(), chn);
+				}
+			} else if(menuId == 'startTalkback' || menuId == 'stopTalkback') {//对讲
+				if(paneInfo != null && (typeof paneInfo.doTalkback) == 'function') {
+					paneInfo.doTalkback(vehicle.getIdno().toString());
+				}
+			} 
+		}
+	}
+	
+}
+
+var ajaxObject = null;//发送请求对象
+function onToolbarClick(index, devIdno){
+	var action ;
+	action = "StandardTTSAction_onToolbarClick.action?DevIDNO="+ encodeURI(devIdno)+'&CtrlType=19';
+	action += '&Usr='+''+'&Pwd='+''+'&jsession='+$.cookie("JSESSIONID");
+	ajaxObject = $.ajax({
+		type : "get",  
+        url : action,
+        timeout: 60000,
+        data : null,
+        dataType: "json",
+        success : function(json){
+    		$.myajax.showLoading(false);
+    		disableForm(false);
+    		if(json.result == 0){
+    			$.dialog.tips( _getRootFrameElement().lang.monitor_sendSuccess, 2);
+    		}else {
+    			$.dialog.tips( _getRootFrameElement().lang.monitor_sendFail, 2);
+    		}
+        }
+	});
+}
+
+
+
+//拉框查找车辆的区域标记Id
+var rectangleMark = null;
+var rectangleMarkId = 900000000;
+
+//弹出拉框查找车辆窗口对象
+var selVehiRecObj = null;
+/**
+ * 画矩形查找车辆
+ * param 1当前车辆  2历史车辆
+ */
+function searchVehicleByRectangle(jingdu,weidu,param) {
+	var name =  _getRootFrameElement().lang.mapRectHisCar;
+	var width = "800px", height = "400px";
+	if(param == 1) {
+		var flag = false;
+		_getRootFrameElement().vehicleManager.mapVehiList.each(function(key,value){
+			var point = value.getMapLngLat();
+			if(point != null && point.lng != null && point.lat != null && ttxMap != null && ttxMap.isPointInRect(point.lng,point.lat,jingdu,weidu)) {
+				flag = true;
+			}
+		});
+		if(!flag) {
+			$.dialog.tips( _getRootFrameElement().lang.tipNotExistsVehicle, 2);
+			return;
+		}
+		name =  _getRootFrameElement().lang.mapRectMyCar;
+	}else {
+		width = "800px";
+		height = "600px";
+	}
+	if(ttxMap != null) {
+		addVehicleRectangleMarker(rectangleMarkId, name, jingdu, weidu);
+	}
+	if(popTipsObject.get('info') != null) {
+		popTipsObject.get('info').close();
+	}
+	var url = 'url:LocationManagement/vehicleList.html?type='+param+'&jingdu='+jingdu+'&weidu='+weidu;
+	selVehiRecObj = $.dialog({id:'info', title:  _getRootFrameElement().lang.vehicle_information, content: url,
+		width: '900px', height: '600px', min:true, max:false, lock:false,fixed:true, left:'0', top:'0'
+			, resize:true, close: closeDelAllMarker });
+	if(ttxMap != null) {
+		ttxMap.enableSearchbox(false);
+	}
+	popTipsObject.put('info',selVehiRecObj);
+	hidePopTips('info');
+}
+
+//关闭拉框查找车辆弹出框后执行
+function closeDelAllMarker() {
+	popTipsObject.remove('info');
+	rectangleMark = null;
+	if(ttxMap != null) {
+		ttxMap.deleteMarker(rectangleMarkId);
+		ttxMap.enableSearchbox(true);
+	}
+}
+
+//拉框查找车辆时添加区域标记
+function addVehicleRectangleMarker(index,name,jingdu,weidu) {
+	var marker = ttxMap.findMarker(index);
+	if(marker != null) {
+		ttxMap.deleteMarker(index);
+	}
+	//加入
+	ttxMap.insertMarker(index);
+	ttxMap.updateMarker(index, 2,name, jingdu, weidu, '', '00FF00', '', '');
+//	ttxMap.selectMarker(index);
+	
+	marker = ttxMap.findMarker(index);
+	rectangleMark = marker;
+}
+
+//弹框对象
+var storageListObj = null;
+//点击监控参数弹出存储介质,离线设备,定损等报表
+function queryStorage() {
+	if(storageListObj == null) {
+		storageListObj = $.dialog({id:'storageList', title:  _getRootFrameElement().lang.monitor_statusStatistical, content: 'url:LocationManagement/storageList.html',
+		width: '800px', height: '400px', min:true, max:false, lock:false,fixed:true
+			, resize:true, close: function() {
+				storageListObj = null;
+				popTipsObject.remove('storageList');
+			} });
+	}else {
+		storageListObj.show();
+	}
+	popTipsObject.put('storageList', storageListObj);
+	hidePopTips('storageList');
+}
+
+//弹框对象
+var alarmLinkageObj = null;
+//点击设置报警联动
+function setAlarmLinkage() {
+	if(alarmLinkageObj == null) {
+		var  url = 'url:LocationManagement/allAlarmLinkage.html'; 
+		alarmLinkageObj = $.dialog({id:'alarmLinkage', title:  _getRootFrameElement().lang.monitor_alarm_linkage, content: url,
+				width: '800px', height: '500px', min:true, max:false, lock:false,fixed:false/*, left:'100%', top:'0'*/
+					, resize:false, close: function() {
+						alarmLinkageObj = null;
+						popTipsObject.remove('alarmLinkage');
+					} });
+	}else {
+		alarmLinkageObj.show();
+	}
+	popTipsObject.put('alarmLinkage', alarmLinkageObj);
+	hidePopTips('alarmLinkage');
+}
+
+//弹框对象
+var alarmShieldObj = null;
+//点击设置报警屏蔽
+function setAlarmShielded() {
+	if(alarmShieldObj == null) {
+		alarmShieldObj = $.dialog({id:'alarmShield', title:  _getRootFrameElement().lang.monitor_alarm_shield, content: 'url:LocationManagement/alarmShield.html',
+		width: '300px', height: '500px', min:true, max:false, lock:false,fixed:false, left:'100%', top:'0'
+			, resize:false, close: function() {
+				alarmShieldObj = null;
+				popTipsObject.remove('alarmShield');
+			} });
+	}else {
+		alarmShieldObj.show();
+	}
+	popTipsObject.put('alarmShield', alarmShieldObj);
+	hidePopTips('alarmShield');
+}
+
+//查看本区域内的物流企业的状态信息
+//物流企业的用户登录，则为在线状态，否则为离线状态
+var companyStatusObj = null;
+function findCompanyStatus() {
+	if(companyStatusObj == null) {
+		companyStatusObj = $.dialog({id:'companyStatus', title:  _getRootFrameElement().lang.check_transport_status, content: 'url:whManagement/CompanyStatus.html',
+		width: '800px', height: '500px', min:true, max:false, lock:false,fixed: false
+			, resize:false, close: function() {
+				companyStatusObj = null;
+				popTipsObject.remove('companyStatus');
+			} });
+	}else {
+		companyStatusObj.show();
+	}
+	popTipsObject.put('companyStatus', companyStatusObj);
+	hidePopTips('companyStatus');
+}
+
+//获取网关服务器和存储服务器
+//获取用户服务器
+var gatewayServer = null;
+var storageServer = null;
+var userServer = null;
+var isLoadServer = false;
+function getGatewayServer() {
+	$.myajax.jsonGet('StandardLoginAction_getGateStoServer.action', function(json,action,success){
+		if(success) {
+			//网关服务器
+			var gatewayList = json.gatewayServer;
+			var lstSvrIp = [];
+			lstSvrIp.push(gatewayList[0].clientIp);
+			lstSvrIp.push(gatewayList[0].lanip);
+			lstSvrIp.push(gatewayList[0].clientIp2);
+            lstSvrIp.push(gatewayList[0].clientIp3);
+			gatewayServer = {};
+			gatewayServer.ip = getComServerIp(lstSvrIp);
+			gatewayServer.port = gatewayList[0].clientPort;
+			//存储服务器
+			var storageList = json.storageServer;
+			var lstSvrIp2 = [];
+			lstSvrIp2.push(storageList[0].clientIp);
+			lstSvrIp2.push(storageList[0].lanip);
+			lstSvrIp2.push(storageList[0].clientIp2);
+            lstSvrIp2.push(storageList[0].clientIp3);
+			storageServer = {};
+			storageServer.ip = getComServerIp(lstSvrIp2);
+			storageServer.port = storageList[0].clientPort;
+			//赋值存储服务器  车辆媒体文件类
+			monitorMedia.setStorageServer(storageServer);
+			//用户服务器
+			var lstSvrIp3 = [];
+			lstSvrIp3.push(json.userServer.clientIp);
+			lstSvrIp3.push(json.userServer.lanip);
+			lstSvrIp3.push(json.userServer.clientIp2);
+            lstSvrIp3.push(json.userServer.clientIp3);
+			userServer = {};
+			userServer.ip = getComServerIp(lstSvrIp3);
+			userServer.port = json.userServer.clientPort;
+			isLoadServer = true;
+		};
+	}, null);
+}
+
+
+function setRefinterval(){
+	var interval = $.cookie(DEF_Refresh_Interval);
+	if(interval != null){
+		refinterval = interval * 1000;
+		monitorStatus.setFlashStatusInterval(refinterval);
+	}
+	
+	//加载地图点聚合参数
+	monitorMapTip.loadMarkerClusterParam();
+	//刷新地理位置解析类型
+	_getRootFrameElement().myUserRole.setGeocoderMapType($.cookie(DEF_Geocoder_mapType));
+	//保存速度单位
+	var oldVelocityType = _getRootFrameElement().myUserRole.getVelocityType();
+	_getRootFrameElement().myUserRole.setVelocityType($.cookie(DEF_velocityType));
+	//保存地理位置解析类型和速度单位
+	$.myajax.jsonGet('StandardPositionAction_saveUserGeocoderMapType.action?geocoderMapType='+$.cookie(DEF_Geocoder_mapType)+'&velocityType='+$.cookie(DEF_velocityType), function(json,action,success){
+		if(success) {
+		};
+		if(oldVelocityType != _getRootFrameElement().myUserRole.getVelocityType()) {
+			_getRootFrameElement().refreshMainPage();
+		}
+	}, null);
+}
+
+function setAlarmRefinterval(){
+	var alarminterval = $.cookie(DEF_Alarm_Refresh_Interval);
+	if(alarminterval != null){
+		alarmrefinterval = alarminterval * 1000;
+		monitorAlarm.setFlashAlarmInterval(alarmrefinterval);
+	}else{
+		if(_getRootFrameElement().myUserRole.isDispatcher()){//调度用户5秒一刷新
+			monitorAlarm.setFlashAlarmInterval(5000);
+		}
+	}
+}
+
+function sendPTZControl(value){
+	if(ttxVideo == null) {
+		return;
+	}
+	var window_ = ttxVideo.getCurFocusWindow();
+	if(!window_.isPreview){
+		$.dialog.tips( _getRootFrameElement().lang.focus_picture_play_video,1);
+		//alert( _getRootFrameElement().lang.focus_picture_play_video);
+		return;
+	}
+	if(value == 18){
+		$('.icon_yt_4').attr('href','javascript:sendPTZControl(19);');
+	}else if(value == 19){
+		$('.icon_yt_4').attr('href','javascript:sendPTZControl(18);');
+	}
+	paneInfo.sendPTZControl(window_,value, gatewayServer);
+}
+
+//处理视频播放按钮的消息 开始和停止
+function ttxPlayerReplayMsg(type){
+	paneInfo.setButtonForPtzColor();
+}
+
+/*function setButtonClose(){
+	paneInfo.setButtonClose();
+}*/
+
+//隐藏弹出框
+function hidePopTips(name) {
+	if(popTipsObject != null && popTipsObject.size() > 0) {
+		popTipsObject.each(function(id, value) {
+			if(id != name && value != null) {
+				if(id != 'info' && id != 'areaInfo' /*&& id != 'issuedInfo' && id != 'upgrade' && id != 'oilConfig'*/) {
+					value.hide();
+				}else {
+					value.close();
+				}
+			}
+		});
+	}
+}
+
+//媒体文件列表下载媒体文件
+function downloadMediaFile(id) {
+	monitorMedia.downloadMediaFile(id);
+}
+
+//媒体文件列表回放视频
+function videoFileReplay(id) {
+	monitorMedia.videoFileReplay(id);
+}
+
+//媒体文件列表图片查看
+function popImageIfrme(id) {
+	monitorMedia.popImageIfrme(id);
+}
+
+//添加车辆到地图
+function addVehicleToMap(vehiIdno) {
+	var vehicle = _getRootFrameElement().vehicleManager.getVehicle(vehiIdno);
+	if(vehicle != null) {
+		var data = vehicle.gpsParseTrackStatus();
+		data.id = vehiIdno;
+		monitorMapTip.addVehicleToMap(vehicle, data, true);
+	}
+}
+
+//报警信息列表查询
+function doAlarmFind(alarmId) {
+	monitorAlarm.doAlarmFind(alarmId);
+}
+
+//报警信息列表查询
+function doAIAlarmHandle(alarmId) {
+	monitorAlarm.doAIAlarmHandle(alarmId);
+}
+
+
+//getMapSafetyAlarmList
+function getMapSafetyAlarmList(vehiId) {
+	return monitorAlarm.getMapSafetyAlarmList(vehiId);
+}
+
+/**
+ * 808政府
+ * @param alarmId
+ */
+function doOperatorFind(alarmId){
+	//获取操作的相关信息
+	governmentAlarm.doOperatorFind(alarmId);
+}
+/**
+ * 808政府
+ * @param alarmId
+ */
+function doHandleInfo(alarmId, content){
+	//获取操作的相关信息
+	governmentAlarm.updateAlarmEvent(alarmId, content);
+}
+
+/**
+ * 获取当前处理对象
+ */
+function getOperatorInfo(){
+	//获取操作的相关信息
+	return	governmentAlarm.getOperatorInfo();
+}
+
+//设置车辆画区域标志
+function setVehicleDrowing(flag) {
+	monitorMapTip.setVehicleDrowing(flag);
+}
+
+/**
+* 公交线路  显示线路信息到地图
+* isOnShowMap true 显示 false 删除
+*/
+function displayLineOnMap(lineId, lineDirect, isOnShowMap) {
+	monitorLine.displayLineOnMap(lineId, lineDirect, isOnShowMap);
+}
+
+/**
+* 公交线路  显示线路信息到地图
+* isOnMonitor true监控
+* isShowTable 显示列表
+*/
+function selectLine(lineId, isOnMonitor, isShowTable) {
+	monitorLine.selectLine(lineId, isOnMonitor, isShowTable);
+}
+
+//刷新待审核企业数目和待审批车辆数目
+function flashChemicalStatus() {
+	monitorChemical.flashChemicalStatus();
+}
+
+//添加交通部门和交警部门所需区域参数
+function appendTrafficAreaParam(areaId) {
+	monitorAlarm.appendTrafficAreaParam(areaId);
+}
+
+//配置中心点，经度 +　纬度　＋　级别
+function saveMapCenter(jingdu, weidu, level) {
+	monitorMapTip.saveMapCenter(jingdu, weidu, level);
+}
+
+//获取地图位置中心点
+function getMapCenter() {
+	$.myajax.jsonGet("StandardPositionAction_getMapCenter.action", function(json,action,success){
+		if (success) {
+			if(json.config) {
+				_getRootFrameElement().initMapType = json.config.mapType;
+				_getRootFrameElement().initJingDu = json.config.jingDu / 1000000;
+				_getRootFrameElement().initWeiDu = json.config.weiDu / 1000000;
+				_getRootFrameElement().initZoom = json.config.level;
+			}
+		}
+	}, null);
+}
+
+
+

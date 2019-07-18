@@ -1,0 +1,1484 @@
+/**
+ * 我的地图处理类
+ */
+function monitorMyMap(){
+	this.roleCls = null;  //权限类对象
+	this.isLoadSuc = false; //初次加载标记信息是否加载完成
+	this.lstCompanyId = []; //可操作公司id列表
+	this.lstAreaType = []; // 区域类型列表
+	this.mapPointInfo = new Hashtable();  //标记点信息列表
+	this.mapAreaInfo = new Hashtable(); //标记区域信息列表
+	this.mapLineInfo = new Hashtable(); //标记线路信息列表
+	this.addMarkerExpId = 910000000; //画区域时的区域Id，画区域结束后删除
+	this.initSuc = false;
+	this.isShowing = false; //界面是否打开了
+	this.existOtherPage = false;
+	
+	this.addMapFenceExpId = 970000000; //画电子围栏区域时的区域Id
+	this.mapFenceInfo = new Hashtable();  //获取到的电子围栏信息列表
+	this.mapFenceAdd = new Hashtable(); //已经添加到地图上的电子围栏
+	this.mapAdminAreaInfo = new Hashtable(); //行政区域信息列表
+}
+
+//赋值权限类对象
+monitorMyMap.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+
+//界面是否打开了
+monitorMyMap.prototype.setShow = function(show_) {
+	this.isShowing = show_;
+	if(show_) {
+		$('#myMap_ .myMap-pane').addClass('active');
+		$('#map-fence .chemical-box').addClass('active');
+		if(!this.roleCls.isChemicals()) {
+			$('#chemicalShow').addClass('active');
+		}
+	}else {
+		$('#myMap_ .myMap-pane').removeClass('active');
+		$('#map-fence .chemical-box').removeClass('active');
+		if(!this.roleCls.isChemicals()) {
+			$('#chemicalShow').removeClass('active');
+		}
+	}
+}
+
+/**
+ * 是否存在其他页面
+ */
+monitorMyMap.prototype.setExistOtherPage = function(existOtherPage) {
+	this.existOtherPage = existOtherPage;
+}
+
+//加载点信息
+monitorMyMap.prototype.loadMapPointInfo = function() {
+	this.mapPointInfo.clear();
+	var pointList = rootParent.mapMarkManager.getViewPointMarkList();
+	for(var i = 0; i < pointList.length; i++){
+		this.mapPointInfo.put(Number(pointList[i].id), pointList[i]);
+	}
+}
+
+//加载区域信息
+monitorMyMap.prototype.loadMapAreaInfo = function() {
+	this.mapAreaInfo.clear();
+	var areaList = rootParent.mapMarkManager.getViewAreaMarkList();
+	for(var i = 0; i < areaList.length; i++){
+		this.mapAreaInfo.put(Number(areaList[i].id), areaList[i]);
+	}
+}
+
+//加载线路信息
+monitorMyMap.prototype.loadMapLineInfo = function() {
+	this.mapLineInfo.clear();
+	var lineList = rootParent.mapMarkManager.getViewLineMarkList();
+	for(var i = 0; i < lineList.length; i++){
+		this.mapLineInfo.put(Number(lineList[i].id), lineList[i]);
+	}
+}
+
+//初始化区域信息
+monitorMyMap.prototype.initMapAreaInfo = function() {
+	//取index的区域信息
+	//标记点进行分类
+	if(rootParent.mapMarkManager.mapMarkList) {
+		//加载点信息
+		this.loadMapPointInfo();
+		//加载区域信息
+		this.loadMapAreaInfo();
+		//加载线路信息
+		this.loadMapLineInfo();
+		if(rootParent.mapMarkManager.adminArea){//行政区域
+			for(var i = 0; i < rootParent.mapMarkManager.adminArea.length; i++){
+				this.mapAdminAreaInfo.put(Number(rootParent.mapMarkManager.adminArea[i].id), rootParent.mapMarkManager.adminArea[i]);
+			}
+		}
+	}else {
+		var that = this;
+		setTimeout(function() {
+			that.initMapAreaInfo();
+		}, 50);
+	}
+}
+
+//初始化
+monitorMyMap.prototype.initialize = function() {
+	//初始化我的地图
+	if(!this.initSuc) {
+		this.initMyMap();
+		//危化管理不加载电子围栏
+		if(this.roleCls.isMapFenceManageSupport() && !this.roleCls.isChemicals()
+				&& !this.roleCls.isSanitationTruck() && !rootParent.isHBManagement()) {
+			//初始化电子围栏
+			this.initMapFence();
+			
+			$('body').append('<div id="chemicalShow">'+ parent.lang.myMap_hide +'</div>');
+			var that = this;
+			$('#chemicalShow').on('click', function() {
+				$(this).removeClass('active');
+				that.setShow(false);
+				if(chemicalMap) {
+					chemicalMap.setShow(false);
+				}
+			});
+			this.setExistOtherPage(true);
+		}
+	}
+	//初始化表格
+	this.initMapTable();
+	//初始化可操作公司id列表
+	this.initCompanyIdList();
+	//初始化区域类型
+	this.initAreaTypeList();
+	//初始化区域信息
+	this.initMapAreaInfo();
+}
+
+//初始化可操作公司id列表
+monitorMyMap.prototype.initCompanyIdList = function() {
+	var companys = rootParent.vehicleManager.getAllVehiTeam();
+	if(companys && companys.length > 0) {
+		for (var i = 0; i < companys.length; i++) {
+			this.lstCompanyId.push(companys[i].id);
+		}
+	}
+}
+
+//初始化区域类型
+monitorMyMap.prototype.initAreaTypeList = function() {
+	this.lstAreaType.push({id: 1, name: lang.mark_point});
+	this.lstAreaType.push({id: 2, name: lang.alarm_rect_area});
+	this.lstAreaType.push({id: 3, name: lang.alarm_poligon_area});
+	this.lstAreaType.push({id: 4, name: lang.alarm_line});
+	this.lstAreaType.push({id: 10, name: lang.alarm_circle_area});
+}
+
+//初始化我的地图
+monitorMyMap.prototype.initMyMap = function() {
+	//<!-- 我的地图 -->
+	var content = '<div id="myMap_">';
+	content += '<div class="spantitle"></div>';
+	content += '	<div class="myMap-pane">';
+	content += '		<ul class="myMap-tab">';
+	content += '			<li class="point active"><span id="pointTitle"></span><span id="pointSum"></span></li>';
+	content += '			<li class="area"><span id="areaTitle"></span><span id="areaSum"></span></li>';
+	content += '			<li class="line"><span id="lineTitle"></span><span id="lineSum"></span></li>';
+	content += '			<li style="margin-left: 10px;padding: 5px 5px 5px 5px;">';
+	content += '				<div id="myMap_draw_box" class="left dh">';
+	content += '					<span class="icon_xu">';
+	content += '						<i id="myMap_drawMove" class="icon icon_diy" style="display:none;"></i>';
+	content += '						<i id="myMap_drawPoint" class="icon icon_diy" style="display:none;"></i>';
+	content += '						<i id="myMap_drawCircle" class="icon icon_circle" style="display:none;"></i>';
+	content += '						<i id="myMap_drawRectangle" class="icon icon_squer" style="display:none;"></i>';
+	content += '						<i id="myMap_drawPolygon" class="icon icon_polygon" style="display:none;"></i>';
+	content += '						<i id="myMap_drawLine" class="icon icon_curve" style="display:none;"></i>';
+	if(this.roleCls.isChemicals() && (this.roleCls.isLogisticCompany() || this.roleCls.isAdmin())) {//危化管理
+		content += '					<i id="myMap_drawLineNav" class="icon icon_nav" style="display:none;"></i>';
+	}
+	content += '					</span>';
+	content += '				</div>';
+	content += '			</li>';
+	content += '			<li class="import"><div class = "btnImport">'+parent.lang.importExcel+'</div> </li>';
+	content += '		</ul>';
+	content += '		<div class="myMap-box">';
+	content += '			<ul>';
+	content += '				<li class="point active">';
+	content += '					<table id="pointTable" style="display:none;"></table>';
+	content += '				</li>';
+	content += '				<li class="area">';
+	content += '					<table id="areaTable" style="display:none;"></table>';
+	content += '				</li>';
+	content += '				<li class="line">';
+	content += '					<table id="lineTable" style="display:none;"></table>';
+	content += '				</li>';
+	content += '			</ul>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	$('body').append(content);
+	
+	$('.btnImport').on('click', function() {
+		$.dialog({id:'areaInfo', title:parent.lang.importExcel,content:'url:ttxmap/mapImport.html',width:'490px', height:'100px', min:false, max:false, lock:true});
+	});
+	
+	$("#myMap_drawPoint").click(function() {
+		pointAddType = 1;
+		addMarkerPoint();
+	});
+	$("#myMap_drawCircle").click(function() {
+		addMapAreaType = 1;
+		addMarkerCircle();
+	});
+	$("#myMap_drawRectangle").click(function() {
+		addMapAreaType = 1;
+		addMarkerRectangle();
+	});
+	$("#myMap_drawPolygon").click(function() {
+		addMapAreaType = 1;
+		addMarkerPolygon();
+	});
+	$("#myMap_drawLine").click(function() {
+		addMapAreaType = 1;
+		addMarkerLine();
+	});
+	
+	//危化管理 添加导航
+	if(this.roleCls.isChemicals()) {
+		$("#myMap_drawLineNav").click(function() {
+			if(chemicalMap) {
+				chemicalMap.addLineNavigation();
+			}
+		});
+	}
+	
+	setTooltip("#myMap_drawMove", lang.mapMove);
+	setTooltip("#myMap_drawPoint", lang.addPoint);
+	setTooltip("#myMap_drawCircle", lang.tipAddCircle);
+	setTooltip("#myMap_drawRectangle", lang.addRectangle);
+	setTooltip("#myMap_drawPolygon", lang.addPolygon);
+	setTooltip("#myMap_drawLine", lang.addLine);
+	if(this.roleCls.isChemicals()) {
+		setTooltip("#myMap_drawLineNav", lang.navigation);
+	}
+	//我的地图
+	$('#myMap_ .spantitle').text(lang.monitor_myMap);
+	$('#myMap_ #pointTitle').text(lang.mark_point);
+	$('#myMap_ #areaTitle').text(lang.mark_area);
+	$('#myMap_ #lineTitle').text(lang.mark_line);
+	
+	var myMap_ = this;
+	//点击我的地图，显示或者隐藏标记信息
+	$('#myMap_ .spantitle').on('click', function() {
+		if( !rootParent.isHBManagement() ){
+//			alert("bring us the gril and wipe away the debt");
+			$('#myMap_ .spantitle').css('background-color','#0071c6');
+		}
+	$('#map-fence .spantitle').css('background-color','#dddddd');
+		
+		if(myMap_.isShowing) {
+			if(myMap_.existOtherPage) {
+				//点击才加载地图信息
+				if(!myMap_.isLoadSuc) {
+					myMap_.isLoadSuc = true;
+					myMap_.loadMyMapParam();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(1);
+				}
+			}else {
+				myMap_.setShow(false);
+			}
+		}else {
+			if($('#myMap_ .myMap-pane').hasClass('active')) {
+				$('#myMap_ .myMap-pane').removeClass('active');
+//				$('#myMap_ .myMap-pane').css('background-color','#dddddd');
+			}else {
+				//点击才加载地图信息
+				if(!myMap_.isLoadSuc) {
+					myMap_.isLoadSuc = true;
+					myMap_.loadMyMapParam();
+				}
+				myMap_.setShow(true);
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(1);
+				}
+				if(chemicalMap) {//危化管理
+					chemicalMap.setShow(true);
+				}
+			}
+		}
+	});
+	$('#myMap_ .myMap-tab li').on('click', function() {
+		var _index = $(this).index();
+		if(_index <= 2) {
+			$(this).addClass("active").siblings().removeClass("active");
+			$("#myMap_ .myMap-box li").eq(_index).addClass("active").siblings().removeClass("active");
+			myMap_.showDrawTool(_index);
+		}
+	});
+	
+	$("#myMap_drawPoint").show();
+	$('#myMap_').show();
+	this.initSuc = true;
+}
+
+//显示或者隐藏画区域操作
+monitorMyMap.prototype.showDrawTool = function(index_) {
+	if(index_ == 0) {
+		$("#myMap_drawPoint").show();
+	}else {
+		$("#myMap_drawPoint").hide();
+	}
+	if(index_ == 1) {
+		$("#myMap_drawCircle").show();
+		$("#myMap_drawRectangle").show();
+		$("#myMap_drawPolygon").show();
+	}else {
+		$("#myMap_drawCircle").hide();
+		$("#myMap_drawRectangle").hide();
+		$("#myMap_drawPolygon").hide();
+	}
+	if(index_ == 2) {
+		$("#myMap_drawLine").show();
+		$("#myMap_drawLineNav").show();
+	}else {
+		$("#myMap_drawLine").hide();
+		$("#myMap_drawLineNav").hide();
+	}
+}
+
+//初始化表格
+monitorMyMap.prototype.initMapTable = function() {
+	//初始化地图上点的列表
+	this.initPointTable();
+	//初始化地图上区域的列表
+	this.initAreaTable();
+	//初始化地图上线路的列表
+	this.initLineTable();
+	if(this.roleCls.isMapFenceManageSupport() && !this.roleCls.isChemicals()
+			&& !this.roleCls.isSanitationTruck()) {
+		//初始化电子围栏的列表
+		this.initMapFenceTable();
+	}
+}
+
+/**
+ * 初始化列表
+ * @param tableName 列表id
+ * @param tableColModel 列表列
+ * @param action 请求地址
+ * @param loadSuccessCallBack 加载成功后回调函数
+ * @param fillValueToTable 添加数据到表格的函数
+ * @param selectRowProp 选择列表的事件
+ * @param clickRowCheckbox 点击选择框的事件
+ * @return tableObject 列表对象
+ */
+monitorMyMap.prototype.initCommonTable = function(_tableName, _tableColModel, _action, 
+		_loadSuccessCallBack, _onSubmitCallBack, _fillValueToTable, _selectRowProp, _clickRowCheckbox) {
+	//本类对象
+	var onSuccess_ = false;
+	if(typeof _loadSuccessCallBack == 'function') {
+		onSuccess_ = _loadSuccessCallBack;
+	}
+	var onSubmit_ = false;
+	if(typeof _onSubmitCallBack == 'function') {
+		onSubmit_ = _onSubmitCallBack;
+	}
+	var tableObject = $(_tableName).flexigrid({
+		url: _action,
+		dataType: 'json',
+		colModel : _tableColModel,
+		pernumber: lang.pernumber,
+		pagestat: lang.pagestatInfo,
+		pagefrom: lang.pagefrom,
+		pagetext: lang.page,
+		pagetotal: lang.pagetotal,
+		findtext: lang.find,
+		procmsg: lang.procmsg,
+		nomsg : lang.nomsg,
+		usepager: true,
+		autoload: false,
+		useRp: true,
+		checkbox: true,
+		clickRowDefault: false,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 210,
+		onSubmit: onSubmit_,
+		onSuccess: onSuccess_,
+		resizable: false
+	});
+	tableObject.flexSetFillCellFun(function(p, row, idx, index) {
+		return _fillValueToTable(p, row, idx, index);	
+	});
+	tableObject.flexSelectRowPropFun(function(obj, selRow) {
+		_selectRowProp(obj, selRow);
+	});
+	tableObject.flexClickCheckBoxFun(function(obj) {
+		_clickRowCheckbox(obj);
+	});
+	return tableObject;
+}
+
+//初始化地图上点的列表
+monitorMyMap.prototype.initPointTable = function() {
+	var tableName = "#pointTable"; 
+	var tableColModel = [
+	     	{display: lang.operator, name : 'operator', width : 80, sortable : false, align: 'center'},
+			{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+//			{display: lang.department, name : 'companyName', width : 130, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapType, name : 'markerType', width : 80, sortable : false, align: 'center'},
+			{display: lang.mark_share, name : 'share', width : 50, sortable : false, align: 'center'}
+	    ];
+	var action = "StandardVehicleRuleAction_listMark";
+	var that = this;
+	var onSubmitCallBack = function() {
+		that.addPointTableList();
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapPointInfo.get(Number($(obj).attr('data-id')));	//markerID;
+		that.selectTableRowProp(obj, selRow, that.pointTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapPointInfo.get(Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.pointTable = this.initCommonTable(tableName, 
+			tableColModel, action, false, onSubmitCallBack, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+//初始化地图上区域的列表
+monitorMyMap.prototype.initAreaTable = function() {
+	var tableName = "#areaTable"; 
+	var tableColModel = [
+	     	{display: lang.operator, name : 'operator', width : 80, sortable : false, align: 'center'},
+			{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+//			{display: lang.department, name : 'companyName', width : 130, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapType, name : 'markerType', width : 80, sortable : false, align: 'center'},
+			{display: lang.mark_share, name : 'share', width : 50, sortable : false, align: 'center'}
+	    ];
+	var action = "StandardVehicleRuleAction_listMark";
+	var that = this;
+	var onSubmitCallBack = function() {
+		that.addAreaTableList();
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapAreaInfo.get(Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.areaTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapAreaInfo.get(Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.areaTable = this.initCommonTable(tableName, 
+			tableColModel, action, false, onSubmitCallBack, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+//初始化地图上线路的列表
+monitorMyMap.prototype.initLineTable = function() {
+	var tableName = "#lineTable"; 
+	var tableColModel = [
+	     	{display: lang.operator, name : 'operator', width : 80, sortable : false, align: 'center'},
+			{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+//			{display: lang.department, name : 'companyName', width : 130, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapType, name : 'markerType', width : 80, sortable : false, align: 'center'},
+			{display: lang.mark_share, name : 'share', width : 50, sortable : false, align: 'center'}
+	    ];
+	var action = "StandardVehicleRuleAction_listMark";
+	var that = this;
+	var onSubmitCallBack = function() {
+		that.addLineTableList();
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapLineInfo.get(Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.lineTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapLineInfo.get(Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.lineTable = this.initCommonTable(tableName, 
+			tableColModel, action, false, onSubmitCallBack, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+//初始化电子围栏的列表
+monitorMyMap.prototype.initMapFenceTable = function() {
+	var tableName = "#mapFenceTable"; 
+	var tableColModel = [
+	     	{display: lang.operator, name : 'operator', width : 100, sortable : false, align: 'center'},
+			{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapName, name : 'name', width : 80, sortable : false, align: 'center'},
+			{display: lang.department, name : 'companyName', width : 80, sortable : false, align: 'center'},
+			{display: lang.monitor_myMapType, name : 'ruleType', width : 80, sortable : false, align: 'center'}
+	    ];
+	var action = "StandardVehicleRuleAction_getMapFenceRules.action?ruleType=forbidInto,forbidOut";
+	var that = this;
+	var loadSuccessCallBack = function() {
+		that.loadTableValueSuccess(1, that.addMapFenceExpId);
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapFenceInfo.get(that.addMapFenceExpId + Number($(obj).attr('data-id')));
+		var mapMark = rootParent.mapMarkManager.getMapMark(info.markId);
+		that.selectTableRowProp(obj, selRow, that.mapFenceTable, mapMark);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapFenceInfo.get(that.addMapFenceExpId + Number($(obj).val()));
+		var mapMark = rootParent.mapMarkManager.getMapMark(info.markId);
+		that.clickTableRowCheckbox(obj, mapMark);
+	}
+	
+	this.mapFenceTable = this.initCommonTable(tableName, 
+			tableColModel, action, loadSuccessCallBack, false, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+/**
+ * 获取列表中数据
+ * @param tableType 表格类型  1电子围栏
+ */
+monitorMyMap.prototype.getTableData = function(tableType) {
+	if(tableType == 1) {
+		return this.mapFenceTable.flexGetData();
+	}
+	return null;
+}
+
+/**
+ * 先清除地图上已存在的点
+ * @param tableType 表格类型  1电子围栏
+ */
+monitorMyMap.prototype.clearExistMapPoint = function(tableType) {
+	if(tableType == 1) {
+		this.clearMapFence();
+	}
+}
+
+/**
+ * 添加数据到Map集合中
+ * @param tableType 表格类型  1电子围栏
+ */
+monitorMyMap.prototype.addValueToMap = function(tableType, info) {
+	if(tableType == 1) {
+		this.mapFenceInfo.put(Number(info.id), info);
+	}
+}
+
+/**
+ * 添加已存在的点到地图
+ * @param tableType 表格类型  1电子围栏
+ */
+monitorMyMap.prototype.addExistToMap = function(tableType, info) {
+	if(tableType == 1) {
+		var existInfo = this.mapFenceAdd.get(info.id);
+		if(existInfo) {
+//			this.addMarkOnMap(info);
+			this.mapFenceTable.find('#row'+ (info.id - this.addMapFenceExpId)).click();
+		}
+	}
+}
+
+/**
+ * 将区域信息设置到电子围栏数据
+ */
+monitorMyMap.prototype.setMapFenceInfo = function(tableType, info) {
+	if(tableType == 1) {
+		var marker_ = null;
+		if(info.areaType == 1) {
+			marker_ = this.mapAdminAreaInfo.get(Number(info.markId));
+		}else {
+			if(info.markType) {
+				switch (info.markType) {
+				case 1:
+					marker_ = this.mapPointInfo.get(Number(info.markId));
+					break;
+				case 4:
+					marker_ = this.mapLineInfo.get(Number(info.markId));
+					break;
+				case 2:
+				case 3:
+				case 10:
+					marker_ = this.mapAreaInfo.get(Number(info.markId));
+					break;
+				}
+			}
+		}
+		if(marker_) {
+			info.markerType = marker_.markerType;
+			info.jingDu = marker_.jingDu;
+			info.weiDu = marker_.weiDu;
+			info.mapType = marker_.mapType;
+			info.color = marker_.color;
+			info.radius = marker_.radius;
+		}
+	}
+}
+
+/**
+ * 加载数据成功后调用
+ * @param tableType 表格类型  1电子围栏
+ * @param markerExpId 添加区域的固定id
+ * @param markerType 区域类型
+ */
+monitorMyMap.prototype.loadTableValueSuccess = function(tableType, markerExpId, markerType) {
+	//获取列表中数据
+	var data = this.getTableData(tableType);
+	if(data && data.rows && data.rows.length > 0) {
+		//先清除地图上已存在的点
+		this.clearExistMapPoint(tableType);
+		//再添加新的点
+		var infos = data.rows;
+		for (var i = 0; i < infos.length; i++) {
+			this.setMapFenceInfo(tableType, infos[i]);
+			if(markerType) {
+				infos[i].markerType = markerType; //点
+			}
+			if(markerExpId) {
+				infos[i].id = markerExpId + infos[i].id;
+			}
+			infos[i].tableType = tableType;
+//			infos[i].isExistMark = true;
+			//添加数据到Map集合中
+			this.addValueToMap(tableType, infos[i]);
+			//添加到地图
+			this.addExistToMap(tableType, infos[i]);
+//			this.addMarkOnMap(infos[i]);
+		}
+	}
+}
+
+/**
+ * 加载数据到列表中
+ * @param mapValueInfo 缓存数据
+ * @param tableObject 列表对象
+ * @param sumId 修改数目的标签 id
+ */
+monitorMyMap.prototype.addValueToTable = function(mapValueInfo, tableObject, sumId) {
+	if(mapValueInfo) {
+		var param = tableObject.flexGetParams();
+		var start = (param.newp - 1) * param.rp;
+		if(start >= mapValueInfo.size()) {
+			param.newp = 1;
+			start = 0;
+		}
+		var end = param.newp * param.rp;
+		var infos = [];
+		var index = 0;
+		mapValueInfo.each(function(id, value) {
+			if(index >= start && index < end) {
+				infos.push(value);
+			}
+			index++;
+		});
+		var pagination={currentPage: param.newp, pageRecords: param.rp, totalRecords: mapValueInfo.size()};
+		var json = {};
+		json.infos = infos;
+		json.pagination = pagination;
+		
+		tableObject.flexAddData(json, false);
+		
+		//修改数目
+		$(sumId).text("("+ mapValueInfo.size() +")");
+		//如果已在地图显示，则勾选
+		for(var i = 0; i < infos.length; i++) {
+			if(infos[i].isExistMark) {
+				$('#row'+infos[i].id, tableObject).click();
+			}
+		}
+	}else {
+		//修改数目
+		$(sumId).text("(0)");
+	}
+}
+
+/**
+ * 调用自定义加载数据加载点信息
+ */
+monitorMyMap.prototype.addPointTableList = function() {
+	//加载点信息
+	this.loadMapPointInfo();
+	this.addValueToTable(this.mapPointInfo, this.pointTable, '#myMap_ #pointSum');
+}
+
+/**
+ * 调用自定义加载数据加载区域的信息
+ */
+monitorMyMap.prototype.addAreaTableList = function() {
+	//加载区域信息
+	this.loadMapAreaInfo();
+	this.addValueToTable(this.mapAreaInfo, this.areaTable, '#myMap_ #areaSum');
+}
+
+/**
+ * 调用自定义加载数据加载线路信息
+ */
+monitorMyMap.prototype.addLineTableList = function() {
+	//加载线路信息
+	this.loadMapLineInfo();
+	this.addValueToTable(this.mapLineInfo, this.lineTable, '#myMap_ #lineSum');
+}
+
+monitorMyMap.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充地图信息列表
+monitorMyMap.prototype.fillUserMapTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var pos = "";
+	if(name == 'operator'){
+		if(row['markType']) {
+			pos += '<a class="assign" href="javascript:assignMapFence('+row['id']+',\''+ row['name'] +'\');" title="'+ parent.lang.mapFence_assign +'"></a>';
+			pos += '<a class="edit" href="javascript:editMapFenceInfo('+row['id']+');" title="'+lang.edit+'"></a>';
+			pos += '<a class="delete" href="javascript:delMapFenceInfo('+row['id']+');" title="'+lang.del+'"></a>';
+		}else {
+			if((row['userID'] == rootParent.companyId && row['creator'] == rootParent.userId) || this.lstCompanyId.in_array(row['userID']) || this.roleCls.isAdmin()){
+				pos += '<a class="edit" href="javascript:editMarkerAreaInfo('+row['id']+','+ row['markerType'] +',1);" title="'+lang.edit+'"></a>';
+				pos += '<a class="delete" href="javascript:delMarkerAreaInfo('+row['id']+','+ row['markerType'] +',1);" title="'+lang.del+'"></a>';
+			}	
+		}
+		return pos;
+	}else if(name == 'markerType') {
+		pos = getArrayName(this.lstAreaType, row[name]); 
+	}else if(name == 'share') {
+		if(row[name] == 1) {
+			pos = lang.mark_part_share;
+		}else if(row[name] == 2) {
+			pos = lang.mark_all_share;
+		}else {
+			pos = lang.mark_not_share;
+		}
+	}else if(name == 'ruleType') {
+		if(row['type'] == 2) {
+			pos = parent.lang.mapFence_forbidden;
+		}else {
+			pos = parent.lang.mapFence_bannedout;
+		}
+	}else {
+		pos = row[name];
+	}
+	return this.getColumnTitle(pos);
+};
+
+/**
+ * 选择列表行事件
+ * @param obj 行对象
+ * @param selRow 事件类型
+ * @param chemicalTable 列表对象
+ * @param info 信息
+ */
+monitorMyMap.prototype.selectTableRowProp = function(obj, selRow, tableObject, info) {
+	if(selRow && selRow == 'delAll') {
+		if(info) {
+			info.isExistMark = false;
+			this.delMarkOnMap(info.id);
+			if(info.tableType == 1) {//电子围栏
+				this.mapFenceAdd.remove(info.id);
+			}
+		}
+	}else {
+		$(obj).addClass('trSelected');
+		$(obj).find("td .selectItem")[0].checked = true;
+		var checkAll = true;
+		$('tbody tr .selectItem', tableObject.parent().parent()).each(function(){
+			if($(this).val() != "" && !this.checked)	{
+				checkAll = false;
+			}
+		});
+		if (checkAll) {
+			$('table tr .selectAllItem', tableObject.parent().parent())[0].checked = true;
+		}
+		if(info) {
+			info.isExistMark = true;
+//			this.addMarkOnMap(info);
+			this.loadMarkInfos(info);
+		}
+	}
+}
+
+/**
+ * 选中列表行单选框事件
+ * @param obj 行对象
+ * @param info 信息
+ */
+monitorMyMap.prototype.clickTableRowCheckbox = function(obj, info) {
+	if(info) {
+		info.isExistMark = obj.checked;
+		if(obj.checked) {
+//			this.addMarkOnMap(info);
+			this.loadMarkInfos(info);
+		}else {
+			this.delMarkOnMap(info.id);
+			if(info.tableType == 1) {//电子围栏
+				this.mapFenceAdd.remove(info.id);
+			}
+		}
+	}
+}
+
+//删除地图上标记信息
+monitorMyMap.prototype.delMarkOnMap = function(markerId) {
+	if(typeof deleteMarker == 'function') {
+		deleteMarker(markerId);
+	}
+}
+
+/**
+ * 
+ * 加载完整标记信息
+ * @param info  mark 信息
+ */
+monitorMyMap.prototype.loadMarkInfos = function(info) {
+	if(info.jingDu == null || info.weiDu == null || info.mapType == null){//加载标记信息
+    	//发送请求获取经纬度半径  信息
+    	var action = 'StandardLoginAction_findArea.action?id='+info.id;
+       	var objMyMap = this;
+    	$.myajax.jsonGetEx(action, function(json,action,success){
+    		if(success) {
+    			var mapMark = rootParent.mapMarkManager.getMapMark(info.id);
+    			var mapMarkerInfo = json.marker;
+    			mapMark.setStandardMarkJingWei(mapMarkerInfo);
+    			objMyMap.addMarkOnMap(mapMark);
+    		};
+    	});
+	}else{
+		this.addMarkOnMap(info);
+	}
+}
+
+//向地图添加标记
+monitorMyMap.prototype.addMarkOnMap = function(info) {
+	var gps = this.getConvertBaiduGoogle(info.jingDu, info.weiDu, info.mapType);
+	if(!info.color) {
+		info.color = "FF0000";
+	}
+	var isExistMark = false;
+	if(typeof findMarker == 'function') {
+		if(findMarker(info.id) != null) {
+			isExistMark = true;
+		}
+	}
+	if(typeof insertMarker == 'function' && !isExistMark) {
+		insertMarker(info.id);
+	}
+	if(typeof updateMarker == 'function' && !isExistMark) {
+		var statusStr = this.getMarkerStatus(info);
+		if(info && info.markerType == 4) {//添加线路
+			updateMarker(info.id, 9, info.name, gps.lng, gps.lat
+					, 0, info.color, statusStr, info.radius);
+		}else {
+			updateMarker(info.id, info.markerType, info.name, gps.lng, gps.lat
+					, 0, info.color, statusStr, info.radius);
+		}
+	}
+	if(typeof selectMarker == 'function') {
+		selectMarker(info.id);
+	}
+	
+	if(info.tableType == 1) {//电子围栏
+		this.mapFenceAdd.put(info.id, info);
+		//添加点击事件
+		if(typeof addMarkerEventListener != 'undefined' && typeof addMarkerEventListener == 'function') {
+			var that = this;
+			addMarkerEventListener(info.id, 'click', function() {
+				that.addMapFenceEventListener(info.id - that.addMapFenceExpId, info.name);
+			});
+		}
+	}
+}
+
+/**
+ * 获取标记状态
+ * @param info
+ * @returns
+ */
+monitorMyMap.prototype.getMarkerStatus = function(info) {
+	var html = [];
+	//描述
+	if(info.remark) {
+		html.push('<span class="b">' + parent.lang.rule_desc_tip + '</span>&nbsp;<span>' + info.remark + '</span><br/>');
+	}
+	//图片
+	if(info.image) {
+		html.push('<span><img src="../../'+ info.image +'?'+new Date().getTime()+'" style="width:220px;height:120px;border:1px solid #0071c6;margin-top:5px;"></img></span><br/>');
+	}
+	return html.join("");
+}
+
+//经纬度转换，mapType_标记的地图类型
+monitorMyMap.prototype.getConvertBaiduGoogle = function(jingDu, weiDu, mapType_) {
+	var ret = {};
+	ret.lng = '';
+	ret.lat = '';
+	var jingDus = jingDu.split(',');
+	var weiDus = weiDu.split(',');
+	if(typeof convertBaiduGoogle == 'function') {
+		if(mapType_ == 3 && !this.isBaiduMap()) {//百度转谷歌
+			for (var i = 0; i < jingDus.length; i++) {
+				var gps = convertBaiduGoogle(weiDus[i], jingDus[i], 1);
+				if(i != 0) {
+					ret.lng += ',';
+					ret.lat += ',';
+				}
+				ret.lng += gps.lng;
+				ret.lat += gps.lat;
+			}
+		}else if(mapType_ != 3 && this.isBaiduMap()){//谷歌经纬度转为百度经纬度
+			for (var i = 0; i < jingDus.length; i++) {
+				var gps = convertBaiduGoogle(weiDus[i], jingDus[i], 2);
+				if(i != 0) {
+					ret.lng += ',';
+					ret.lat += ',';
+				}
+				ret.lng += gps.lng;
+				ret.lat += gps.lat;
+			}
+		}else {
+			ret.lng = jingDu;
+			ret.lat = weiDu;
+		}
+	}else {
+		ret.lng = jingDu;
+		ret.lat = weiDu;
+	}
+	return ret;	
+}
+
+//是否百度地图
+monitorMyMap.prototype.isBaiduMap = function() {
+	var mapType = rootParent.getMapType();
+	if (mapType == 3) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//加载我的地图信息
+monitorMyMap.prototype.loadMyMapParam = function() {
+	this.addPointTableList();
+	this.addAreaTableList();
+	this.addLineTableList();
+}
+
+//修改地图标记（数据库）
+monitorMyMap.prototype.editMarkerAreaInfo = function(markerId, type) {
+	var title = "";
+	var height = "360px";
+	var marker = null;
+	
+	if(type == 1){//修改标记点
+		title = lang.updatePoint;
+		marker = this.mapPointInfo.get(Number(markerId));
+	}else if(type == 2 || type == 3 || type == 10){
+		marker = this.mapAreaInfo.get(Number(markerId));
+		if(type == 2){//修改矩形
+			title = lang.updateRectangle;
+		}else if(type == 3){//修改多边形
+			title = lang.updatePolygon;
+		}else if(type == 10){//修改圆
+			title = lang.tipUpdateCircle;
+			height = "390px";
+		}
+	}else if(type == 4){//修改线路  数据库为4 地图为9
+		title = lang.updateLine;
+		marker = this.mapLineInfo.get(Number(markerId));
+	}
+	if(title) {
+		//先隐藏其他弹出框
+		if(typeof parent.hidePopTips == 'function'){
+			parent.hidePopTips('areaInfo');
+		}
+		//如果打开了同类型的窗口，则先关闭
+		if(this.areaInfoObj != null) {
+			this.areaInfoObj.close();
+		}
+		var data = {};
+		data.markerId = markerId;
+		data.markType = type;
+		var myMap_ = this;
+		this.areaInfoObj = $.dialog({id:'areaInfo', title: title,content: 'url:RulesManagement/AreaInfo.html',
+			width:'350px',height: height, min:false, max:false, lock:false,data:data, close: function() {
+				myMap_.areaInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('areaInfo');
+				}
+				if(marker.isExistMark) {
+					//删除原有标记
+					myMap_.delMarkOnMap(marker.id);
+					//添加标记到地图
+//					myMap_.addMarkOnMap(marker);
+					
+					myMap_.loadMarkInfos(marker);
+				}
+			}});
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+			parent.popTipsObject.put('areaInfo', this.areaInfoObj);
+		}
+	}
+}
+
+//删除地图标记（数据库）
+monitorMyMap.prototype.delMarkerAreaInfo = function(markerId, type) {
+	if(!confirm(lang.delconfirm)) {
+		return ;
+	}
+	//显示的消息
+	$.myajax.showLoading(true, lang.deleting);
+	var myMap_ = this;
+	$.myajax.jsonGet('StandardLoginAction_deleteArea.action?id=' + markerId, function(json,action,success){
+		$.myajax.showLoading(false);
+		if(success){
+			myMap_.delMarkerAreaInfoSuc(markerId, type);
+		}
+	}, null);
+}
+
+//删除标记成功后执行
+monitorMyMap.prototype.delMarkerAreaInfoSuc = function(markerId, type) {
+	//删除rootParent 里面的标记信息
+	rootParent.mapMarkManager.removeMapMark(markerId);
+	//删除缓存中的信息
+	if(type == 1){//标记点
+		this.addPointTableList();
+	}else if(type == 2 || type == 3 || type == 10){ //区域
+		this.addAreaTableList();
+	}else if(type == 4){//线路
+		this.addLineTableList();
+	}
+	//删除地图上的标记
+	this.delMarkOnMap(markerId);
+}
+
+//地图上画图操作，加入数据库
+monitorMyMap.prototype.addMarkerAreaInfo = function(type, jingdu, weidu, param) {
+	var title = "";
+	var height = "380px";
+	if(type == 1){//加标记点
+		title = lang.addPoint;
+	}else if(type == 2 || type == 3 || type == 10){
+		if(type == 2){//加矩形
+			title = lang.addRectangle;
+		}else if(type == 3){//加多边形
+			title = lang.addPolygon;
+		}else if(type == 10){//加圆
+			title = lang.tipAddCircle;
+			height = "410px";
+		}
+	}else if(type == 9){//加线路 //修改线路  数据库为4 地图为9
+		title = lang.addLine;
+	}
+	//画区域结束时删除区域
+	this.delExampleMarker();
+	if(title) {
+		//先隐藏其他弹出框
+		if(typeof parent.hidePopTips == 'function'){
+			parent.hidePopTips('areaInfo');
+		}
+		//如果打开了同类型的窗口，则先关闭
+//		if(this.areaInfoObj != null) {
+//			this.areaInfoObj.close();
+//		}
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null &&
+				parent.popTipsObject.get('areaInfo') != null) {
+			parent.popTipsObject.get('areaInfo').close();
+		}
+		//画区域时添加区域
+		this.addExampleMarker(type, jingdu, weidu, param, 'FF0000');
+		var myMap_ = this;
+		var data = {};
+		data.jingdu = jingdu;
+		data.weidu = weidu;
+		data.param = param;
+		data.markType = type;
+		this.areaInfoObj = $.dialog({id:'areaInfo', title: title,content: 'url:RulesManagement/AreaInfo.html',
+			width:'350px',height: height, min:false, max:false, lock:false, data:data, close: function() {
+				myMap_.areaInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('areaInfo');
+				}
+				//设置车辆画区域标志 为false
+				if(typeof parent.setVehicleDrowing == 'function') {
+					parent.setVehicleDrowing(false);
+				}
+				myMap_.delExampleMarker();
+			}});
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+			parent.popTipsObject.put('areaInfo', this.areaInfoObj);
+		}
+	}
+}
+
+//添加标记成功后执行
+monitorMyMap.prototype.doSaveMarkerSuc = function(marker) {
+	//添加rootParent 里面的标记信息
+	rootParent.mapMarkManager.addNativeMapMark(marker);
+	$.dialog({id:'areaInfo'}).close();
+	$.dialog.tips(lang.saveok, 1);
+	this.delExampleMarker();
+	//添加标记到地图
+//	marker.isExistMark = true;
+//	this.loadMarkInfos(marker);
+	//添加标记信息到缓存中
+	if(marker.markerType == 2 || marker.markerType == 3 ||
+			marker.markerType == 10) {
+		this.addAreaTableList();
+	}else if(marker.markerType == 1) {
+		this.addPointTableList();
+	}else if(marker.markerType == 4) { //修改线路  数据库为4 地图为9
+		this.addLineTableList();
+	}
+}
+
+//修改我的地图标记成功后执行（database）
+monitorMyMap.prototype.doEditMarkSuc = function(marker) {
+	$.dialog({id:'areaInfo'}).close();
+	$.dialog.tips(lang.saveok, 1);
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.remove('areaInfo');
+	}
+	//添加rootParent 里面的标记信息
+	rootParent.mapMarkManager.addNativeMapMark(marker);
+	//添加标记信息到缓存中
+	var marker_ = null;
+	if(marker.markerType == 2 || marker.markerType == 3 ||
+			marker.markerType == 10) {
+		this.addAreaTableList();
+		marker_ = this.mapAreaInfo.get(marker.id);
+	}else if(marker.markerType == 1) {
+		this.addPointTableList();
+		marker_ = this.mapPointInfo.get(marker.id);
+	}else if(marker.markerType == 4) { //修改线路  数据库为4 地图为9
+		this.addLineTableList();
+		marker_ = this.mapLineInfo.get(marker.id);
+	}
+	if(marker_ && marker_.isExistMark) {
+		//删除原有标记
+		this.delMarkOnMap(marker_.id);
+		//添加标记到地图
+		this.loadMarkInfos(marker_);
+	}
+}
+
+//画区域时添加区域
+monitorMyMap.prototype.addExampleMarker = function(type, jingdu, weidu, param, color) {
+	if(typeof insertMarker == 'function') {
+		insertMarker(this.addMarkerExpId);
+	}
+	if(typeof updateMarker == 'function') {
+		updateMarker(this.addMarkerExpId, type, '', jingdu, weidu
+					, 0, color, null, param);
+	}
+	if(typeof selectMarker == 'function') {
+		selectMarker(this.addMarkerExpId);
+	}
+}
+
+//画区域结束时删除区域
+monitorMyMap.prototype.delExampleMarker = function() {
+	this.delMarkOnMap(this.addMarkerExpId);
+}
+
+//修改标记信息改变地图上标记的大小，颜色
+monitorMyMap.prototype.doEditMarkChangeParam = function(marker, type) {
+	if(type == 'add') {//新增
+		this.delExampleMarker();
+		this.addExampleMarker(marker.markerType, marker.jingDu, marker.weiDu, marker.radius, marker.color);
+	}else {
+		var info = null;
+		if(marker.markerType == 1) {
+			info = this.mapPointInfo.get(Number(marker.id));
+		}else if(marker.markerType == 9 || marker.markerType == 4) {
+			info = this.mapLineInfo.get(Number(marker.id));
+		}else {
+			info = this.mapAreaInfo.get(Number(marker.id));
+		}
+		marker.mapType = info.mapType;
+		marker.name = info.name;
+		this.delMarkOnMap(marker.id);
+//		this.addMarkOnMap(marker);
+		this.loadMarkInfos(marker);
+	}
+}
+
+//显示或者隐藏我的地图
+monitorMyMap.prototype.hideMyMap = function(hide) {
+	if(hide) {
+		$('#myMap_').hide();
+		$('#map-fence').hide();
+	}else {
+		$('#myMap_').show();
+		$('#map-fence').show();
+	}
+}
+
+monitorMyMap.prototype.switchToMyMapEx = function(myMap_, mapfence_) {
+	$('#myMap_').css('z-index', myMap_);
+	$('#map-fence').css('z-index', mapfence_);
+}
+
+/**
+ * 切换到我的地图
+ * @param type 1我的地图 5电子围栏
+ */
+monitorMyMap.prototype.switchToMyMap = function(type) {
+	if(type == 1) {
+		this.switchToMyMapEx(200, 199);
+	}else if(type == 5) {
+		this.switchToMyMapEx(199, 200);
+	}else {
+		this.switchToMyMapEx(199, 199);
+	}
+}
+
+//初始化电子围栏
+monitorMyMap.prototype.initMapFence = function() {
+	var content = '<div id="map-fence">';
+	content += '	<div class="spantitle">'+ parent.lang.mapFence +'</div>';
+	content += '	<div class="chemical-box">';
+	content += '		<div style="display: inline-block;height: 26px;margin-top: 2px;">';
+	content += '			<div class="map-fence-search" style="float: left;"></div>';
+	content += '			<div class="map-fence-button" style="float: left;margin-left: 10px;"></div>';
+	content += '		</div>';
+	content += '		<div class="chemical-table">';
+	content += '			<table id="mapFenceTable"></table>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息
+	$('#map-fence .spantitle').on('click', function() {
+		$('#myMap_ .spantitle').css('background-color','#dddddd');
+		$('#map-fence .spantitle').css('background-color','#0071c6');
+		
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadMapFenceSuc) {
+				that.isLoadMapFenceSuc = true;
+				that.searchMapFenceTable();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(5);
+			}
+		}else {
+			if($('#map-fence .chemical-box').hasClass('active')) {
+				$('#map-fence .chemical-box').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadMapFenceSuc) {
+					that.isLoadMapFenceSuc = true;
+					that.searchMapFenceTable();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(5);
+				}
+				that.setShow(true);
+				if(chemicalMap) {
+					chemicalMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	//搜索框
+	$('.map-fence-search').flexPanel({
+		SerachBarModel :
+			{display: parent.lang.name, name : 'fence', pfloat : 'left'}
+	});
+	$('.map-fence-search .y-btn').on('click',function(){
+		that.searchMapFenceTable();
+	});
+	$('.map-fence-search .search-input').on('keydown',function(e){
+		if(e.keyCode == 13) {
+			that.searchMapFenceTable();
+		}
+	});
+	
+	//点击拉框查找
+	$('.map-fence-button').flexPanel({
+		ButtonsModel : [[
+		     {
+				display: parent.lang.add, 
+				name : '', 
+				pclass : 'map-fence-add',
+				bgcolor : 'gray', 
+				hide : false
+		   }]] 
+	});
+	
+	//添加电子围栏
+	$('.map-fence-button .map-fence-add').on('click', function() {
+		that.addMapFenceInfo();
+	});
+	$('#map-fence').show();
+	
+	//有电子围栏 默认把围栏画在地图上
+	if( rootParent.userMapFenceRuleLst &&  rootParent.userMapFenceRuleLst.length > 0){
+		for (var int = 0; int <  rootParent.userMapFenceRuleLst.length; int++) {
+			var mapMark = rootParent.mapMarkManager.getMapMark(rootParent.userMapFenceRuleLst[int].markId);
+			this.loadMarkInfos(mapMark);
+		}
+	}
+}
+
+/**
+ * 条件查找数据
+ * @param chemicalTable 列表对象
+ * @param jingDu 经度
+ * @param weiDu 纬度
+ * @param condition 条件
+ */
+monitorMyMap.prototype.searchValueTable = function(mapTable, jingDu, weiDu, condition) {
+	var params = [];
+	params.push({
+		name: 'condition',
+		value: condition
+	});
+	if(jingDu && weiDu) {
+		params.push({
+			name: 'jingDu',
+			value: jingDu
+		});
+		params.push({
+			name: 'weiDu',
+			value: weiDu
+		});
+	}
+	//重新查找
+	mapTable.flexOptions(
+			{newp: 1,sortname: '', sortorder: '', query: '', qtype: '', params: params}).flexReload();
+}
+
+/**
+ * 按条件搜索电子围栏
+ */
+monitorMyMap.prototype.searchMapFenceTable = function() {
+	var condition = $.trim($('.map-fence-search .search-input').val());
+	this.searchValueTable(this.mapFenceTable, null, null, condition);
+}
+
+/**
+ * 添加电子围栏
+ */
+monitorMyMap.prototype.addMapFenceInfo = function(id) {
+	//如果打开了同类型的窗口，则先关闭
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null &&
+			parent.popTipsObject.get('areaInfo') != null) {
+		parent.popTipsObject.get('areaInfo').close();
+	}
+	var url = 'url:LocationManagement/mapFenceInfo.html';
+	var   titleName = null;
+	if(id) {
+		titleName = parent.lang.modify;
+		url +='?type=edit&id='+id;
+	}else {
+		titleName = parent.lang.add;
+		url +='?type=add';
+	}
+	var that = this;
+	this.mapFenceObj = $.dialog({id:'areaInfo', title:titleName+'&nbsp&nbsp&nbsp&nbsp'+parent.lang.mapFence,content: url,
+		width: '400px',height: '350px', min:false, max:false, lock:false, close: function() {
+			that.mapFenceObj = null;
+			if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+				parent.popTipsObject.remove('areaInfo');
+			}
+		}});
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('areaInfo', this.mapFenceObj);
+	}
+}
+
+/**
+ * 修改电子围栏
+ */
+monitorMyMap.prototype.editMapFenceInfo = function(id) {
+	this.addMapFenceInfo(id);
+}
+
+/**
+ * 保存电子围栏成功后执行
+ */
+monitorMyMap.prototype.doSaveMapFenceSuc = function() {
+	$.dialog({id:'areaInfo'}).close();
+	$.dialog.tips(lang.saveok, 1);
+	this.searchMapFenceTable();
+}
+
+/**
+ * 删除电子围栏
+ */
+monitorMyMap.prototype.delMapFenceInfo = function(id) {
+	if(!confirm(lang.delconfirm)) {
+		return ;
+	}
+	//显示的消息
+	$.myajax.showLoading(true, lang.deleting);
+	var myMap_ = this;
+	$.myajax.jsonGet('StandardVehicleRuleAction_delVehicleRule.action?id=' + id, function(json,action,success){
+		$.myajax.showLoading(false);
+		if(success){
+			myMap_.delMarkOnMap(myMap_.addMapFenceExpId + id);
+			myMap_.searchMapFenceTable();
+		}
+	}, null);
+}
+
+//清除地图上的电子围栏
+monitorMyMap.prototype.clearMapFence = function() {
+	var that = this;
+	this.mapFenceAdd.each(function(key, value) {
+		that.delMarkOnMap(key);
+	});
+}
+
+/**
+ * 分配电子围栏
+ */
+monitorMyMap.prototype.assignMapFence = function(id, name) {
+	var info = this.mapFenceInfo.get(this.addMapFenceExpId + id);
+	if(info) {
+		//先隐藏其他弹出框
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null &&
+				parent.popTipsObject.get('info') != null) {
+			parent.popTipsObject.get('info').close();
+		}
+		var ruleType = 'forbidOut';
+		if(info.type == 2) {
+			ruleType = 'forbidInto';
+		}
+		var that = this;
+		this.assignMapFenceObject = $.dialog({id:'info', title: parent.lang.mapFence_assign,content: 'url:OperationManagement/SelectInfo.html?type=assignRule&mapFence=1&ruleType='+ruleType+'&id='+id+'&name='+encodeURIComponent(name)+'&singleSelect=false',
+			width:'800px',height:'530px', min:false, max:false, lock:false, close: function() {
+				that.areaInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('info');
+				}
+			}});
+		
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+			parent.popTipsObject.put('info', this.assignMapFenceObject);
+		}
+		if(typeof parent.hidePopTips == 'function'){
+			parent.hidePopTips('info');
+		}
+	}
+}
+
+//退出
+monitorMyMap.prototype.doExit = function() {
+	$.dialog({id:'info'}).close();
+}
+
+/**
+ * 添加电子围栏点击事件
+ */
+monitorMyMap.prototype.addMapFenceEventListener = function(id, name) {
+	this.assignMapFence(id, name);
+}

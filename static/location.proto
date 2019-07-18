@@ -1,0 +1,23 @@
+syntax = "proto3";
+package com.beidou.proto.share;
+
+// 主动推送的协议
+// 协议命令代码10000
+message LocationInfoResponse{
+    int32 type = 1;//1枪支 2车辆
+    string imei =2;//枪支编号或者车辆编号
+    double lng = 3;//经度
+    double lat = 4;//纬度
+    int32 speed = 5;//速度
+    int32 direction = 6;//方向
+    int64 time = 7;//上报时间
+    int32 reportType = 8;//上报类型1北斗/GPS 0：基站
+}
+
+// 主动推送
+// 协议命令代码10001
+message DeviceStatusResponse {
+    int32 type = 1;//1枪支 2 车辆
+    string imei = 2;//枪支设备编号
+    int32 status = 3;//0离线 1上线
+}

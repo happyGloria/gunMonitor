@@ -1,0 +1,980 @@
+
+//获取节点Id
+dhtmlXTreeObject.prototype.getTreeGroupId = function(vehiGroupId) {
+	return "*_" + vehiGroupId;
+};
+
+//获取通道节点的Id
+dhtmlXTreeObject.prototype.getTreeChannelId = function(vehiIdno, chnIndex) {
+	return "#_" + chnIndex + "_" + vehiIdno;
+};
+
+//获取节点的外部id
+dhtmlXTreeObject.prototype.getVehiGroupId = function(treeGroupId) {
+	var group = treeGroupId.split("_");
+	return parseIntDecimal(group[1]);
+};
+
+//获取通道节点的外部Id
+dhtmlXTreeObject.prototype.getVehiChannelIndex = function(treeChnId) {
+	var chn = treeChnId.split("_");
+	return parseIntDecimal(chn[2]);
+};
+
+//取通道索引
+dhtmlXTreeObject.prototype.getChannelIndex = function(chnItem) {
+	var chn = chnItem.split("_");
+	return parseIntDecimal(chn[1]);
+};
+
+//获取通道节点的车辆Id
+dhtmlXTreeObject.prototype.getChannelVehiIdno = function(treeChnId) {
+	return this.getParentId(treeChnId);
+};
+
+//是否选中分组节点
+dhtmlXTreeObject.prototype.isGroupItem = function(itemId) {
+	if (itemId.length >= 2 && itemId.charAt(0) == "*" && itemId.charAt(1) == "_") {
+		return true;
+	} else {
+		return false;
+	}
+};
+
+//是否选中通道节点
+dhtmlXTreeObject.prototype.isChannelItem = function(itemId) {
+	if (itemId.length >= 2 && itemId.charAt(0) == "#" && itemId.charAt(1) == "_") {
+		return true;
+	} else {
+		return false;
+	}
+};
+
+//是否选中车辆节点
+dhtmlXTreeObject.prototype.isVehicleItem = function(itemId) {
+	if (!this.isGroupItem(itemId) && !this.isChannelItem(itemId)) {
+		return true;
+	} else {
+		return false;
+	}
+};
+
+//是否选中分组节点
+dhtmlXTreeObject.prototype.getMyRootItemId = function(itemId) {
+	return this.getTreeGroupId(this.myRootId);
+};
+
+//添加一组公司节点
+dhtmlXTreeObject.prototype.fillCompany = function(groupList,mid,titleName) {
+	this.myGroupList = groupList;
+	this.myGroupList.sort(this.sortInfo);
+	//添加所有公司  跟结点
+	if(!titleName){
+		titleName=parent.lang.all_companies;
+	}
+	if(mid != null) {
+		this.insertNewItem("0", this.getTreeGroupId(mid), titleName, 0, "all_group.png", "all_group.png", "all_group.png", 'SELECT');
+	}else {
+		this.insertNewItem("0", this.getTreeGroupId(0), titleName, 0, "all_group.png", "all_group.png", "all_group.png", 'SELECT');
+		mid = 0;
+	}
+	this.myRootId = mid;
+	//先添加分组结点
+	this.insertChildGroup(this.getTreeGroupId(mid), groupList);
+};
+
+//添加一组公司节点
+dhtmlXTreeObject.prototype.fillGroup = function(groupList,mid,titleName,isLocation) {
+	this.myGroupList = groupList;
+	//对公司排序
+	this.myGroupList.sort(this.sortInfo);
+	this.loadGroupSuccess = false;
+	//添加所有公司  跟结点
+	if(mid != null) {
+		this.insertNewItem("0", this.getTreeGroupId(mid), titleName, 0, "all_group.png", "all_group.png", "all_group.png", 'SELECT');
+	}else {
+		this.insertNewItem("0", this.getTreeGroupId(0), titleName, 0, "all_group.png", "all_group.png", "all_group.png", 'SELECT');
+		mid = 0;
+	}
+	this.myRootId = mid;
+	this.teamChildMap =  new Hashtable();
+	this.teamId = [];
+	this.teamId.push(mid.toString());
+	if(groupList && groupList.length > 0){
+		for(var i = 0; i < groupList.length; i++){
+			if(this.teamChildMap.get(groupList[i].parentId.toString()) == null){
+				var childs = [];
+				childs.push(groupList[i]);
+				this.teamChildMap.put(groupList[i].parentId.toString(), childs);
+			}else{
+				var child =	this.teamChildMap.get(groupList[i].parentId.toString());
+				child.push(groupList[i]);
+				this.teamChildMap.put(groupList[i].parentId.toString(), child);
+			}
+		}
+	}
+	
+	if(isLocation && groupList.length <= 1 && this.myRootId != 0) {
+		if(groupList.length == 1 && !groupList[0].getChildTeams()) {
+			this.insertNewItem(this.getTreeGroupId(mid), this.getTreeGroupId(parseInt(groupList[0].id,10)+10000), groupList[0].name, 0
+					, "group.png", "group.png", "group.png", '');
+		}
+	}else {
+		//先添加分组结点
+		this.insertChildGroupNew(this.teamId, this.teamChildMap, isLocation);
+	}
+	this.loadGroupSuccess = true;
+};
+
+dhtmlXTreeObject.prototype.insertChildGroup = function(treeGroupId, groupList, isLocation) {
+	var groupCount = groupList.length;
+	for (var i = 0; i < groupCount; i += 1){
+		var group = groupList[i];
+		var gId = this.getTreeGroupId(group.parentId);
+		if (gId  == treeGroupId ){
+			this.insertGroupItem(treeGroupId, group, isLocation);
+//			this.vehiTree.insertNewItem(groupId, this.getTreeGroupId(group.id), group.name, 0, "folderClosed.gif", "folderOpen.gif", "folderClosed.gif", '');
+			this.insertChildGroup(this.getTreeGroupId(group.id), groupList, isLocation);
+		}
+	}
+};
+
+dhtmlXTreeObject.prototype.insertChildGroupNew = function(lstTeamIds, teamChildMap, isLocation) {
+	if(lstTeamIds && lstTeamIds.length > 0){
+		for(var j = 0; j < lstTeamIds.length; j++){
+			var childs = teamChildMap.get(lstTeamIds[j]);
+			var arrayIds = [];
+			if(childs && childs.length > 0){
+				for(var i = 0; i < childs.length; i++){
+					arrayIds.push(childs[i].id.toString()); 
+					this.insertGroupItem(this.getTreeGroupId(lstTeamIds[j]), childs[i], isLocation);
+				}
+			}
+			if(arrayIds && arrayIds.length > 0){
+				this.insertChildGroupNew(arrayIds, teamChildMap, isLocation);
+			}
+		}
+	}
+};
+
+
+//添加一组公司节点（规则）
+dhtmlXTreeObject.prototype.fillRuleGroup = function(groupList,mid,titleName) {
+	this.myGroupList = groupList;
+	this.myGroupList.sort(this.sortInfo);
+	//添加所有规则  跟结点
+	if(mid != null) {
+		this.insertNewItem("0", this.getTreeGroupId(mid), titleName, 0, "folderClosed.gif", "folderClosed.gif", "folderClosed.gif", 'SELECT');
+	}else {
+		this.insertNewItem("0", this.getTreeGroupId(0), titleName, 0, "folderClosed.gif", "folderClosed.gif", "folderClosed.gif", 'SELECT');
+		mid = 0;
+	}
+	
+	//先添加分组结点
+	this.insertChildRuleGroup(this.getTreeGroupId(mid), groupList);
+};
+
+dhtmlXTreeObject.prototype.insertChildRuleGroup = function(treeGroupId, groupList) {
+	var groupCount = groupList.length;
+	for (var i = 0; i < groupCount; i += 1){
+		var group = groupList[i];
+		var gId = this.getTreeGroupId(group.parentId);
+		if (gId  == treeGroupId ){
+			this.insertNewItem(treeGroupId, this.getTreeGroupId(group.id), group.name, 0, "folderClosed.gif", "folderOpen.gif", "folderClosed.gif", '');
+			this.insertChildRuleGroup(this.getTreeGroupId(group.id), groupList);
+		}
+	}
+};
+
+
+
+dhtmlXTreeObject.prototype.insertGroupItem = function(parentTreeGroupId, group, isLocation) {
+	if(group.level == 2) {
+		this.insertNewItem(parentTreeGroupId, this.getTreeGroupId(group.id), group.name, 0
+				, "team.gif", "team.gif", "team.gif", '');
+	}else if(group.level == 3) {
+		this.insertNewItem(parentTreeGroupId, this.getTreeGroupId(group.id), group.name, 0
+				, "busline.png", "busline.png", "busline.png", '');
+	}else {
+		this.insertNewItem(parentTreeGroupId, this.getTreeGroupId(group.id), group.name, 0
+				, "group.png", "group.png", "group.png", '');
+	}
+	if(isLocation) {
+		if(!group.getChildTeams()) {
+			this.insertNewItem(this.getTreeGroupId(group.id), this.getTreeGroupId(parseInt(group.id,10)+10000), group.name, 0
+					, "group.png", "group.png", "group.png", '');
+		}
+	}
+};
+
+//添加一组车辆节点
+dhtmlXTreeObject.prototype.fillVehicle = function(vehicleList) {
+	this.myVehicleList = vehicleList;
+	//添加车辆结点
+	for (var i = 0; i < vehicleList.length; i = i + 1) {
+		var status = null;
+		var vehicle = vehicleList[i];
+		if(vehicle.devList) {
+			var devices = vehicle.devList;
+			if(devices.length == 1) {
+				status = devices[0].status;
+			}else {
+				var flag = false;
+				for(var j = 0; j < devices.length; j++) {
+					if(devices[j].status && devices[j].status.online) {
+						status = devices[j].status;
+						flag = true;
+					}
+				}
+				if(!flag) {
+					status = devices[0].status;
+				}
+			}
+		}
+		var data = gpsParseDeviceStatus(vehicle, status);
+		image = data.vehiImg;
+		
+		this.insertVehicleItem(vehicle.parentId, vehicle.id, vehicle.name, image/*data.vehiImg*/);
+//		this.vehiTree.insertNewItem(getTreeGroupId(vehicle.devGroupId), vehicle.idno, vehicle.userAccount.name, 0, "vehicle.gif", "vehicle.gif", "vehicle.gif", '');
+	}
+}
+
+//添加一组其他节点
+dhtmlXTreeObject.prototype.fillOther = function(vehicleList) {
+	this.myVehicleList = vehicleList;
+	//添加车辆结点
+	for (var i = 0; i < vehicleList.length; i = i + 1) {
+		var vehicle = vehicleList[i];
+		this.insertVehicleItem(vehicle.parentId, vehicle.id, vehicle.name, "");
+//		this.vehiTree.insertNewItem(getTreeGroupId(vehicle.devGroupId), vehicle.idno, vehicle.userAccount.name, 0, "vehicle.gif", "vehicle.gif", "vehicle.gif", '');
+	}
+}
+
+//添加一组通道节点
+dhtmlXTreeObject.prototype.fillVehicleChannel = function(channels) {
+	//添加车辆结点
+	for (var i = 0; i < channels.length; i = i + 1) {
+		var  channel = channels[i];
+//		this.insertVehicleItem(channel.parentId, channel.id, channel.name, "");
+//		this.vehiTree.insertNewItem(getTreeGroupId(vehicle.devGroupId), vehicle.idno, vehicle.userAccount.name, 0, "vehicle.gif", "vehicle.gif", "vehicle.gif", '');
+		this.insertNewItem(channel.parentId, channel.id, channel.name, 0
+				, "video_01.png", "video_01.png", "video_01.png", '');
+		this.showItemCheckbox(channel.id,false);
+		this.closeItem(channel.parentId);
+	}
+}
+
+//动态加载的方式
+dhtmlXTreeObject.prototype.setVehicleList = function(vehicleList, isLoadChn) {
+	this.myVehicleList = vehicleList;
+	this.loadVehiIdnos = [];
+	this.loadVehicleIndex = 0;
+	this.channelIndex = [];
+	if((typeof isLoadChn) != 'undefined') {
+		this.isLoadChn = isLoadChn;
+	} 
+}
+
+//动态加载的方式
+dhtmlXTreeObject.prototype.setVehiIdnoList = function(vehicleList, isLoadChn) {
+	this.myVehicleList = vehicleList;
+	this.loadVehiIdnos = [];
+	this.loadVehicleIndex = 0;
+	this.channelIndex = [];
+	if((typeof isLoadChn) != 'undefined') {
+		this.isLoadChn = isLoadChn;
+	} 
+}
+
+/**
+ * 数组对象排序
+ * @param property  数组对象对应的属性
+ * @returns {Function}
+ */
+dhtmlXTreeObject.prototype.compare = function(property) {
+	return function(a,b){
+		//先判断是否在线，在判断是否停车，在线排在前面
+		if(typeof a.isOnline == 'function') {
+			if (a.isOnline() && b.isOnline()) {
+				//如果有一个处于停车状态
+				if(typeof a.isParkStatus == 'function') {
+					if (a.isParkStatus() && !b.isParkStatus()) {
+						return 1;
+					}
+					if (!a.isParkStatus() && b.isParkStatus()) {
+						return -1;
+					}
+				}
+				//否则按车辆名称排序
+			}else {
+				if(a.isOnline() && !b.isOnline()) {
+					return -1;
+				}else if(!a.isOnline() && b.isOnline()) {
+					return 1;
+				}
+			}
+		}
+		var value1 = 'a'+ a[property];
+		var value2 = 'a'+b[property];
+		return value1.localeCompare(value2, "zh");
+	}
+}
+
+/**
+ * 排序
+ * @param data1_ 可能是车辆对象，也可能是参数
+ * @param data2_ 可能是车辆对象，也可能是参数
+ */
+dhtmlXTreeObject.prototype.sortInfo = function(data1_, data2_) {
+	var data1 = {};
+	var data2 = {};
+	if(typeof data1_ == 'string') {
+		data1.name = data1_;
+		data2.name = data2_;
+	}else {
+		data1 = data1_;
+		data2 = data2_;
+	}
+	
+	//先判断是否在线，在判断是否停车，在线排在前面
+	if(typeof data1.isOnline == 'function') {
+		if (data1.isOnline() && data2.isOnline()) {
+			//如果有一个处于停车状态
+			if(typeof data1.isParkStatus == 'function') {
+				if (data1.isParkStatus() && !data2.isParkStatus()) {
+					return 1;
+				}
+				if (!data1.isParkStatus() && data2.isParkStatus()) {
+					return -1;
+				}
+			}
+			//否则按车辆名称排序
+		}else {
+			if(data1.isOnline() && !data2.isOnline()) {
+				return -1;
+			}else if(!data1.isOnline() && data2.isOnline()) {
+				return 1;
+			}
+		}
+	}
+	
+	//可能存在0123， 111的 转成string
+	var s1 = 's'+data1.name;
+	var s2 = 's'+data2.name;
+	//如果两个参数均为字符串类型
+	var Regx = /^[A-Za-z0-9]*$/;
+	var flag1 = Regx.test(s1); //字母
+	var flag2 = Regx.test(s2);
+	if(flag1 || flag2) {//按字母排序
+		if(flag1 && !flag2) {
+			return -1;
+		}
+		if(!flag1 && flag2) {
+			return 1;
+		}
+		if(flag1 && flag2) {
+			var str1 = s1.toLowerCase();
+			var str2 = s2.toLowerCase();
+			if(str1 > str2) return 1;
+            if(str1 == str2) return 0;
+            if(str1 < str2) return -1;
+		}
+	}
+	//存在异常
+    return s1.localeCompare(s2, "zh");
+}
+//newParentId
+//公司树超过200以后动态加载的方式
+dhtmlXTreeObject.prototype.dynamicLoadMoreVehicle = function() {
+	var i = this.loadVehicleIndex;
+	var parentId = 0;
+	if(this.myVehicleList && this.myVehicleList[0]){
+		 parentId = this.myVehicleList[0].newParentId;
+	}	
+	//对车辆排序  车辆太多 会影响效果
+	this.myVehicleList.sort(this.compare('name'));
+	for (; i < this.myVehicleList.length; i = i + 1) {
+//		if (dateIsTimeout(date, 400)) {
+//			break;
+//		}
+		var vehicle = this.myVehicleList[i];
+		//vehicle里面id,idno,name都是车牌号
+		var standVehicle = parent.vehicleManager.getVehicle(vehicle.id);
+		if (standVehicle != null) {
+			var status = standVehicle.getVehicleIcon();
+			//standVehicle   判断调度员 icon = 3,   判断登录的平台 获取图片
+			var  imageType = standVehicle.getDispatchImage();//获取类型
+			var image = standVehicle.getStatueImg(status.image, imageType);
+			this.insertVehicleItem(parentId, standVehicle.getIdno(), standVehicle.getName(), image);
+			this.loadVehiIdnos.push(standVehicle.getIdno());
+			if((typeof this.isLoadChn) != 'undefined' && this.isLoadChn) {
+				var arrChn = standVehicle.getVehicleChannel();
+				for (var j = 0; j < arrChn.length; ++ j) {
+					var channel = arrChn[j];
+					var chnId = this.getTreeChannelId(standVehicle.getIdno(), j);
+					this.insertNewItem(channel.parentId, chnId, channel.name, 0
+							, "video_01.png", "video_01.png", "video_01.png", '');
+					this.showItemCheckbox(chnId, false);
+					this.channelIndex.push(chnId);
+				}
+				this.closeItem(standVehicle.getIdno());
+			} 
+		} else {
+//			alert("fillVehicleEx getVehicle failed");
+		}
+	}
+	this.loadVehicleIndex = i;
+	if ((this.loadVehicleIndex + 1) >= this.myVehicleList.length) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//动态加载的方式
+dhtmlXTreeObject.prototype.dynamicLoadVehicle = function() {
+	var i = this.loadVehicleIndex;
+	var date = new Date();
+	
+	//对车辆排序  车辆太多 会影响效果
+	this.myVehicleList.sort(this.compare('name'));
+	for (; i < this.myVehicleList.length; i = i + 1) {
+		if (dateIsTimeout(date, 400)) {
+			break;
+		}
+		var vehicle = this.myVehicleList[i];
+//		if(vehicle.id == undefined){//车辆获取出现异常
+//			break;
+//		}
+		//vehicle里面id,idno,name都是车牌号
+		var standVehicle = parent.vehicleManager.getVehicle(vehicle.id);
+
+		if (standVehicle != null) {
+			var status = standVehicle.getVehicleIcon();
+//			var status = standVehicle.gpsParseTrackStatus();
+			
+			//standVehicle   判断调度员 icon = 3,   判断登录的平台 获取图片
+			var  imageType = standVehicle.getDispatchImage();//获取类型
+			var image = standVehicle.getStatueImg(status.image, imageType);
+
+			if(parent.enableShowLinesOperation){
+				this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName() + (standVehicle.linesOperation==null ? "":"&nbsp;&nbsp;"+standVehicle.linesOperation), image);
+			} else {
+				this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName(), image);
+			}
+			
+			this.loadVehiIdnos.push(standVehicle.getIdno());
+			
+			if((typeof this.isLoadChn) != 'undefined' && this.isLoadChn) {
+				var arrChn = standVehicle.getVehicleChannel();
+				for (var j = 0; j < arrChn.length; ++ j) {
+					var channel = arrChn[j];
+					var chnId = this.getTreeChannelId(standVehicle.getIdno(), j);
+					this.insertNewItem(channel.parentId, chnId, channel.name, 0
+							, "video_01.png", "video_01.png", "video_01.png", '');
+					this.showItemCheckbox(chnId, false);
+					this.channelIndex.push(chnId);
+				}
+				this.closeItem(standVehicle.getIdno());
+			} 
+		} else {
+//			alert("fillVehicleEx getVehicle failed");
+		}
+	}
+	this.loadVehicleIndex = i;
+	if ((this.loadVehicleIndex + 1) >= this.myVehicleList.length) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
+//动态加载的方式   不加载通道！！！
+dhtmlXTreeObject.prototype.dynamicLoadVehicleSSS = function() {
+	var i = this.loadVehicleIndex;
+	var date = new Date();
+	
+	//对车辆排序  车辆太多 会影响效果
+	this.myVehicleList.sort(this.compare('name'));
+	for (; i < this.myVehicleList.length; i = i + 1) {
+		if (dateIsTimeout(date, 400)) {
+			break;
+		}
+		var vehicle = this.myVehicleList[i];
+//		if(vehicle.id == undefined){//车辆获取出现异常
+//			break;
+//		}
+		//vehicle里面id,idno,name都是车牌号
+		var standVehicle = parent.vehicleManager.getVehicle(vehicle.id);
+
+		if (standVehicle != null) {
+			var status = standVehicle.getVehicleIcon();
+//			var status = standVehicle.gpsParseTrackStatus();
+			
+			//standVehicle   判断调度员 icon = 3,   判断登录的平台 获取图片
+			var  imageType = standVehicle.getDispatchImage();//获取类型
+			var image = standVehicle.getStatueImg(status.image, imageType);
+
+			if(parent.enableShowLinesOperation){
+				this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName() + (standVehicle.linesOperation==null ? "":"&nbsp;&nbsp;"+standVehicle.linesOperation), image);
+			} else {
+				this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName(), image);
+			}
+			
+			this.loadVehiIdnos.push(standVehicle.getIdno());
+			
+			/*if((typeof this.isLoadChn) != 'undefined' && this.isLoadChn) {
+				var arrChn = standVehicle.getVehicleChannel();
+				for (var j = 0; j < arrChn.length; ++ j) {
+					var channel = arrChn[j];
+					var chnId = this.getTreeChannelId(standVehicle.getIdno(), j);
+					this.insertNewItem(channel.parentId, chnId, channel.name, 0
+							, "video_01.png", "video_01.png", "video_01.png", '');
+					this.showItemCheckbox(chnId, false);
+					this.channelIndex.push(chnId);
+				}
+				this.closeItem(standVehicle.getIdno());
+			} */
+		} else {
+//			alert("fillVehicleEx getVehicle failed");
+		}
+	}
+	this.loadVehicleIndex = i;
+	if ((this.loadVehicleIndex + 1) >= this.myVehicleList.length) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
+//播放车辆结点时，同时播放通道结点信息
+dhtmlXTreeObject.prototype.fillVehicleEx = function(vehicleList, showChan) {
+	//vehicleList是原始的对象，从json获取回来的
+	//parent.vehicleManager 里面是重新生成的   standardVehicle对象，此对象有接口可以直接进行相应的操作
+	this.myVehicleList = vehicleList;
+	//添加车辆结点
+	for (var i = 0; i < vehicleList.length; i = i + 1) {
+		var vehicle = vehicleList[i];
+		//vehicle里面id,idno,name都是车牌号
+		var standVehicle = parent.vehicleManager.getVehicle(vehicle.id);
+		if (standVehicle != null) {
+			var status = standVehicle.getVehicleIcon();
+			//standVehicle   判断调度员 icon = 3,   判断登录的平台 获取图片
+			var  imageType = standVehicle.getDispatchImage();//获取类型
+			var image = standVehicle.getStatueImg(status.image, imageType);
+//			var image = standVehicle.getStatueImg(status.image);
+			this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName(), image);
+			var arrChn = standVehicle.getVehicleChannel();
+			for (var j = 0; j < arrChn.length; ++ j) {
+				var channel = arrChn[j];
+				var chnId = this.getTreeChannelId(standVehicle.getIdno(), j);
+				this.insertNewItem(channel.parentId, chnId, channel.name, 0
+						, "video_01.png", "video_01.png", "video_01.png", '');
+				this.showItemCheckbox(chnId, false);
+			}
+			this.closeItem(standVehicle.getIdno());
+		} else {
+//			alert("fillVehicleEx getVehicle failed");
+		}
+	}
+}
+
+//添加车辆节点
+dhtmlXTreeObject.prototype.insertVehicleItem = function(parentId, id, name, image) {
+	this.insertNewItem(this.getTreeGroupId(parentId), id, name, 0, image, image, image, '');
+};
+
+//搜索公司
+dhtmlXTreeObject.prototype.searchCompany = function(name) {
+	var search = null;
+	if (search == null) {
+		for (var i = 0; i < this.myGroupList.length; i += 1) {
+			var group = this.myGroupList[i];
+			if (group.name == name) {
+				search = this.getTreeGroupId(group.id);
+				break;
+			}
+			if (group.name.indexOfNotCase(name) >= 0) {
+				if (search === null) {
+					search = this.getTreeGroupId(group.id);
+				}
+			}
+		}
+	}
+	if (search != null) {
+		this.selectItem(search);
+		this.focusItem(search);
+		return search;
+	} else {
+		return null;
+	}
+};
+
+dhtmlXTreeObject.prototype.searchCompItem = function(compId) {
+	var compItem = this.getTreeGroupId(compId);
+	this.selectItem(compItem);
+	this.focusItem(compItem);
+}
+
+//搜索车辆和公司
+dhtmlXTreeObject.prototype.searchVehicle = function(name) {
+	var search = null;
+	for (var i = 0; i < this.myVehicleList.length; i += 1) {
+		var vehicle = this.myVehicleList[i];
+		if (vehicle.name == name 
+			|| vehicle.id == name) {
+			search = vehicle.id;
+			break;	
+		}
+		if (vehicle.name.indexOfNotCase(name) >= 0 
+			|| (vehicle.id+'').indexOfNotCase(name) >= 0) {
+			if (search === null) {
+				search = vehicle.id;
+			}
+		} 
+	} 
+	if (search == null) {
+		for (var i = 0; i < this.myGroupList.length; i += 1) {
+			var group = this.myGroupList[i];
+			if (group.name == name) {
+				search = this.getTreeGroupId(group.id);
+				break;
+			}
+			if (group.name.indexOfNotCase(name) >= 0) {
+				if (search === null) {
+					search = this.getTreeGroupId(group.id);
+				}
+			}
+		}
+	}
+	if (search != null) {
+		this.selectItem(search);
+		this.focusItem(search);
+		return search;
+	} else {
+		return null;
+	}
+};
+
+//获取选中的节点
+dhtmlXTreeObject.prototype.getCheckedVehi = function() {
+	//获取所有被选中节点id，不包括第三中状态的节点（部分选中的节点）
+	var vehicleStr = this.getAllChecked()+'';
+	var selVehis = [];
+	if(vehicleStr.indexOf(',') < 0) {
+		selVehis.push(vehicleStr);
+	}else {
+		var vehicles = vehicleStr.split(",");
+		for (var i = 0; i < vehicles.length; i = i + 1) {
+			if (vehicles[i] != "" && !this.isGroupItem(vehicles[i])) {
+				selVehis.push(vehicles[i]);
+			}
+		}
+	}
+	return selVehis;
+};
+
+//是否选中根节点
+dhtmlXTreeObject.prototype.isRootItem = function(itemId) {
+	return (itemId == this.getTreeGroupId(0)) ? true : false;
+};
+
+//取得选择结点的父结点编号
+//如果选择的是设备结点，设备的父结点信息
+//如果选择的是组结点，则返回此组结点信息
+dhtmlXTreeObject.prototype.getSelectOrParentGroupId = function() {
+	if (!this.isSelectNull()) {
+		var selId = this.getSelectedItemId();
+		if (selId != "") {
+			if (!this.isGroupItem(selId)) {
+				return this.getParentId(selId);
+			} else {
+				return selId;
+			}
+		}
+	}
+	
+	return null;
+};
+
+//是否选中为空
+dhtmlXTreeObject.prototype.isSelectNull = function() {
+	if (this.getSelectedItemId() == "0") {
+		return true;
+	} else {
+		return false;
+	}
+};
+
+//取得当前选择分组结点的编号
+dhtmlXTreeObject.prototype.getSelectGroupId = function() {
+	if (!this.isSelectNull() && !this.isSelectRootItem()) {
+		//获取选中的节点Id 
+		var selId = this.getSelectedItemId();
+		if (this.isGroupItem(selId)) {
+			return selId;
+		} else {
+			return null;
+		}
+	} else {
+		return null;
+	}
+};
+
+//是否选中根节点
+dhtmlXTreeObject.prototype.isSelectRootItem = function() {
+	//获取选中的节点Id 
+	var selId = this.getSelectedItemId();
+	return (selId == this.getTreeGroupId(0)) ? true : false;
+};
+
+//获取父节点的名称
+dhtmlXTreeObject.prototype.getParentText = function(itemId) {
+	return this.getItemText(this.getParentId(itemId));
+};
+
+//添加新的分组
+dhtmlXTreeObject.prototype.insertNewGroup = function(parentId, groupId, name) {
+	var subItems = this.getSubItems(this.getTreeGroupId(parentId)).split(",");
+	var lastGroupItem = "";
+	for (var i = 0; i < subItems.length; i += 1) {
+		if (!this.isGroupItem(subItems[i])) {
+			break;
+		} else {
+			lastGroupItem = subItems[i];
+		}
+	}
+	if (lastGroupItem === "") {
+		this.insertNewItem(this.getTreeGroupId(parentId), this.getTreeGroupId(groupId), name, 0, "group.png", "group.png", "group.png", 'SELECT,TOP');
+	} else {
+		this.insertNewNext(lastGroupItem, this.getTreeGroupId(groupId), name, 0, "group.png", "group.png", "group.png", 'SELECT');
+	}
+};
+
+//添加新的车队
+dhtmlXTreeObject.prototype.insertNewTeam = function(parentId, groupId, name) {
+	var subItems = this.getSubItems(this.getTreeGroupId(parentId)).split(",");
+	var lastGroupItem = "";
+	for (var i = 0; i < subItems.length; i += 1) {
+		if (!this.isGroupItem(subItems[i])) {
+			break;
+		} else {
+			lastGroupItem = subItems[i];
+		}
+	}
+	if (lastGroupItem === "") {
+		this.insertNewItem(this.getTreeGroupId(parentId), this.getTreeGroupId(groupId), name, 0, "team.gif", "team.gif", "team.gif", 'SELECT,TOP');
+	} else {
+		this.insertNewNext(lastGroupItem, this.getTreeGroupId(groupId), name, 0, "team.gif", "team.gif", "team.gif", 'SELECT');
+	}
+};
+
+//动态加载的方式
+dhtmlXTreeObject.prototype.dynamicLoadVehicleEx = function() {
+	var i = this.loadVehicleIndex;
+	var date = new Date();
+	for (; i < this.myVehicleList.length; i = i + 1) {
+		if (dateIsTimeout(date, 400)) {
+		     break;
+		}
+		var standVehicle = parent.vehicleManager.getVehicle(this.myVehicleList[i]);
+		if (standVehicle != null) {
+			var status = standVehicle.getVehicleIcon();
+			
+			//standVehicle   判断调度员 icon = 3,   判断登录的平台 获取图片
+			var  imageType = standVehicle.getDispatchImage();//获取类型
+			var image = standVehicle.getStatueImg(status.image, imageType);
+//			var image = standVehicle.getStatueImg(status.image);
+			
+			if(parent.enableShowLinesOperation){
+				this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName() + (standVehicle.linesOperation==null ? "":"&nbsp;&nbsp;"+standVehicle.linesOperation), image);
+			} else {
+				this.insertVehicleItem(standVehicle.getParentId(), standVehicle.getIdno(), standVehicle.getName(), image);
+			}
+			
+			this.loadVehiIdnos.push(standVehicle.getIdno());
+			if((typeof this.isLoadChn) != 'undefined' && this.isLoadChn) {
+				var arrChn = standVehicle.getVehicleChannel();
+				for (var j = 0; j < arrChn.length; ++ j) {
+					var channel = arrChn[j];
+					var chnId = this.getTreeChannelId(standVehicle.getIdno(), j);
+					this.insertNewItem(channel.parentId, chnId, channel.name, 0
+							, "video_01.png", "video_01.png", "video_01.png", '');
+					this.showItemCheckbox(chnId, false);
+					this.channelIndex.push(chnId);
+				}
+				this.closeItem(standVehicle.getIdno());
+			} 
+		}
+	}
+	this.loadVehicleIndex = i;
+	if ((this.loadVehicleIndex + 1) >= this.myVehicleList.length) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+/**
+ * 设置节点span的字体颜色
+ */
+dhtmlXTreeObject.prototype.setItemSpanColor = function(itemId, color) {
+	var temp = this._globalIdStorageFind(itemId);
+	if(temp && temp.span) {
+		$(temp.span).css('color', color);
+	}
+}
+
+
+
+/********************************协同小组树********************************************/
+
+//判断是不是通道节点
+dhtmlXTreeObject.prototype.isMemberChannelItem = function(item) {
+	return item.includes('#_') && item.includes('@');
+}
+
+//判断是不是成员节点
+dhtmlXTreeObject.prototype.isMemberItem = function(item) {
+	return item.includes('$');
+}
+
+//判断当前节点兄弟节点是否有被选中
+dhtmlXTreeObject.prototype.isBotherItemSelected = function(item) {
+	var allSelected = 	this.getAllChecked();//所有选中的节点   *_d 公司    1$车牌
+//	var parentItem =  grouVehiTree.getParentId(item);//得到父节点
+	var memberItems = [];//成员节点
+	var groupItems = [];//协同小组节点
+	if(allSelected){
+		var arrySelecteds = allSelected.split(',');
+		for(var i = 0; i < arrySelecteds.length; i++){
+			if(this.isMemberItem(arrySelecteds[i])){//判断是不是成员节点
+				memberItems.push(arrySelecteds[i]);
+			}else if(this.isGroupItem(arrySelecteds[i]) && !this.isRootItem(arrySelecteds[i])){//小组节点
+				groupItems.push(arrySelecteds[i]);
+			}
+		}
+	}
+	var isBother = false;//是否有兄弟节点被选中
+	if(this.isMemberItem(item)){
+		if(memberItems && memberItems.length > 0){
+			for(var i = 0; i < memberItems.length; i++){
+				if(memberItems[i] != item && memberItems[i].split('$')[0] == item.split('$')[0] ){
+					isBother = true;
+					break;
+				}
+			}
+		}
+	}else if(this.isGroupItem(item) && !this.isRootItem(item)){
+		if(groupItems && groupItems.length > 0){
+			for(var i = 0; i < groupItems.length; i++){
+				if(groupItems[i] != item){
+					isBother = true;
+					break;
+				}
+			}
+		}
+	}
+	return isBother;
+}
+
+
+
+//添加一组协同小组节点
+dhtmlXTreeObject.prototype.fillDispacth = function(groupList,mid,titleName,isLocation,isLoadChn) {
+	this.myDispatchList = groupList;
+	this.loadMemberIdnos = [];
+	this.loadMemberIndex = 0;
+	this.memberChannelIndex = [];
+	this.trueMemberItems = [];//生成的真实item  用于更新图
+	if((typeof isLoadChn) != 'undefined') {
+		this.isLoadChn = isLoadChn;
+	} 
+	//添加所有公司  跟结点   *_0  
+	this.insertNewItem("0", this.getTreeGroupId(0), titleName, 0, "all_group.png", "all_group.png", "all_group.png", 'SELECT');
+	//先添加分组结点  协同小组
+	this.insertChildDispatchGroup(this.getTreeGroupId(0), groupList, isLocation);
+};
+
+dhtmlXTreeObject.prototype.insertChildDispatchGroup = function(treeGroupId, groupList, isLocation) {
+	var groupCount = groupList.length;
+	for (var i = 0; i < groupCount; i += 1){
+		var group = groupList[i];
+		this.insertDispatchGroupItem(treeGroupId, group, isLocation);//*_0协同小组全部加在下
+	}
+};
+
+dhtmlXTreeObject.prototype.insertDispatchGroupItem = function(parentTreeGroupId, group, isLocation) {
+//	if(group.level == 2) {//判断设备类型不同图片
+		this.insertNewItem(parentTreeGroupId, this.getTreeGroupId(group.id), group.name, 0
+				, "folderClosed.gif", "folderClosed.gif", "folderClosed.gif", '');//*_id 作为协同小组节点
+//	}
+};
+
+//插入在线车辆
+dhtmlXTreeObject.prototype.fillOnlineDispatchMember = function() {
+	//myDispatchList
+	for (var i = 0; i < this.myDispatchList.length; i++) {
+		var memberList = this.myDispatchList[i].getMembers();
+		if(memberList && memberList.length > 0){
+			for (var j = 0; j < memberList.length; j++) {	
+				var status = null;
+				var vehicle = parent.vehicleManager.getVehicle(memberList[j].name);
+				if(vehicle && vehicle.isOnline()){//在线的车辆
+					status = vehicle.getVehicleIcon();
+					var  imageType = vehicle.getDispatchImage();//获取类型
+					var image = vehicle.getStatueImg(status.image, imageType);
+					this.insertVehicleItem(memberList[j].parentId, memberList[j].parentId+"$"+memberList[j].id, memberList[j].name, image/*data.vehiImg*/);
+				}
+			}
+		}
+	}
+}
+
+//动态加载所有的协同小组成员
+dhtmlXTreeObject.prototype.dynamicLoadAllMember = function() {
+	for (var i = 0; i < this.myDispatchList.length; i = i + 1) {
+		var memberList = this.myDispatchList[i].getMembers();
+		if(memberList && memberList.length > 0){
+			for (var j = 0; j < memberList.length; j++) {
+				var member = memberList[j];
+				var parentId = member.parentId;
+				//协同小组终端
+				var standVehicle = parent.vehicleManager.getVehicle(member.name);
+				if (standVehicle != null) {
+					var status = standVehicle.getVehicleIcon();
+					var  name = standVehicle.getName();
+					if(member.status){//在当前小组
+						name += "["+parent.lang.dispatcher_default_group+"]";
+					}
+					//standVehicle   判断调度员 icon = 3,   判断登录的平台 获取图片
+					var  imageType = standVehicle.getDispatchImage();//获取类型
+					var image = standVehicle.getStatueImg(status.image, imageType);
+					this.insertVehicleItem(parentId, parentId+"$"+standVehicle.getIdno(), name, image);
+					this.loadMemberIdnos.push(standVehicle.getIdno());
+					this.trueMemberItems.push(parentId+"$"+standVehicle.getIdno());
+					//插入通道
+					if((typeof this.isLoadChn) != 'undefined' && this.isLoadChn) {
+						var arrChn = standVehicle.getVehicleChannel();
+						for (var l = 0; l < arrChn.length; ++ l) {
+							var channel = arrChn[l];
+							var chnId = this.getTreeChannelId(standVehicle.getIdno(), l);//通道节点样式 保证id唯一性
+							this.insertNewItem(parentId+"$"+standVehicle.getIdno(), parentId+"@"+chnId, channel.name, 0
+									, "video_01.png", "video_01.png", "video_01.png", '');//不同协同小组 相同设备号 异常插入
+							this.showItemCheckbox(parentId+"@"+chnId, false);
+							this.memberChannelIndex.push(chnId);
+						}
+						this.closeItem(parentId+"$"+standVehicle.getIdno());
+					} 
+				} else {
+					alert("fillMemberEx getMember failed");
+				}
+			}
+		}
+	}
+}
+/*****************************************协同小组树结束*******************************************************************/
+
+

@@ -1,0 +1,440 @@
+/**
+ * 公交线路概览
+ */
+function ttxLineOverview() {
+	this.isInitSuc = false; //是否加载， 当界面在线路监控才加载
+	this.rootId = null;  //最外层div的对象
+	this.rootWidth = null; //长度
+	this.topLineContent = null;  //上行线
+	this.bottomLineContent = null; //下行线
+	
+	this.allLineList = []; //所有线路集合
+	this.mapLineStationList = new Hashtable();//线路id+线路上下行+站点索引,站点偏移
+	this.mapLineVehiList = new Hashtable();//线路id+线路上下行,站点信息(车辆集合)
+	this.mapStationVehiList = new Hashtable();//线路id+线路上下行+站点索引+站点状态,车辆信息
+}
+
+//设置顶层id
+ttxLineOverview.prototype.setRootId = function(rootId) {
+	this.rootId = document.getElementById(rootId);
+}
+
+//所有线路集合
+ttxLineOverview.prototype.setAllLineInfo = function(lineList_) {
+	this.allLineList = lineList_;
+}
+
+//获取是否加载
+ttxLineOverview.prototype.isLoadSuc = function() {
+	return this.isInitSuc;
+}
+
+//初始化
+ttxLineOverview.prototype.initialize = function() {
+	this.rootWidth = $(this.rootId).width();
+	if(this.rootWidth == 0) {
+		var that = this;
+		setTimeout(function() {
+			that.initialize();
+		}, 50);
+	}else {
+		this.initializeEnd()
+	}
+}
+
+//初始化
+ttxLineOverview.prototype.initializeEnd = function() {
+	if(this.allLineList != null && this.allLineList.length > 0) {
+		//加载公交站点提示
+		this.loadInfoTip();
+		//记载公交站点信息
+		for (var i = 0; i < this.allLineList.length; i++) {
+			this.loadLineInfo(this.allLineList[i]);
+		}
+		//加载公交站点事件
+		this.loadStationEvent();
+		//加载所有车辆
+		this.loadAllLineVehicle();
+	}
+	//加载完成
+	this.isInitSuc = true;
+}
+
+//加载信息提示框
+ttxLineOverview.prototype.loadInfoTip = function() {
+	//信息提示框
+	var station_info = document.createElement("div");
+	station_info.className = 'station-info';
+	var station_info_a = document.createElement("div");
+	station_info_a.className = 'station-info-content';
+	var station_info_b = document.createElement("div");
+	station_info_b.className = 'station-info-tip';
+	$(station_info).append(station_info_a).append(station_info_b);
+	
+	$(this.rootId).append(station_info);
+}
+
+//加载线路信息
+ttxLineOverview.prototype.loadLineInfo = function(lineInfo){
+	this.lineStation = document.createElement("div");
+	this.lineStation.className = "line-station line-station"+lineInfo.getId();
+	
+	//线路名称
+	var lineTitle = document.createElement("div");
+	lineTitle.className = "line-title";
+//	$(lineTitle).css('width', this.rootWidth);
+//	$(lineTitle).attr('data-id', lineInfo.getId());
+//	$(lineTitle).text(lineInfo.getTitle());
+	$(lineTitle).append('<span>'+ lineInfo.getTitle() +'</span>');
+	$(this.lineStation).append(lineTitle);
+	
+	//添加上下行站点
+	var flag1 = this.loadStation(lineInfo, 0);
+	var flag2 = this.loadStation(lineInfo, 1);
+	
+	//只要有一个方向有站点就添加
+	if(flag1 || flag2) {
+		$(this.rootId).append(this.lineStation);
+	}
+	
+	//点击线路名称，跳转到监控列表
+	$('span', lineTitle).on('click', function() {
+		if($("div.gj_box_top .line"+lineInfo.getId()).get(0)) {
+			$("div.gj_box_top .line"+lineInfo.getId()+" a").click();
+		}else {
+			if(typeof initLine == 'function') {
+				initLine(lineInfo.getId());
+			}
+		}
+	});
+}
+
+//加载公交站点
+//lineInfo 线路信息
+//type 线路类型 0上行 1下行
+ttxLineOverview.prototype.loadStation = function(lineInfo, lineDirect){
+	//上行线
+	var lineContent = document.createElement("div");
+	lineContent.className = 'lineContent lineContent'+lineDirect;
+	$(lineContent).css('height', '80px');
+
+	//线条
+	var div_line = document.createElement("div");
+	div_line.className = 'line';
+	$(div_line).css('width', this.rootWidth - 100);
+	
+	//站点集合
+	var div_station = document.createElement("div");
+	div_station.className = 'stations';
+	
+	//车辆集合
+	var div_vehicles = document.createElement("div");
+	div_vehicles.className = 'vehicles';
+	
+	$(lineContent).append(div_line).append(div_station).append(div_vehicles);
+	
+	//线路具体信息
+	var directLine = null
+	if(lineDirect && lineDirect == 1) {
+		directLine = lineInfo.getDownLine();
+	}else {
+		directLine = lineInfo.getUpLine();
+	}
+	if(directLine != null) {
+		var stationIndexs_ = directLine.getStationIndexList();
+		if(stationIndexs_ != null && stationIndexs_.length > 0) {
+			//站点标题 上下行，起点站和终点站
+			var div_station_title = document.createElement("div");
+			div_station_title.className = 'station-title';
+			$(div_station_title).css('width', this.rootWidth - 2);
+			var span_title = document.createElement("span");
+			
+			var width_ = $('.line', lineContent).width();
+			var height_ = $('.line', lineContent).height();
+			var avgWidth_ = width_/(stationIndexs_.length - 1);
+			
+			for (var i = 0; i < stationIndexs_.length; i++) {
+				var relationId_ = lineInfo.getId()+'-'+lineDirect+'-'+stationIndexs_[i];
+				var station_ = rootParent.vehicleManager.getStationInfoEx(relationId_);
+				if(station_ != null) {
+					if(i == 0) {
+						$(span_title).append(station_.getTitle());
+					}else if(i == stationIndexs_.length - 1) {
+						$(span_title).append("  -  "+station_.getTitle());
+					}
+					
+					var stat_ = document.createElement("div");
+					if(lineDirect && lineDirect == 1) {
+						stat_.className = 'station bottom';	
+					}else {
+						stat_.className = 'station top';
+					}
+					stat_.id = 'station'+relationId_;
+					$(stat_).css({'margin-top': height_ - 5, 'margin-left': avgWidth_ * i - 5});
+					//添加站点偏移到集合
+					this.mapLineStationList.put(relationId_, {top: height_, left: avgWidth_ * i});
+					
+					var point = document.createElement("div");
+					point.className = 'point';
+					
+					var statDetail = document.createElement("div");
+					statDetail.className = 'title';
+					$(statDetail).css('display', 'none');
+					$(statDetail).text(station_.getTitle());
+					
+					$(stat_).append(point).append(statDetail);
+					
+					$('.stations', lineContent).append(stat_);
+				}
+			}
+			$(div_station_title).append(span_title);
+			if(lineDirect != 1) {
+				$(div_station_title).css('margin-top', '10px');
+				$(this.lineStation).append(div_station_title);
+			}else {
+				$(lineContent).css('margin-top', '-30px');
+			}
+			//没有站点的线路不加载
+			$(this.lineStation).append(lineContent);
+			if(lineDirect == 1) {
+				$(div_station_title).css('margin-top', '-30px');
+				$(this.lineStation).append(div_station_title);
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+//加载公家站点事件
+ttxLineOverview.prototype.loadStationEvent = function(){
+	//鼠标移到站点或者点击站点，显示详细信息
+	var that = this;
+	$(this.rootId).on('click mouseover', '.station .point', function() {
+		var title = $(this).parent().find('div').text();
+		if($(this).parent().hasClass('top')) {
+			$('.station-info .station-info-content', that.rootId).text(title);
+		}else {
+			$('.station-info .station-info-content', that.rootId).text(title);
+		}
+		var tipWidth = $('.station-info', that.rootId).width();
+		var tipHeight = $('.station-info', that.rootId).height();
+		var top =  that.getTop(this) - tipHeight - 12;
+		var left = that.getLeft(this) - that.getLeft(that.rootId) - tipWidth/2 + 15;
+		var margin_left = tipWidth/2 - 11;
+		if(left < 0) {
+			margin_left = margin_left + left;
+			left = 0;
+		}else if(left + tipWidth > $(that.rootId).width()) {
+			margin_left = margin_left + tipWidth/2 - 50 + 5;
+			left = left - tipWidth/2 + 50 -5;
+		}
+		
+		$('.station-info .station-info-tip', that.rootId).css('margin-left', margin_left);
+		$('.station-info', that.rootId).css('top', top).css('left', left).show();
+	}).on('mouseout', '.point', function() {
+		$('.station-info', that.rootId).hide();
+	});
+}
+
+//删除车辆信息
+ttxLineOverview.prototype.deleteLineVehicle = function(lineId, lineDirect) {
+	var station_ = this.mapLineVehiList.get(lineId+'-'+lineDirect);
+	if(station_) {
+		var vehiIdnos = station_.getVehiIdnoList();
+		if(vehiIdnos && vehiIdnos.length > 0) {
+			for (var j = 0; j < vehiIdnos.length; j++) {
+				$('#vehicle'+vehiIdnos[j]).remove();
+			}
+		}
+	}
+	this.mapLineVehiList.remove(lineId+'-'+lineDirect);
+}
+
+//更新所有车辆信息
+ttxLineOverview.prototype.loadAllLineVehicle = function() {
+	//删除站点车辆
+	this.mapStationVehiList.clear();
+	if(this.allLineList && this.allLineList.length > 0) {
+		for (var i = 0; i < this.allLineList.length; i++) {
+			//先删除，再添加
+			var lineInfo = this.allLineList[i];
+			this.deleteLineVehicle(lineInfo.getId(), 0);
+			this.deleteLineVehicle(lineInfo.getId(), 1);
+			this.loadLineVehicle(lineInfo);
+		}
+		//加载车辆事件
+		this.loadVehicleEvent();
+	}
+}
+
+//更新车辆信息
+//lineId 线路id  lineDirect 线路方向
+ttxLineOverview.prototype.loadLineVehicle = function(lineInfo) {
+	//线路下所有车辆
+	var vehiIdnos = lineInfo.getVehiIdnoList();
+	if(vehiIdnos && vehiIdnos.length > 0) {
+		for (var i = 0; i < vehiIdnos.length; i++) {
+			//添加车辆到线路
+			this.addLineVehicle(vehiIdnos[i]);
+		}
+	}
+}
+
+//添加车辆
+ttxLineOverview.prototype.addLineVehicle = function(vehiIdno) {
+	var vehicle = rootParent.vehicleManager.getVehicle(vehiIdno);
+	//车辆在线才加入
+	if(vehicle && vehicle.isOnline()) {
+		var gpsDevice = vehicle.getValidDevice();
+		var lineId_ = gpsDevice.getLineId(); //获取线路id
+		var lineDirect_ = gpsDevice.getLineDirect(); //获取线路上下行
+		var stationStatus_ = gpsDevice.getStationStatus(); //到站状态  0到站 1出站
+		if(!lineId_) {//如果没有线路id，则取默认的线路id
+			lineId_ = vehicle.getParentId();
+		}
+		var stationIndex_ = parseInt(gpsDevice.getStationIndex(), 10);//获取站点索引
+		
+		//添加车辆到线路中
+		var lineVehicle_ = this.mapLineVehiList.get(lineId_+'-'+lineDirect_);
+		if(!lineVehicle_) {
+			lineVehicle_ = new lineStationEx();
+			this.mapLineVehiList.put(lineId_+'-'+lineDirect_, lineVehicle_);
+		}
+		//添加车辆到站点中
+		var stationVehicle_ = this.mapStationVehiList.get(lineId_+'-'+lineDirect_+'-'+stationIndex_+'-'+stationStatus_);
+		if(!stationVehicle_) {
+			stationVehicle_ = new lineStationEx();
+			this.mapStationVehiList.put(lineId_+'-'+lineDirect_+'-'+stationIndex_+'-'+stationStatus_, stationVehicle_);
+		}
+		
+		var vehicleAbbr = vehicle.getAbbreviation();
+		if(vehicleAbbr) {
+			lineVehicle_.addVehiIdno(vehiIdno, vehicleAbbr);
+			stationVehicle_.addVehiIdno(vehiIdno, vehicleAbbr);
+		}else {
+			lineVehicle_.addVehiIdno(vehiIdno, vehiIdno);
+			stationVehicle_.addVehiIdno(vehiIdno, vehiIdno);
+		}
+		var topWidth = $('.line', '.line-station'+lineId_+' .lineContent'+lineDirect_).width();
+		var topHeight = $('.line', '.line-station'+lineId_+' .lineContent'+lineDirect_).height();
+		var marginLeft = 0;
+		if(stationStatus_ == 1) {//出站
+			var left_ = parseInt($('#station'+lineId_+'-'+lineDirect_+'-'+stationIndex_).css('marginLeft'));
+			var right_ = parseInt($('#station'+lineId_+'-'+lineDirect_+'-'+(stationIndex_+1)).css('marginLeft'));
+			//取保存的站点偏移
+			var stationPix1 = this.mapLineStationList.get(lineId_+'-'+lineDirect_+'-'+stationIndex_);
+			if(stationPix1) {
+				topHeight = stationPix1.top;
+				left_ = stationPix1.left;
+			}
+			//取保存的站点偏移
+			var stationPix2 = this.mapLineStationList.get(lineId_+'-'+lineDirect_+'-'+(stationIndex_+1));
+			if(stationPix2) {
+				right_ = stationPix1.left;
+			}
+			marginLeft = (right_ + left_) / 2;
+		}else {//到站
+			marginLeft = parseInt($('#station'+lineId_+'-'+lineDirect_+'-'+stationIndex_).css('marginLeft'));
+			//取保存的站点偏移
+			var stationPix = this.mapLineStationList.get(lineId_+'-'+lineDirect_+'-'+stationIndex_);
+			if(stationPix) {
+				topHeight = stationPix.top;
+				marginLeft = stationPix.left;
+			}
+		}
+		
+		//车辆
+		//先删除
+		$('.vehicle'+lineId_+'-'+lineDirect_+'-'+stationIndex_+'-'+stationStatus_).remove();
+		var stat_ = document.createElement("div");
+		if(lineDirect_ == 1) {
+			stat_.className = 'vehicle bottom';
+		}else {
+			stat_.className = 'vehicle top';
+		}
+		$(stat_).addClass('vehicle'+lineId_+'-'+lineDirect_+'-'+stationIndex_+'-'+stationStatus_);
+		stat_.id = 'vehicle'+vehiIdno;
+		$(stat_).css({'margin-top': topHeight - 8, 'margin-left': marginLeft - 8});
+		
+		var statDetail = document.createElement("div");
+		statDetail.className = 'title';
+		$(statDetail).css('display', 'none');
+		var vehiIdnoList = stationVehicle_.getVehiAbbrList();
+		for (var i = 0; i < vehiIdnoList.length; i++) {
+			$(statDetail).append(vehiIdnoList[i]+'<br>');
+		}
+		
+		var point = document.createElement("div");
+		point.className = 'point';
+		if(vehiIdnoList.length > 1) {
+			$(point).text(vehiIdnoList.length);
+		}
+		
+		$(stat_).append(point).append(statDetail);
+		
+		$('.vehicles', '.line-station'+lineId_+' .lineContent'+lineDirect_).append(stat_);
+		$(statDetail).css({'margin-top': -40, 'margin-left': 8 - $(statDetail).width()/2});
+	}
+}
+
+//加载车辆事件
+ttxLineOverview.prototype.loadVehicleEvent = function(){
+	//鼠标移到站点或者点击站点，显示详细信息
+	var that = this;
+	$(this.rootId).on('click mouseover', '.vehicle .point', function() {
+		var title = $(this).parent().find('.title').html();
+		if($(this).parent().hasClass('top')) {
+			$('.station-info .station-info-content', that.rootId).html(title);
+		}else {
+			$('.station-info .station-info-content', that.rootId).html(title);
+		}
+		var tipWidth = $('.station-info', that.rootId).width();
+		var tipHeight = $('.station-info', that.rootId).height();
+		var top =  that.getTop(this) - tipHeight - 12;
+		var left = that.getLeft(this) - that.getLeft(that.rootId) - tipWidth/2 + 18;
+		var margin_left = tipWidth/2 - 11;
+		if(left < 0) {
+			margin_left = margin_left + left;
+			left = 0;
+		}else if(left + tipWidth > $(that.rootId).width()) {
+			margin_left = margin_left + tipWidth/2 - 50 + 8;
+			left = left - tipWidth/2 + 50 - 8;
+		}
+		
+		$('.station-info .station-info-tip', that.rootId).css('margin-left', margin_left);
+		$('.station-info', that.rootId).css('top', top).css('left', left).show();
+	}).on('mouseout', '.point', function() {
+		$('.station-info', that.rootId).hide();
+	});
+}
+
+//获取距离body的上边距
+ttxLineOverview.prototype.getTop = function(e){
+	var offset = 0;
+	var obj = e;
+	while(obj != null && obj != document.body) {
+		offset += obj.offsetTop;
+		obj = obj.offsetParent;
+	}
+	while(obj != null && e != document.body) {
+		offset -= e.scrollTop;
+		e = e.parentElement;
+	}
+	return offset;
+}
+
+//获取距离body的左边距
+ttxLineOverview.prototype.getLeft = function(e){
+	var offset = 0;
+	var obj = e;
+	while(obj != null && obj != document.body) {
+		offset += obj.offsetLeft;
+		obj = obj.offsetParent;
+	}
+	while(e != null && e != document.body) {
+		offset -= e.scrollLeft;
+		e = e.parentElement;
+	}
+	return offset;
+}

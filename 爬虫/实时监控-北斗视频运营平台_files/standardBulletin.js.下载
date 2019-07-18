@@ -1,0 +1,161 @@
+/**
+ * 用户公告处理类
+ * 处理公告显示和刷新
+ */
+function standardBulletin(){
+	this.bulletins = null; //公告信息
+	this.flashStatusTimer = null; //刷新是否有新的公告的定时器
+	this.flashStatusInterval = 60000;//默认刷新间隔 120秒
+	
+	this.flashBulletinTimer = null; //刷新公告的定时器
+	this.flashBulletinInterval = 50;//默认刷新间隔 600秒
+	
+	this.showIndex = 0; //正在显示的公告索引
+}
+
+//初始化
+standardBulletin.prototype.initialize = function() {
+	//this.runStatusTimer();
+	//this.runUserBulletinTimer();
+	//this.flashBulletinInterval = 600000;
+	this.flashUserBulletin();
+}
+
+/**
+ * 开启刷新是否有新的公告的定时器
+ */
+standardBulletin.prototype.runStatusTimer = function(){
+	var that = this;
+	this.flashStatusTimer = setTimeout(function () {
+		that.flashBulletinStatus();
+	}, that.flashStatusInterval);
+};
+
+/**
+ * 刷新是否有新的公告
+ */
+standardBulletin.prototype.flashBulletinStatus = function() {
+	//向服务器发送ajax请求
+	var that = this;
+	$.myajax.jsonGet("StandardBulletinAction_getIssueBulletinStatus.action", function(json,action,success){
+		if (success) {
+			if(json.status && json.status == 1) {//如果有新的公告，则刷新公告信息
+				$.dialog.tips("有新的公告信息！", 2);
+				that.flashUserBulletin();
+				if(that.flashBulletinTimer != null) {
+					clearTimeout(that.flashBulletinTimer);
+					that.flashBulletinTimer = null;
+				}
+			}
+		}
+		that.runStatusTimer();
+	}, null);
+}
+
+/**
+ * 开启刷新公告的定时器
+ */
+standardBulletin.prototype.runUserBulletinTimer = function(){
+	var that = this;
+	this.flashBulletinTimer = setTimeout(function () {
+		that.flashUserBulletin();
+	}, that.flashBulletinInterval);
+};
+
+//获取公告信息
+standardBulletin.prototype.flashUserBulletin = function() {
+	//向服务器发送ajax请求
+	var that = this;
+	$.myajax.jsonGet("StandardBulletinAction_findUserBulletin.action", function(json,action,success){
+		if (success) {
+			that.bulletins = json.infos;
+			// 公告滚动显示
+			if(that.bulletins && that.bulletins.length > 0) {
+				that.insertMsgAndScroll();
+			}
+		}
+		//that.runUserBulletinTimer();
+	}, null);
+}
+
+//生成消息
+standardBulletin.prototype.insertMsgAndScroll = function(){
+	$('.scrollmsg').empty();
+	var str = '<div class="scroll_content">';
+	str += '<span style="font-weight:bold">公告：</span>';
+	for(var i =0;i<this.bulletins.length;i++){
+		var isFlag =  dateCompareStrDate(dateFormat2DateString(new Date(this.bulletins[i].endTime)), dateFormat2DateString(new Date()));
+		if(isFlag >= 0){
+			str += '<span onclick="showBulletinMsg('+i+')"><span>&nbsp&nbsp&nbsp'+(i+1)+'、</span>';
+			str += '<span>'+this.bulletins[i].title+'</span>&nbsp&nbsp&nbsp</span>';
+			// str += '<span>'+this.bulletins[i].content+'</span></span>';
+		}
+	}
+	str += '</div>';
+	$('.scrollmsg').html(str);
+	var _left = 300;
+	var cwidth = $('.scroll_content').width();
+	var rpoint = -(cwidth);
+	this.scrollMsg(rpoint,_left);
+}
+
+//滚动显示消息
+standardBulletin.prototype.scrollMsg = function(rpt,lft){
+	var scrollTimer;
+	var $this = $('.scroll_content');
+	
+	$this.hover(function(){
+		clearInterval(scrollTimer);
+	},function(){
+		scrollTimer = setInterval(function() { scrolling($this); }, 50); 
+	}).trigger('mouseleave');
+			
+	function scrolling(obj){
+		if(lft < rpt){
+			lft = 300;
+			$('.scroll_content').css({'left':'300px'});
+		}
+		obj.animate({left : lft + 'px'},10);
+		lft--;
+	}
+}
+
+//弹框显示消息
+standardBulletin.prototype.showBulletinMsg = function(i){
+	this.showIndex = i;
+	
+	var content = '<div style="width:600px;height:140px">';
+	content += 	  '		<div id="bulletinTitle" style="font-weight:bold;text-align: center;">'+this.bulletins[i].title+'</div>';
+	content += 	  '		<div id="bulletinContent" style="text-indent:2em;margin-top: 10px;">'+this.bulletins[i].content+'</div>';
+	content += 	  '		<div id="bulletinPage" style="height:20px;line-height:20px;left:30px;right:30px;bottom:25px;position:absolute;">';
+	content += 	  '			<div class="page" style="color:#0077ff;cursor:pointer;float:left;"><span class="prePage">上一条</span></div>';
+	content += 	  '			<div class="page" style="color:#0077ff;cursor:pointer;float:right;"><span class="nextPage">下一条</span></div>';
+	content += 	  '		</div>';
+	content += 	  '</div>';
+	$.dialog({id:'mmssgg', title:'公告',content: content,
+		width:'600px',height:'140px', min:false, max:false, lock:true});
+	
+	$('#bulletinPage .page').on('mouseout',function(){
+		$(this).css('color', '#0077ff');
+	}).on('mouseover',function(){
+		$(this).css('color', '#ff0000');
+	});
+	
+	//上一条
+	var that = this;
+	var maxLength = this.bulletins.length;
+	$('#bulletinPage .prePage').on('click', function() {
+		var preIndex = that.showIndex - 1 < 0 ? maxLength - 1 : that.showIndex - 1;
+		that.showIndex = preIndex;
+		$('#bulletinTitle').text(that.bulletins[that.showIndex].title);
+		$('#bulletinContent').text(that.bulletins[that.showIndex].content);
+	});
+	
+	//下一条
+	$('#bulletinPage .nextPage').on('click', function() {
+		var nextIndex = that.showIndex + 1 >= maxLength ? 0 : that.showIndex + 1;
+		that.showIndex = nextIndex;
+		$('#bulletinTitle').text(that.bulletins[that.showIndex].title);
+		$('#bulletinContent').text(that.bulletins[that.showIndex].content);
+	});
+}

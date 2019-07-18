@@ -1,0 +1,484 @@
+﻿/**
+ * 危化信息处理类
+ * 1.危化公司审核
+ * 2.危化车辆审批
+ * 3.生产仓储企业刷新车辆树结构
+ */
+function monitorChemicalProcess(){
+	this.roleCls = null;  //权限类对象
+	this.flashStatusTimer = null; //刷新待审核企业数目和待审批车辆数目的定时器
+	this.flashStatusInterval = 50;//第一次刷新后，改为120000; //默认刷新间隔 120秒
+	this.flashStatusUrl = ""; //刷新待审核企业数目和待审批车辆数目的链接
+	
+	this.flashVehiclePrivilegeTimer = null; //新是否有车辆权限被审核的定时器
+	this.flashVehiclePrivilegeInterval = 120000//300000; //默认刷新间隔 300秒
+	this.vehiIdnoList = []; //车辆列表
+	
+	this.flashCompanyStatusInterval = 60000; //危化刷新公司状态的时间间隔
+	
+	this.openWaybillNum = null; //打开的运单编号
+}
+
+//赋值权限类对象
+monitorChemicalProcess.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+
+//初始化
+monitorChemicalProcess.prototype.initialize = function() {
+	if(this.roleCls.isAdmin() || this.roleCls.isLogisticCompany()) {
+		$('#gps-chemicalVerify').show();
+		var that = this;
+		if(this.roleCls.isAdmin()) {//管理员审核公司
+			//点击审核企业
+			$('#gps-chemicalVerify .chemicalVerify').on('click', function() {
+				that.doCheckCompany();
+			});
+			this.flashStatusUrl = "WHLocationAction_getWaitVerifyCompanyCount.action";
+			$('#gps-chemicalVerify .chemicalVerify-title').text(parent.lang.status_pending_company+'：');
+		}else {//物流企业审批车辆
+			//点击审批车辆
+			$('#gps-chemicalVerify .chemicalVerify').on('click', function() {
+				that.doApprovalVehicle();
+			});
+			this.flashStatusUrl = "WHLocationAction_getWaitVerifyPrivilegeCount.action";
+			$('#gps-chemicalVerify .chemicalVerify-title').text(parent.lang.status_pending_vehicle+'：');
+			
+			//查看需要添加的运单信息
+			$('#gps-chemicalVerify .chemicalWaybill').show().on('click', function() {
+				that.doFindWaitWaybill();
+			});
+			$('#gps-chemicalVerify .chemicalWaybill-title').text(parent.lang.status_pending_waybill+'：');
+		}
+		this.runVehiclePrivilegeTimer();
+		this.runStatusTimer();
+		this.flashStatusInterval = 120000;
+	}
+}
+
+/**
+ * 管理员点击审核企业
+ */
+monitorChemicalProcess.prototype.doCheckCompany = function() {
+	if(this.verifyListObj == null) {
+		var that = this;
+		this.verifyListObj = $.dialog({id:'verifyList', title: "审核企业", content: 'url:whManagement/VerifyList.html',
+		width: '800px', height: '400px', min:true, max:false, lock:false,fixed:true
+			, resize:true, close: function() {
+				that.verifyListObj = null;
+				if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+					popTipsObject.remove('verifyList');
+				}
+			} });
+	}else {
+		this.verifyListObj.show();
+	}
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('verifyList', this.verifyListObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('verifyList');
+	}
+}
+
+/**
+ * 物流企业点击审批车辆
+ */
+monitorChemicalProcess.prototype.doApprovalVehicle = function() {
+	if(this.verifyVehicleObj == null) {
+		var that = this;
+		this.verifyVehicleObj = $.dialog({id:'verifyVehicle', title: "车辆权限审核", content: 'url:whManagement/AllVehiclePrivilege_approval.html',
+		width: '1050px', height: '500px', min:true, max:false, lock:false,fixed:true
+			, resize:true, close: function() {
+				that.verifyVehicleObj = null;
+				if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+					popTipsObject.remove('verifyVehicle');
+				}
+			} });
+	}else {
+		this.verifyVehicleObj.show();
+	}
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('verifyVehicle', this.verifyVehicleObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('verifyVehicle');
+	}
+}
+
+/**
+ * 物流企业点击查看待添加运单
+ */
+monitorChemicalProcess.prototype.doFindWaitWaybill = function() {
+	if(this.waitWaybillObj == null) {
+		var that = this;
+		this.waitWaybillObj = $.dialog({id:'waitWaybill', title: parent.lang.status_pending_waybill, content: 'url:whManagement/WaitWaybillList.html',
+		width: '1050px', height: '500px', min:true, max:false, lock:false,fixed:true
+			, resize:true, close: function() {
+				that.waitWaybillObj = null;
+				if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+					popTipsObject.remove('waitWaybill');
+				}
+			} });
+	}else {
+		this.waitWaybillObj.show();
+	}
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('waitWaybill', this.waitWaybillObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('waitWaybill');
+	}
+}
+
+/**
+ * 开启刷新待审核企业数目和待审批车辆数目的定时器
+ */
+monitorChemicalProcess.prototype.runStatusTimer = function(){
+	if (this.flashStatusTimer != null) {
+		clearTimeout(this.flashStatusTimer);
+		this.flashStatusTimer = null;
+	}
+	var that = this;
+	this.flashStatusTimer = setTimeout(function () {
+		that.flashChemicalStatus();
+	}, that.flashStatusInterval);
+};
+
+/**
+ * 刷新待审核企业数目和待审批车辆数目
+ */
+monitorChemicalProcess.prototype.flashChemicalStatus = function(){
+	//本类对象
+	var that = this;
+	//向服务器发送ajax请求
+	$.myajax.jsonGet(this.flashStatusUrl, function(json,action,success){
+		if (success) {
+			$('#gps-chemicalVerify .chemicalVerify-val').text(json.count);
+			if(that.roleCls.isLogisticCompany()) {//物流企业
+				$('#gps-chemicalVerify .chemicalWaybill-val').text(json.waybillCount);
+			}
+		}
+		that.runStatusTimer();
+	}, null);
+};
+
+/**
+ * 初始化车辆列表
+ */
+monitorChemicalProcess.prototype.initVehicleList = function() {
+	//如果是生产仓储企业
+	if(this.roleCls.isProduceCompany()) {
+		var vehicleList = parent.vehicleManager.getAllVehicle();
+		if(vehicleList != null && vehicleList.length > 0) {
+			for (var i = 0; i < vehicleList.length; i++) {
+				this.vehiIdnoList.push(vehicleList[i].idno);
+			}
+		}
+		//每隔5分钟刷新是否有车辆权限被审核，如果有审核，则去刷新车辆列表
+		this.runVehiclePrivilegeTimer();
+	}
+}
+
+/** 
+ * 刷新是否有车辆权限提交  物流企业
+ * 开启刷新是否有车辆权限被审核的定时器 生产仓储企业
+ */
+monitorChemicalProcess.prototype.runVehiclePrivilegeTimer = function(){
+	var that = this;
+	this.flashVehiclePrivilegeTimer = setTimeout(function () {
+		that.flashVehiclePrivilegeStatus();
+	}, that.flashVehiclePrivilegeInterval);
+};
+
+/**
+ * 刷新是否有车辆权限提交  物流企业
+ * 刷新是否有车辆权限被审核  生产仓储企业
+ * 刷新是否有公司需要审核 管理员
+ */
+monitorChemicalProcess.prototype.flashVehiclePrivilegeStatus = function(){
+	//本类对象
+	var that = this;
+	//向服务器发送ajax请求
+	$.myajax.jsonGet("WHLocationAction_getVerifyVehicleStatus.action", function(json,action,success){
+		if (success) {
+			//有审批成功的记录,刷新车辆列表
+			if(json.status && (json.status == '1' || json.status == '2')) {
+				that.flashCompanyVehicleList(json.status);
+			}
+			//有新的运单需要添加
+			if(json.waybill && json.waybill == '1') {
+				that.flashChemicalWaybill();
+			}
+			//如果有审核信息，则提示用户
+			if(json.companyVerify) {
+				that.flashCompanyVerify(json.companyVerify);
+			}
+		}
+		that.runVehiclePrivilegeTimer();
+	}, null);
+};
+
+/**
+ * 如果有审核信息，则提示用户
+ */
+monitorChemicalProcess.prototype.flashCompanyVerify = function(companyVerify) {
+	if(this.roleCls.isProduceCompany() || this.roleCls.isLogisticCompany()) {
+		//和登陆是的审核状态不同才更新提示
+		if(this.roleCls.getCompanyVerify() != companyVerify) {
+			//生产仓储企业//物流企业
+			if(companyVerify == 2) {
+				alert("审核通过，请刷新页面！");
+			}else if(companyVerify == 3) {
+				alert("审核不通过！");
+			}
+			parent.updateCompanyVerify(companyVerify);
+		}
+	} 
+}
+
+/**
+ * 有审批的记录,刷新车辆列表
+ */
+monitorChemicalProcess.prototype.flashCompanyVehicleList = function(status) {
+	if(this.roleCls.isProduceCompany()) { //生产仓储企业
+		if(status == '1') {
+			alert("车辆权限申请已审批！", 2);
+		}else {
+			alert("车辆权限已发生变更！", 2);
+		}
+		//初始化信息
+		parent.vehicleManager = new VehicleManager();
+		parent.isLoadVehiList = false;
+		parent.isLoadPermitVehiGroupList = false;
+		//重新获取公司和车辆信息
+		parent.getUserVehicles();
+		//刷新车辆树
+		this.flashVehiTree();
+	}else if(this.roleCls.isLogisticCompany()) {//物流企业
+		alert("有新的车辆权限申请需要处理！", 2);
+		this.flashChemicalStatus();
+	}else if(this.roleCls.isAdmin()) {
+		alert("有新的公司需要审核!", 2);
+		this.flashChemicalStatus();
+	}
+}
+
+/**
+ * 有新的运单需要添加
+ */
+monitorChemicalProcess.prototype.flashChemicalWaybill = function() {
+	if(this.roleCls.isLogisticCompany()) {//物流企业
+		alert("有新的危废运单需要添加！", 2);
+		this.flashChemicalStatus();
+	}
+}
+
+/**
+ * 刷新车辆树
+ */
+monitorChemicalProcess.prototype.flashVehiTree = function() {
+	if(parent.isLoadVehiList && parent.isLoadPermitVehiGroupList) {
+		var vehicleList = parent.vehicleManager.getAllVehicle();
+		var newVehiIdnoList = [];
+		if(vehicleList != null && vehicleList.length > 0) {
+			for (var i = 0; i < vehicleList.length; i++) {
+				newVehiIdnoList.push(vehicleList[i].idno);
+			}
+		}
+		//判断删除的车辆
+		for (var i = 0; i < this.vehiIdnoList.length; i++) {
+			if(!newVehiIdnoList.in_array(this.vehiIdnoList[i])) {
+				if(monitorStatus && typeof monitorStatus.deleteChemicalVehicle == 'function') {
+					monitorStatus.deleteChemicalVehicle(this.vehiIdnoList[i]);
+				}
+				vehiTree.deleteItem(this.vehiIdnoList[i], true);
+			}
+		}
+		//判断新增的车辆
+		var addVehiIdnoList = [];
+		for (var i = 0; i < newVehiIdnoList.length; i++) {
+			if(!this.vehiIdnoList.in_array(newVehiIdnoList[i])) {
+				addVehiIdnoList.push(newVehiIdnoList[i]);
+			}
+		}
+		var addvehicle = [];
+		for (var i = 0; i < addVehiIdnoList.length; i++) {
+			var vehicle = parent.vehicleManager.getVehicle(addVehiIdnoList[i]);
+			vehicle.parentId = 0;
+			addvehicle.push(vehicle);
+		}
+		if(addvehicle.length > 0) {
+			vehiTree.setVehicleList(addvehicle, true);
+			this.dynamicLoadVehicle();
+		}
+		
+		this.vehiIdnoList = newVehiIdnoList;
+		
+		//刷新存储介质数目
+		if(monitorStatus && typeof monitorStatus.initVehicleStatusCount == 'function') {
+			monitorStatus.initVehicleStatusCount();
+		}
+	}else {
+		var that = this;
+		setTimeout(function() {
+			that.flashVehiTree();
+		}, 200);
+	}
+}
+
+/**
+ * 添加车辆树
+ */
+monitorChemicalProcess.prototype.dynamicLoadVehicle = function() {
+	if (!vehiTree.dynamicLoadVehicle()) {
+		var that = this;
+		setTimeout(function() {
+			that.dynamicLoadVehicle();
+		}, 80);
+	} else {
+		//添加监控树右键菜单
+		monitorMenu.addVehicleMenu(vehiTree.loadVehiIdnos.toString());
+		monitorMenu.addChannelMenu(vehiTree.channelIndex.toString());
+	}
+}
+
+/**
+ * 显示运单界面
+ * 先查询是否存在运单信息，存在则弹出信息框
+ */
+monitorChemicalProcess.prototype.showWaybillInfo = function(vehiIdno) {
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle != null) {
+		var vehiId = vehicle.getVid();
+		//查询是否存在运单信息，存在则弹出信息框
+		var action = "WHLocationAction_getVehicleWayBillNumber.action?vehiId="+vehiId+"&vehiIdno="+vehiIdno;
+		//本类对象
+		var that = this;
+		//向服务器发送ajax请求
+		$.myajax.jsonGet(action, function(json,action,success){
+			if (success) {
+				if(json.waybillNum) {//存在运单信息
+					that.showWaybillInfoEx(json.waybillNum);
+				}else {
+					alert("车辆不存在运单信息！", 2);
+				}
+			}
+		}, null);
+	}
+}
+
+/**
+ * 弹出运单详细信息
+ * @param waybillNum 运单号
+ */
+monitorChemicalProcess.prototype.showWaybillInfoEx = function(waybillNum) {
+	if(this.waybillInfoObj == null || this.openWaybillNum != waybillNum) {
+		if(this.waybillInfoObj != null && this.openWaybillNum != waybillNum) {
+			this.waybillInfoObj.close();
+		}
+		this.openWaybillNum = waybillNum;
+		var that = this;
+		this.waybillInfoObj = $.dialog({id:'waybillInfo', title: "运单信息", content: 'url:whManagement/WHVehicleWaybillInfo.html?waybillNum='+waybillNum,
+		width: '800px', height: '400px', min:true, max:false, lock:false,fixed:true
+			, resize:true, close: function() {
+				that.waybillInfoObj = null;
+				if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+					popTipsObject.remove('waybillInfo');
+				}
+			} });
+	}else {
+		this.waybillInfoObj.show();
+	}
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('waybillInfo', this.waybillInfoObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('waybillInfo');
+	}
+}
+
+/**
+ * 加载危化系统外运单车辆
+ */
+monitorChemicalProcess.prototype.loadAreaAlarmVehicle = function(alarmInfo) {
+	if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+		//已经监控
+		if(monitorStatus.findMonitorVehicle(alarmInfo.vehiIdno)) {
+			var vehicle = parent.vehicleManager.getVehicle(alarmInfo.vehiIdno);
+			vehicle.setStatus(alarmInfo.DevIDNO, alarmInfo.Gps);
+			
+			//更新状态
+			if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+				var status = vehicle.gpsParseTrackStatus();
+				//更新监控状态
+				monitorStatus.mapVehicleStatusList.put(alarmInfo.vehiIdno, status);
+				if(status != null && status.isGpsValid) {
+					status.id = alarmInfo.vehiIdno;
+					monitorMapTip.addVehicleToMap(vehicle, status, false);
+					//在地图列表中，也将车辆居中
+					monitorMapTip.selectVehicle(alarmInfo.vehiIdno);
+				}
+			}
+		}else {
+			var vehi_old = {};
+			vehi_old.nm = alarmInfo.vehiIdno;
+			vehi_old.dn = null; 
+			vehi_old.djb = null;
+			vehi_old.dt = null;
+			var vehi = new standardVehicle(vehi_old.nm);
+			vehi.setVehicle(vehi_old);
+			vehi.setInSystem(false);
+			
+			var dev_old = {};
+			dev_old.id = alarmInfo.DevIDNO;
+			dev_old.st = alarmInfo.Gps;
+			var dev = new standardDevice(dev_old.id);
+			dev.setDevice(dev_old);//危化占时不处理   
+			dev.setVehiIdno(vehi_old.nm);
+			dev.setOnline(1);
+			vehi.addDevList(dev);
+			
+			parent.vehicleManager.addVehicle(vehi_old.nm, vehi);
+			
+			//添加到监控
+			monitorStatus.addMonitorVehicle(vehi_old.nm);
+		}
+	}
+}
+
+//启动定时器获取公司状态
+monitorChemicalProcess.prototype.runCompanyStatusTimer = function(){
+	var that = this;
+	this.flashCompanyStatusTimer = setTimeout(function () {
+		that.flashCompanyStatus();
+	}, that.flashCompanyStatusInterval);
+};
+
+//刷新公司状态
+monitorChemicalProcess.prototype.flashCompanyStatus = function(){
+	//本类对象
+	var that = this;
+	//数据库取实时状态
+	$.myajax.jsonGet('WHLocationAction_getAllCompanyStatusList.action',function(json, success) {
+		if(success) {
+			if(json.status != null && json.status.length > 0) {
+				//将公司状态值赋给公司
+				for (var i = 0; i < json.status.length; i++) {
+					var company = parent.vehicleManager.getTeam(json.status[i].id);
+					if(company != null) {
+						company.setOnline(json.status[i].status);
+						if(company.isOnline()) {
+							vehiTree.setItemSpanColor(vehiTree.getTreeGroupId(json.status[i].id), '#008000');
+						}else {
+							vehiTree.setItemSpanColor(vehiTree.getTreeGroupId(json.status[i].id), '#000000');
+						}
+					}
+				}
+			}
+		}
+		that.runCompanyStatusTimer();
+	}, null);
+}

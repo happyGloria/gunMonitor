@@ -1,0 +1,132 @@
+@charset "UTF-8";
+.mediaList{
+    width: 330px;
+}
+
+.mediaList ul li img,ul li video{
+    width: 80%;
+    height: 80%;
+}
+.scrollpic {
+    width: 330px;
+    margin:auto 0 auto;
+}
+.myscroll {
+    display: block;
+    width: 330px;
+    position: relative;
+    height: 80px;
+    overflow: hidden;
+}
+.myscroll .myscrollbox {
+    display: block;
+    float: left;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1000000px;
+}
+.myscroll ul {
+    display: block;
+    float: left;
+    list-style-type: none;
+    padding: 0;
+    margin-top: 8px;
+    margin-left: 1px;
+    height:80px;
+}
+.myscroll ul li {
+    display: block;
+    float: left;
+    padding: 0;
+    width:80px;
+}
+.myscroll ul li a {
+    display: block;
+    float: left;
+    width: 80px;
+    padding: 0;
+    position: relative;
+    height: 80px;
+    color: #333;
+}
+.myscroll a .intro {
+    position: absolute;
+    left: 0;
+    z-index: 10;
+    background-color: #0057c4;
+    filter: alpha(opacity=70);
+    width: 260px;
+    color: #fff;
+    -moz-opacity: 0.7;
+    -khtml-opacity: 0.7;
+    opacity: 0.7;
+    text-align: center;
+}
+.myscroll a .intro h5 {
+    padding: 0;
+    margin: 0;
+    font-size: 16px;
+    height: 40px;
+    width: 260px;
+    line-height: 30px;
+    border-bottom: 1px solid #347fdc;
+    font-weight:100;
+}
+.myscroll a .intro p {
+    font-size: 13px;
+    line-height: 20px;
+    margin: 65px 70px;
+    height: 70px;
+    overflow: hidden;
+}
+.myscroll a .intro {
+    bottom: -211px;
+}
+.myscroll a:hover .intro {
+    bottom: 0px;
+}
+/* #mybtns a:hover {
+	background-color: .347fdc;
+}
+.mybtns a:hover, .myscroll, .mybtns a, .myscroll a:hover .intro, .myscroll a .intro, .myscroll .myscrollbox {
+	-webkit-transition: all 0.5s ease;
+	-moz-transition: all 0.5s ease;
+	-ms-transition: all 0.5s ease;
+	-o-transition: all 0.5s ease;
+	transition: all 0.5s ease;
+} */
+.mediaList a.left {
+    background-image: url(../images/jt_l.png);
+    width: 28px;
+    height: 35px;
+    display: none;
+    z-index: 88;
+    position: relative;
+    top: 21px;
+    right: 7px;
+    background-repeat: no-repeat;
+}
+.mediaList a.right {
+    background-image: url(../images/jt_r.png);
+    width: 28px;
+    height: 35px;
+    display: none;
+    z-index: 88;
+    position: relative;
+    top: 21px;
+    right: 10px;
+    background-repeat: no-repeat;
+}
+.mediaList .myscroll:hover a.left{
+    display: inline-block;
+}
+.mediaList .myscroll:hover a.right{
+    display: inline-block;
+}
+.kinMaxShow {
+    visibility: hidden;
+    width: 330px;
+    height: 80px;
+    overflow: hidden;
+}

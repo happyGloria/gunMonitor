@@ -1,0 +1,80 @@
+/**
+ * 用户信息前端缓存
+ * @constructor
+ */
+function UserData() {
+    this.id = null;
+    this.allData = null;
+
+    this.param1 = new Object(); //  关闭视频业务param1
+    this.param3 = new Object(); //  关闭对讲和监听业务param3
+
+}
+
+UserData.prototype.init = function (userId) {
+    var _this = this;
+    _this.id = userId;
+    _this.ajaxGetUserData();
+}
+
+UserData.prototype.refresh = function () {
+    var _this = this;
+    _this.ajaxGetUserData();
+}
+
+/**
+* 初始化数据
+*/
+UserData.prototype.ajaxGetUserData = function () {
+    var _this = this;
+    var action = 'StandardLoginAction_findUserAccount.action?type=edit&id=' + _this.id;
+    $.myajax.jsonGetEx(action, function(json,action,success){
+        if (success) {
+            var user_ = json.user;
+            _this.allData = user_;
+        }
+    });
+}
+
+/**
+ * 得到所有数据
+ * @returns {null|*}
+ */
+UserData.prototype.getAllData = function () {
+    var _this = this;
+    return _this.allData;
+}
+
+/**
+ * 得到参数列表
+ * @returns {*}
+ */
+UserData.prototype.getParamList = function () {
+    var _this = this;
+    if(_this.allData) {
+        return _this.allData.lup;
+    }
+}
+
+/**
+ * 根据类型得到参数param
+ * @param type
+ * @returns {*}
+ */
+UserData.prototype.getParamByType = function (type) {
+    var _this = this;
+    var lstParam = _this.getParamList();
+    if(lstParam && lstParam.length > 0) {
+        for(var i=0; i < lstParam.length; i++) {
+            var param = lstParam[i];
+            if(param.tp && param.tp == type) {
+                return param;
+            }
+        }
+    }
+    return null;
+}
+
+
+
+

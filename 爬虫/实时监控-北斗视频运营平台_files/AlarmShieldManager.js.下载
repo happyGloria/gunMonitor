@@ -1,0 +1,82 @@
+/**
+ * 报警屏蔽管理类
+ */
+function AlarmShieldManager(){
+	this.alarmShields = null;
+}
+
+//初始化用户的报警屏蔽信息
+AlarmShieldManager.prototype.initAlarmShield = function(isShieldReport_) {
+	//本类对象
+	var myMonitorAlarm = this;
+	$.myajax.jsonGet("StandardPositionAction_findAlarmShield.action", function(json, action, success) {
+		if(success) {
+			if(json.alarmShield != null) {
+				myMonitorAlarm.alarmShields = json.alarmShield.split(',');
+			}
+			//科瑞通屏蔽报警
+			if(isShieldReport_){
+				if(myMonitorAlarm.alarmShields == null){
+					myMonitorAlarm.alarmShields = [];
+				}
+				//LCD或显示器故障
+				myMonitorAlarm.alarmShields.push(207);
+				myMonitorAlarm.alarmShields.push(257);
+				//烟感报警
+				myMonitorAlarm.alarmShields.push(194);
+				myMonitorAlarm.alarmShields.push(195);
+				//超载
+				myMonitorAlarm.alarmShields.push(231);
+				//手机警示
+				myMonitorAlarm.alarmShields.push(174);
+				//抽烟警示
+				myMonitorAlarm.alarmShields.push(176);
+				//车辆被盗	
+				myMonitorAlarm.alarmShields.push(217);
+				myMonitorAlarm.alarmShields.push(267);
+				//非法位移	
+				myMonitorAlarm.alarmShields.push(218);
+				myMonitorAlarm.alarmShields.push(268);
+				//非法点火报警
+				myMonitorAlarm.alarmShields.push(8);
+				myMonitorAlarm.alarmShields.push(58);
+				// 设备开锁
+				myMonitorAlarm.alarmShields.push(182);
+				myMonitorAlarm.alarmShields.push(232);
+				// 设备上锁
+				myMonitorAlarm.alarmShields.push(183);
+				myMonitorAlarm.alarmShields.push(233);
+				// 氧气浓度低
+				myMonitorAlarm.alarmShields.push(192);
+				myMonitorAlarm.alarmShields.push(193);
+				// 其他视频设备故障报警 244 
+				myMonitorAlarm.alarmShields.push(244);
+				myMonitorAlarm.alarmShields.push(294);
+				// 录像阀值 245 
+				myMonitorAlarm.alarmShields.push(245);
+				myMonitorAlarm.alarmShields.push(295);
+				// 异常驾驶 248 countStr47
+				myMonitorAlarm.alarmShields.push(248);
+				myMonitorAlarm.alarmShields.push(298);
+			}
+			
+			
+		}
+	}, null);
+}
+
+//判断是否报警屏蔽
+AlarmShieldManager.prototype.isAlarmShield = function(armType) {
+	//判断是否报警屏蔽
+	if(this.alarmShields != null && armType != null){
+		var types = armType.toString().split(',');
+		for (var i = 0; i < types.length; i++) {
+			var s = String.fromCharCode(2);
+			var reg = new RegExp(s+types[i]+s);
+			if(reg.test(s+this.alarmShields.join(s)+s)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}

@@ -1,0 +1,1410 @@
+/**
+ * 线路分组类
+ */
+function StandardLineGroup(id, name) {
+	this.id = id;
+	this.name = name;
+	this.lstLineId = null;
+}
+/**
+ * 设置分组下线路
+ * @param group_
+ */
+StandardLineGroup.prototype.setLineGroupInfo = function(group_){
+	this.lstLineId = group_.lstLineId;
+}
+/**
+ * 获取分组下线路
+ */
+StandardLineGroup.prototype.getLstLineId = function(){
+	return this.lstLineId;
+}
+
+/**
+ * 站点信息类
+ */
+function standardStation(id, name){
+	this.id = id;
+	this.name = name;
+	this.direct = null;  //站点方向
+	this.lngIn = null;  //进站经度
+	this.latIn = null;  //进站纬度
+	this.angleIn = null;  //进站角度 
+	this.lngOut = null;  //出站经度
+	this.latOut = null;  //出站纬度
+	this.angleOut = null; //出站角度
+	this.abbr = null;  //简称
+	this.remark = null;  //备注
+	this.mapLngIn = null;  //进站地图经度
+	this.mapLatIn = null;  //进站地图纬度
+	this.mapLngOut = null;  //出站地图经度
+	this.mapLatOut = null;  //出站地图纬度
+	this.mapType = 0; //地图类型 默认谷歌 3百度
+	this.roleCls = null; //权限类对象
+}
+
+//赋值权限类对象
+standardStation.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+
+standardStation.prototype.setStandardStation = function(station){
+	this.direct = station.direct;  //站点方向
+	this.lngIn = station.lngIn;  //进站经度(1000000放大)
+	this.latIn = station.latIn;  //进站纬度(1000000放大)
+	this.angleIn = station.angleIn;  //进站角度 
+	this.lngOut = station.lngOut;  //出站经度(1000000放大)
+	this.latOut = station.latOut;  //出站纬度(1000000放大)
+	this.angleOut = station.angleOut; //出站角度
+	this.abbr = station.abbr;  //简称
+	this.remark = station.remark;  //备注
+	
+	if(station.lngIn) {
+		this.mapLngIn = parseInt(station.lngIn, 10) / 1000000;  //进站地图经度
+	}
+	if(station.latIn) {
+		this.mapLatIn = parseInt(station.latIn, 10) / 1000000;  //进站地图纬度
+	}
+	if(station.lngOut) {
+		this.mapLngOut = parseInt(station.lngOut, 10) / 1000000;  //出站地图经度
+	}
+	if(station.latOut) {
+		this.mapLatOut = parseInt(station.latOut, 10) / 1000000;  //出站地图纬度
+	}
+};
+
+//赋值地图类型
+standardStation.prototype.setMapType = function(mapType) {
+	this.mapType = mapType;
+}
+
+standardStation.prototype.getMapType = function() {
+	return this.mapType;
+}
+
+standardStation.prototype.getId = function(){
+	return this.id;
+};
+
+standardStation.prototype.getName = function(){
+	return this.name;
+};
+
+//获取站点方向
+standardStation.prototype.getDirect = function(){
+	return this.direct;
+}
+
+//获取站点方向
+standardStation.prototype.getDirectStr = function(){
+	if(this.direct == 1) {
+		return parent.lang.south;
+	}else if(this.direct == 2) {
+		return parent.lang.west;
+	}else if(this.direct == 3) {
+		return parent.lang.north;
+	}else {
+		return parent.lang.east;
+	}
+};
+
+//获取进站角度
+standardStation.prototype.getAngleIn = function(){
+	if(this.angleIn) {
+		return this.angleIn;
+	}
+	return 0;
+}
+
+//获取出站角度
+standardStation.prototype.getAngleOut = function(){
+	if(this.angleOut) {
+		return this.angleOut;
+	}
+	return 0;
+}
+
+//获取站点简称
+standardStation.prototype.getAbbreviation = function(){
+	if(this.abbr) {
+		return this.abbr;
+	}
+	return '';
+}
+
+//获取站点备注
+standardStation.prototype.getRemark = function(){
+	if(this.remark) {
+		return this.remark;
+	}
+	return '';
+}
+
+//获取进站地图经度信息
+standardStation.prototype.getMapLngIn = function() {
+	return this.mapLngIn;
+}
+
+//获取进站地图纬度信息
+standardStation.prototype.getMapLatIn = function() {
+	return this.mapLatIn;
+}
+
+//获取出站地图经度信息
+standardStation.prototype.getMapLngOut = function() {
+	return this.mapLngOut;
+}
+
+//获取出站地图纬度信息
+standardStation.prototype.getMapLatOut = function() {
+	return this.mapLatOut;
+}
+
+//获取进站地图经纬度信息
+standardStation.prototype.getMapLngLatIn = function(){
+	var point = {};
+	point.lng = this.mapLngIn;
+	point.lat = this.mapLatIn;
+	return point;
+};
+
+//获取出站地图经纬度信息
+standardStation.prototype.getMapLngLatOut = function(){
+	var point = {};
+	point.lng = this.mapLngOut;
+	point.lat = this.mapLatOut;
+	return point;
+};
+
+//获取进站地图经纬度信息
+standardStation.prototype.getMapLngLatInStr = function(){
+	return this.mapLatIn + "," + this.mapLngIn;
+};
+
+//获取出站地图经纬度信息
+standardStation.prototype.getMapLngLatOutStr = function(){
+	return this.mapLatOut + "," + this.mapLngOut;
+};
+
+//获取站点标题，如果站点简称为空，则读取站点名称
+standardStation.prototype.getTitle = function(){
+	if(this.abbr) {
+		return this.abbr;
+	}
+	return this.name;
+};
+
+/**
+ * 解析站点状态
+ * @returns
+ */
+standardStation.prototype.getStationRealStatus = function() {
+	var ret = {};
+	ret.id =  this.getId();
+	ret.name =  this.getName();
+	ret.direct = this.getDirectStr(); //站点方向
+	ret.mapLngLatInStr = this.getMapLngLatInStr(); //进站地图经纬度信息
+	ret.mapLngLatOutStr = this.getMapLngLatOutStr(); //进站地图经纬度信息
+	ret.angleIn = this.getAngleIn(); //进站角度
+	ret.angleOut = this.getAngleOut(); //出站角度
+	ret.abbr = this.getAbbreviation(); //简称
+	ret.remark = this.getRemark(); //描述
+	//地图经度
+	if(this.getMapLngIn()) {
+		ret.mapJingDu = this.getMapLngIn();
+	}else {
+		ret.mapJingDu = this.getMapLngOut();
+	}
+	//地图纬度
+	if(this.getMapLatIn()) {
+		ret.mapWeiDu = this.getMapLatIn();
+	}else {
+		ret.mapWeiDu = this.getMapLatOut();
+	}
+	
+	var html=[];
+	if(!this.roleCls.isSanitationTruck()) {//环卫
+		//站点简称
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_desc_label + '</span>&nbsp;' + ret.abbr + '<br/>');
+		//站点方向
+	//	html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_direct_label + '</span>&nbsp;' + ret.direct + '<br/>');
+		//进站位置
+		html.push('<span class="b">' + parent.lang.monitor_station_positionIn_label + '</span>&nbsp;' + ret.mapLngLatInStr);
+		//进站角度
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_station_angleIn_label + '</span>&nbsp;' + ret.angleIn + '<br/>');
+		//出站位置
+		html.push('<span class="b">' + parent.lang.monitor_station_positionOut_label + '</span>&nbsp;' + ret.mapLngLatOutStr);
+		//出站角度
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_station_angleOut_label + '</span>&nbsp;' + ret.angleOut + '<br/>');
+	}else {
+		//站点简称
+		html.push('<span class="b">' + parent.lang.monitor_desc_label + '</span>&nbsp;' + ret.abbr + '<br/>');
+	}
+	ret.statusString = html.join("");
+	return ret;
+}
+
+//具体线路上下行
+function standardLineMore() {
+	this.direct = null; //线路方向
+	this.length = null;  //路线长度(单位米)
+	this.totalTime = null;  //平均总耗时，单位秒
+	this.itlNormalTime = null;  //平峰发车间隔，单位秒
+	this.itlPeakTime = null; //高峰发车间隔，单位秒
+	this.firstTime = null;  //首班车发车时间，单位秒
+	this.lastTime = null;  //末班车发车时间，单位秒
+	this.stationSum = null;  //站点数量
+	this.jingDu = null;  //画线点经度
+	this.weiDu = null;  //画线点纬度
+	
+	this.startStationId = null; //起点站
+	this.startStationIndex = 0; //起点站编号
+	this.endStationId = null; //终点站
+	this.endStationIndex = 0; //终点站编号
+	
+	this.stationList = []; //站点id集合
+	this.stationIndexList = []; //站点索引集合
+	this.stationJingDu = []; //站点经度集合
+	this.stationWeiDu = []; //站点经度集合
+	
+	this.mapType = 0; //地图类型 默认谷歌 3百度
+	this.stationMapType = 0;
+}
+
+//设置地图类型
+standardLineMore.prototype.setMapType = function(mapType){
+	this.mapType = mapType;
+}
+
+standardLineMore.prototype.getMapType = function(){
+	return this.mapType;
+}
+
+//设置站点地图类型
+standardLineMore.prototype.setStationMapType = function(stationMapType){
+	this.stationMapType = stationMapType;
+}
+
+//设置线路方向
+standardLineMore.prototype.setDirect = function(direct){
+	this.direct = direct;
+}
+
+//获取站点方向
+standardLineMore.prototype.getDirect = function(){
+	return this.direct;
+}
+
+//线路方向
+standardLineMore.prototype.getDirectStr = function(){
+	if(this.direct == 1) {
+		return parent.lang.line_down;
+	}else {
+		return parent.lang.line_up;
+	}
+};
+
+//设置路线长度(单位米)
+standardLineMore.prototype.setLength = function(length){
+	this.length = length;
+}
+
+//获取路线长度(单位米)
+standardLineMore.prototype.getLength = function(){
+	if(this.length) {
+		return this.length;
+	}
+	return 0;
+}
+
+//获取路线长度 单位公里
+standardLineMore.prototype.getLengthStr = function(){
+	return this.getLength() / 1000 + ' ' + parent.lang.km;
+}
+
+//设置平均总耗时，单位秒
+standardLineMore.prototype.setTotalTime = function(totalTime){
+	this.totalTime = totalTime;
+}
+
+//获取平均总耗时，单位秒
+standardLineMore.prototype.getTotalTime = function(){
+	if(this.totalTime) {
+		return this.totalTime;
+	}
+	return 0;
+}
+
+//获取平均总耗时，单位秒
+standardLineMore.prototype.getTotalTimeStr = function(){
+	return this.getTotalTime() + ' ' + parent.lang.second;
+}
+
+//设置平峰发车间隔，单位秒
+standardLineMore.prototype.setItlNormalTime = function(itlNormalTime){
+	this.itlNormalTime = itlNormalTime;
+}
+
+//获取平峰发车间隔，单位秒
+standardLineMore.prototype.getItlNormalTime = function(){
+	if(this.itlNormalTime) {
+		return this.itlNormalTime;
+	}
+	return 0;
+}
+
+//获取平峰发车间隔，单位秒
+standardLineMore.prototype.getItlNormalTimeStr = function(){
+	return this.getItlNormalTime() + ' ' + parent.lang.second;
+}
+
+//设置高峰发车间隔，单位秒
+standardLineMore.prototype.setItlPeakTime = function(itlPeakTime){
+	this.itlPeakTime = itlPeakTime;
+}
+
+//获取高峰发车间隔，单位秒
+standardLineMore.prototype.getItlPeakTime = function(){
+	if(this.itlPeakTime) {
+		return this.itlPeakTime;
+	}
+	return 0;
+}
+
+//获取高峰发车间隔，单位秒
+standardLineMore.prototype.getItlPeakTimeStr = function(){
+	return this.getItlPeakTime() + ' ' + parent.lang.second;
+}
+
+//设置首班车发车时间，单位秒
+standardLineMore.prototype.setFirstTime = function(firstTime){
+	this.firstTime = firstTime;
+}
+
+//获取首班车发车时间，单位秒
+standardLineMore.prototype.getFirstTime = function(){
+	if(this.firstTime) {
+		return this.firstTime;
+	}
+	return 0;
+}
+
+//获取首班车发车时间，时分秒
+standardLineMore.prototype.getFirstTimeStr = function(){
+	if(this.firstTime) {
+		return this.second2ShortHourEx(this.firstTime);
+	}
+	return "00:00:00";
+}
+
+//设置末班车发车时间，单位秒
+standardLineMore.prototype.setLastTime = function(lastTime){
+	this.lastTime = lastTime;
+}
+
+//末班车发车时间，单位秒
+standardLineMore.prototype.getLastTime = function(){
+	if(this.lastTime) {
+		return this.lastTime;
+	}
+	return 0;
+}
+
+//末班车发车时间，时分秒
+standardLineMore.prototype.getLastTimeStr = function(){
+	if(this.lastTime) {
+		return this.second2ShortHourEx(this.lastTime);
+	}
+	return "00:00:00";
+}
+
+//设置站点数量
+standardLineMore.prototype.setStationSum = function(stationSum){
+	this.stationSum = stationSum;
+}
+
+//站点数量
+standardLineMore.prototype.getStationSum = function(){
+	if(this.stationSum) {
+		return this.stationSum;
+	}
+	return 0;
+}
+
+//设置画线点经度
+standardLineMore.prototype.setJingDu = function(jingDu){
+	this.jingDu = jingDu;
+}
+
+//画线点经度
+standardLineMore.prototype.getJingDu = function(){
+	if(!this.jingDu) {
+		this.setMapType(this.stationMapType);
+		this.jingDu = this.stationJingDu.toString();
+	}
+	return this.jingDu;
+}
+
+//设置画线点纬度
+standardLineMore.prototype.setWeiDu = function(weiDu){
+	this.weiDu = weiDu;
+}
+
+//画线点纬度
+standardLineMore.prototype.getWeiDu = function(){
+	if(!this.weiDu) {
+		this.setMapType(this.stationMapType);
+		this.weiDu = this.stationWeiDu.toString();
+	}
+	return this.weiDu;
+}
+
+//线路是否包含站点
+//根据站点索引来判断，一条线路可以有两个相同站点，但索引唯一
+standardLineMore.prototype.isContainStation = function(stationIndex){
+	var sx = String.fromCharCode(2);
+	var rt = new RegExp(sx + stationIndex + sx);
+	return rt.test(sx + this.stationIndexList.join(sx) + sx);
+}
+
+/**
+ * 添加站点id
+ * @param station
+ * @param stationIndex 站点序号
+ */
+standardLineMore.prototype.addStation = function(station, stationIndex){
+	if(!this.isContainStation(stationIndex)) {
+		//添加站点id
+		this.stationIndexList.push(stationIndex);
+		//添加站点经纬度
+		if(station.getMapLngIn()) {
+			this.stationJingDu.push(station.getMapLngIn());
+		}else {
+			this.stationJingDu.push(station.getMapLngOut());
+		}
+		if(station.getMapLatIn()) {
+			this.stationWeiDu.push(station.getMapLatIn());
+		}else {
+			this.stationWeiDu.push(station.getMapLatOut());
+		}
+		this.setStationMapType(station.getMapType());
+		if(this.startStationId) {
+			if(parseInt(stationIndex) <= parseInt(this.startStationIndex)) {
+				this.startStationId = station.getId(); //起点站
+				this.startStationIndex = stationIndex; //起点站编号
+			}
+		}else {
+			this.startStationId = station.getId(); //起点站
+			this.startStationIndex = stationIndex; //起点站编号
+		}
+		if(this.endStationId) {
+			if(parseInt(stationIndex) >= parseInt(this.endStationIndex)) {
+				this.endStationId = station.getId(); //终点站
+				this.endStationIndex = stationIndex; //终点站编号
+			}
+		}else {
+			this.endStationId = station.getId(); //终点站
+			this.endStationIndex = stationIndex; //终点站编号
+		}
+	}
+}
+
+//获取站点索引集合
+standardLineMore.prototype.getStationIndexList = function(){
+	return this.stationIndexList;
+}
+
+//添加站点索引集合
+standardLineMore.prototype.setStationIndexList = function(stationIndexList){
+	this.stationIndexList = stationIndexList;
+}
+
+//获取起点站id
+standardLineMore.prototype.getStartStationId = function(){
+	return this.startStationId;
+}
+
+//获取起点站索引
+standardLineMore.prototype.getStartStationIndex= function(){
+	return this.startStationIndex;
+}
+
+//获取终点站id
+standardLineMore.prototype.getEndStationId = function(){
+	return this.endStationId;
+}
+
+//获取终点站索引
+standardLineMore.prototype.getEndStationIndex= function(){
+	return this.endStationIndex;
+}
+
+//转换秒 如  0 = 0:0
+standardLineMore.prototype.second2ShortHourEx = function(second) {
+	var hour = parseInt(second / 3600, 10);
+	var hourStr = hour;
+	if (hour < 10) {
+		hourStr = "0" + hour;
+	}
+	var minute = parseInt((second % 3600) / 60, 10);
+	var minStr = minute;
+	if (minute < 10) {
+		minStr = "0" + minute;
+	}
+	var second = parseInt(second %  60, 10);
+	var secStr = second;
+	if (second < 10) {
+		secStr = "0" + second;
+	}
+	return hourStr + ":" + minStr + ":" + secStr;
+}
+
+/**
+ * 线路信息类
+ */
+function standardLine(id, name){
+	this.id = id;
+	this.name = name;
+	this.parentId = null;  //所属公司
+	this.type = null;  //路线类型
+	this.ticket = null;  //售票模式
+	this.price = null;  //票价(0.1元)
+	this.mapType = null;  //地图类型
+	this.abbr = null;  //线路简称
+	this.remark = null;  //备注
+//	this.upDirect = null; //上行线路
+//	this.downDirect = null; //下行线路
+	
+	this.vehiIdnoList = []; //车牌号集合
+	//环卫
+	this.wateringIdno = null; //洒水车
+	this.sweepingIdno = null; //扫地车
+	this.cleaningIdno = null; //清洗车
+	
+	this.wateringVehicle = null; //洒水车
+	this.sweepingVehicle = null; //扫地车
+	this.cleaningVehicle = null; //清洗车
+	
+	this.groupId = null; //分组
+	this.groupName = null; //分组名称
+	
+	this.roleCls = null; //权限类对象
+	
+	this.wateringVehicleList = []; //洒水车列表
+	this.sweepingVehicleList = []; //扫地车列表
+	this.cleaningVehicleList = []; //清洗车列表
+}
+
+//赋值权限类对象
+standardLine.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+var parent = _getRootFrameElement();
+
+//设置公交线路信息
+standardLine.prototype.setStandardLine = function(line){
+	this.parentId = line.pid;  //所属公司
+	this.abbr = line.abbr;  //线路简称
+	this.remark = line.remark;  //备注
+	this.groupId = line.groupId; //分组
+	this.groupName = line.groupName; //分组名称
+	
+	if(this.roleCls.isManageLine()) {//公交
+		this.type = line.type;  //路线类型
+		this.ticket = line.ticket;  //售票模式
+		this.price = line.price;  //票价(0.1元)
+		this.mapType = line.mapTp;  //地图类型
+		this.upDirect = new standardLineMore(); //上行线路
+		this.upDirect.setDirect(0); //设置上行
+		this.upDirect.setLength(line.upLen); //上行路线长度(单位米)
+		this.upDirect.setTotalTime(line.upTotalT); //上行平均总耗时，单位秒
+		this.upDirect.setItlNormalTime(line.upItlN);//上行平峰发车间隔，单位秒
+		this.upDirect.setItlPeakTime(line.upItlP); //上行高峰发车间隔，单位秒
+		this.upDirect.setFirstTime(line.upFirst); //上行首班车发车时间，单位秒
+		this.upDirect.setLastTime(line.upLast); //上行末班车发车时间，单位秒
+		this.upDirect.setStationSum(line.upSum); //上行站点数量
+		this.upDirect.setJingDu(line.upLng); //上行画线点经度
+		this.upDirect.setWeiDu(line.upLat); //上行画线点纬度
+		if(line.upLng && line.upLat) {
+			this.upDirect.setMapType(this.mapType);
+		}
+		
+		this.downDirect = new standardLineMore(); //下行线路
+		this.downDirect.setDirect(1); //设置下行
+		this.downDirect.setLength(line.dnLen); //下行路线长度 单位米
+		this.downDirect.setTotalTime(line.dnTotalT); //下行平均总耗时，单位秒
+		this.downDirect.setItlNormalTime(line.dnItlN);//下行平峰发车间隔，单位秒
+		this.downDirect.setItlPeakTime(line.dnItlP); //下行高峰发车间隔，单位秒
+		this.downDirect.setFirstTime(line.dnFirst); //下行首班车发车时间，单位秒
+		this.downDirect.setLastTime(line.dnLast); //下行末班车发车时间，单位秒
+		this.downDirect.setStationSum(line.dnSum); //下行站点数量
+		this.downDirect.setJingDu(line.dnLng); //下行画线点经度
+		this.downDirect.setWeiDu(line.dnLat); //下行画线点纬度
+		if(line.dnLng && line.dnLat) {
+			this.downDirect.setMapType(this.mapType);
+		}
+	}else if(this.roleCls.isSanitationTruck()) {//环卫
+		this.mapType = line.mapType;  //地图类型
+		this.cleaningNum = line.cleaningNum; //清洗车作业遍数
+		this.wateringNum = line.wateringNum; //洒水车作业遍数
+		this.sweepingNum = line.sweepingNum; //扫地车作业遍数
+		this.cleaningRate = line.cleaningRate; //清洗车作业分值百分比,3种类型车分值总和是100%
+		this.wateringRate = line.wateringRate; //洒水车作业分值百分比,3种类型车分值总和是100%
+		this.sweepingRate = line.sweepingRate; //扫地车作业分值百分比,3种类型车分值总和是100%
+		this.isAlarm = line.isAlarm; //是否报警(是否受高峰禁止作业限制) 1是0否
+		this.liChengRate = line.liChengRate; //里程数统计(百分比)
+		this.speed = line.speed; //线路的速度(0-无限制 单位0.1KM/S)
+		this.status = line.status; //执行状态 0未执行，1执行中，2完成
+		
+		this.upDirect = new standardLineMore(); //线路
+		this.upDirect.setDirect(0); //设置上行
+		this.upDirect.setLength(line.liCheng); //路线长度 单位米
+		this.upDirect.setStationSum(line.stationSum); //站点数量
+		this.upDirect.setJingDu(line.jingDu); //画线点经度
+		this.upDirect.setWeiDu(line.weiDu); //画线点纬度
+		if(line.jingDu && line.weiDu) {
+			this.upDirect.setMapType(this.mapType);
+			this.stationSum = line.jingDu.split(",").length;
+		}else {
+			this.stationSum = 0;
+		}
+		this.color = null;
+		if(line.wateringVehiIdnoList != null) {//洒水车列表
+			this.wateringVehicleList = line.wateringVehiIdnoList;
+			this.vehiIdnoList.concat(this.wateringVehicleList);
+		}
+		if(line.sweepingVehiIdnoList != null) { //扫地车列表
+			this.sweepingVehicleList = line.sweepingVehiIdnoList;
+			this.vehiIdnoList.concat(this.sweepingVehicleList);
+		}
+		if(line.cleaningVehiIdnoList != null) {//清洗车列表
+			this.cleaningVehicleList = line.cleaningVehiIdnoList;
+			this.vehiIdnoList.concat(this.cleaningVehicleList);
+		}
+//		this.vehiIdnoList = line.vehiIdnoList;
+	}
+}
+
+standardLine.prototype.getId = function(){
+	return this.id;
+};
+
+standardLine.prototype.getName = function(){
+	return this.name;
+};
+
+standardLine.prototype.getParentId = function(){
+	return this.parentId;
+};
+
+//获取线路类型
+standardLine.prototype.getType = function(){
+	return this.type;
+};
+
+//获取线路类型
+standardLine.prototype.getTypeStr = function(){
+	if(this.type == 1) {
+		return parent.lang.line_type_ring;
+	}else if(this.type == 2) {
+		return parent.lang.line_type_nine;
+	}else {
+		return parent.lang.line_type_twoWay;
+	}
+};
+
+//获取售票模式
+standardLine.prototype.getTicketType = function(){
+	return this.ticket;
+};
+
+//获取售票模式
+standardLine.prototype.getTicketTypeStr = function(){
+	if(this.ticket == 1) {
+		return parent.lang.line_artificial_ticket;
+	}else if(this.ticket == 2) {
+		return parent.lang.line_mix_ticket;
+	}else {
+		return parent.lang.line_no_ticket;
+	}
+};
+
+//获取售票价格
+standardLine.prototype.getTicketPrice = function(){
+	if(this.price) {
+		if(isNaN(this.price / 10)) {
+			return (this.price / 10).toFixed(1);
+		}
+		return this.price / 10;
+	}
+	return 0;
+};
+
+//获取地图类型
+standardLine.prototype.getMapType = function(){
+	return this.mapType;
+}
+
+//获取线路简称
+standardLine.prototype.getAbbreviation = function(){
+	if(this.abbr) {
+		return this.abbr;
+	}
+	return '';
+}
+
+//获取线路备注
+standardLine.prototype.getRemark = function(){
+	if(this.remark) {
+		return this.remark;
+	}
+	return '';
+}
+
+//获取线路标题，如果线路简称为空，则读取线路名称
+standardLine.prototype.getTitle = function(){
+	if(this.abbr) {
+		return this.abbr;
+	}
+	return this.name;
+};
+
+//获取上行线路信息
+standardLine.prototype.getUpLine = function(){
+	return this.upDirect;
+}
+
+//获取下行线路信息
+standardLine.prototype.getDownLine = function(){
+	return this.downDirect;
+}
+
+//线路是否包含站点
+standardLine.prototype.isContainStation = function(stationIndex, lineDirect){
+	if(lineDirect == 1) {
+		return this.downDirect.isContainStation(stationIndex);
+	}else {
+		return this.upDirect.isContainStation(stationIndex);
+	}
+}
+
+//获取路线长度(单位米)
+standardLine.prototype.getSpeed = function(){
+	if (this.speed != null) {
+		if(isNaN(this.speed / 10)) {
+			return (this.speed / 10).toFixed(2);
+		}
+		return this.speed / 10;
+	} else {
+		return 0;
+	}
+}
+
+//获取路线长度 单位公里/时
+standardLine.prototype.getSpeedStr = function(){
+	return this.getSpeed() + ' ' + parent.lang.KmPerHour;
+}
+
+//获取各种类型车辆需要作业次数
+standardLine.prototype.getWorkTotal = function(vehiType){
+	if(vehiType) {
+		if(vehiType == 2) {
+			return this.wateringNum;
+		}else if(vehiType == 3) {
+			return this.sweepingNum;
+		}
+	}
+	return this.cleaningNum;
+}
+
+//获取车辆作业状态 0未执行 1执行中 2完成
+standardLine.prototype.getSanitationWorkStatus = function(vehicle) {
+	if(vehicle != null && vehicle.workStatus != null) {
+		return vehicle.workStatus;
+	}
+	return 2;
+}
+
+//获取车辆作业状态颜色
+standardLine.prototype.getWorkStatusColor = function(vehicle) {
+	if(vehicle != null && vehicle.workStatusColor != null) {
+		return vehicle.workStatusColor;
+	}
+	return "00AC00";
+}
+
+//获取车辆类型 
+standardLine.prototype.getVehiType = function(vehiIdno) {
+	if(parent.vehicleManager && vehiIdno) {
+		var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+		if(vehicle) {
+			return vehicle.getVehiType();
+		}
+	}
+	return 1; //默认清洗车
+}
+
+//清除车辆状态
+standardLine.prototype.clearLineVehicleStatus = function() {
+	this.wateringVehicle = null; //洒水车
+	this.sweepingVehicle = null; //扫地车
+	this.cleaningVehicle = null; //清洗车
+}
+
+//是否更新车辆状态
+standardLine.prototype.isUpdateVehicleStatus = function(lineVehicle, vehicleStatus) {
+	//判断时间，保留时间最新的数据
+	//如果时间相等则判断索引
+	/*if(lineVehicle == null || lineVehicle.workTime == null) {
+		return true;
+	}else {
+		if(vehicleStatus.time != null) {
+			if(vehicleStatus.time > lineVehicle.workTime) {
+				return true;
+			}else if(vehicleStatus.time == lineVehicle.workTime) {
+				if(vehicleStatus.sid > lineVehicle.stationIndex) {
+					return true;
+				}
+			}
+		}
+	}*/
+	//判断执行次数，保留次数最大的数据
+	if(lineVehicle == null || lineVehicle.workNumber == null) {
+		return true;
+	}else {
+		if(vehicleStatus.num != null) {
+			if(vehicleStatus.num > lineVehicle.workNumber) {
+				return true;
+			}else if(vehicleStatus.num == lineVehicle.workNumber) {
+				if(vehicleStatus.sid > lineVehicle.stationIndex) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+//更新车辆的各种状态
+standardLine.prototype.setVehicleStatus = function(lineVehicle, vehicleStatus) {
+	//数据格式{id,lid,vid,idno,stu,num,time,sid}
+	//将已执行次数叠加
+//	lineVehicle.workNumber += vehicleStatus.num;
+	//判断时间，保留时间最新的数据
+	//如果时间相等则保留索引最大的记录
+	if(this.isUpdateVehicleStatus(lineVehicle, vehicleStatus)) {
+		if(vehicleStatus.sid == -1) {
+			if(this.upDirect.getJingDu()) {
+				vehicleStatus.sid = this.upDirect.getJingDu().split(',').length - 1;
+			}else {
+				vehicleStatus.sid = 0;
+			}
+		}
+		lineVehicle.stationIndex = vehicleStatus.sid;
+		lineVehicle.workNumber = vehicleStatus.num;
+		lineVehicle.workTime = vehicleStatus.time;
+		lineVehicle.status = vehicleStatus.stu;
+		var total = this.getWorkTotal(lineVehicle.vehiType);//获取线路需要完成次数
+		//如果未配置作业次数，则默认完成
+		if(total && total != 0) {
+			var workStatus = vehicleStatus.stu; //作业状态 1作业中 0空闲
+			var number = lineVehicle.workNumber; //已作业次数
+			//车辆需要完成指定的颜色才能置为已完成
+			if(total == number && workStatus == 0) {
+				lineVehicle.workStatus = 2;
+				lineVehicle.workStatusColor = "00AC00";
+			}else {
+				if(workStatus == 0 && number == 0) {
+					lineVehicle.workStatus = 0;
+					lineVehicle.workStatusColor = "818181";
+				}else {
+					lineVehicle.workStatus = 1;
+					lineVehicle.workStatusColor = "00ACFF";
+				}
+			}
+		}else {
+			lineVehicle.workStatus = 2;
+			lineVehicle.workStatusColor = "00AC00";
+		}
+	}
+}
+
+//更新不同类型车辆状态，环卫
+//每种车型只保留最后执行的车辆状态
+standardLine.prototype.updateVehicleStatus = function(vehicleStatus) {
+	var vehiType = this.getVehiType(vehicleStatus.idno);//车辆类型
+	if(vehiType == 2) {//洒水车
+		if(this.wateringVehicle == null) {
+			this.wateringVehicle = {};
+			this.wateringVehicle.vehiType = vehiType;
+			this.wateringVehicle.workNumber = 0; //已执行次数
+			this.wateringVehicle.workStatus = 0; //默认工作状态未开始
+			this.wateringVehicle.workStatusColor = "818181"; //默认颜色
+			this.wateringVehicle.totalNumber = this.wateringNum; //作业遍数
+		}
+		this.setVehicleStatus(this.wateringVehicle, vehicleStatus);
+	}else if(vehiType == 3){//扫地车
+		if(this.sweepingVehicle == null) {
+			this.sweepingVehicle = {};
+			this.sweepingVehicle.vehiType = vehiType;
+			this.sweepingVehicle.workNumber = 0; //已执行次数
+			this.sweepingVehicle.workStatus = 0; //默认工作状态未开始
+			this.sweepingVehicle.workStatusColor = "818181"; //默认颜色
+			this.sweepingVehicle.totalNumber = this.sweepingNum; //扫地车作业遍数
+		}
+		this.setVehicleStatus(this.sweepingVehicle, vehicleStatus);
+	}else {//清洗车
+		if(this.cleaningVehicle == null) {
+			this.cleaningVehicle = {};
+			this.cleaningVehicle.vehiType = vehiType;
+			this.cleaningVehicle.workNumber = 0; //已执行次数
+			this.cleaningVehicle.workStatus = 0; //默认工作状态未开始
+			this.cleaningVehicle.workStatusColor = "818181"; //默认颜色
+			this.cleaningVehicle.totalNumber = this.cleaningNum; //洒水车作业遍数
+		}
+		this.setVehicleStatus(this.cleaningVehicle, vehicleStatus);
+	}
+}
+
+//获取路线状态（环卫）
+standardLine.prototype.getStatus = function(){
+	//如果执行完成，则不进行解析
+	if(this.status != 2) {
+		//获取3种类型车辆进行判断
+		var cleaningStatus = this.getSanitationWorkStatus(this.cleaningVehicle);//清洗车
+		var wateringStatus = this.getSanitationWorkStatus(this.wateringVehicle);//洒水车
+		var sweepingStatus = this.getSanitationWorkStatus(this.sweepingVehicle);//扫地车
+		this.cleaningColor = this.getWorkStatusColor(this.cleaningVehicle);
+		this.wateringColor = this.getWorkStatusColor(this.wateringVehicle);
+		this.sweepingColor = this.getWorkStatusColor(this.sweepingVehicle);
+		if(!this.cleaningVehicle) {
+			if(!this.cleaningNum) {
+				cleaningStatus = 2;
+				this.cleaningColor = "00AC00";
+			}else {
+				cleaningStatus = 0;
+				this.cleaningColor = "818181";
+			}
+		}
+		if(!this.wateringVehicle) {
+			if(!this.wateringNum) {
+				wateringStatus = 2;
+				this.wateringColor = "00AC00";
+			}else {
+				wateringStatus = 0;
+				this.wateringColor = "818181";
+			}
+		}
+		if(!this.sweepingVehicle) {
+			if(!this.sweepingNum) {
+				sweepingStatus = 2;
+				this.sweepingColor = "00AC00";
+			}else {
+				sweepingStatus = 0;
+				this.sweepingColor = "818181" ;
+			}
+		}
+		
+		if(this.cleaningVehicle && this.wateringVehicle && this.sweepingVehicle) {
+			if(cleaningStatus ==0 && wateringStatus == 0 && sweepingStatus == 0) {
+				this.status = 0;
+				this.color = "818181";
+			}else if(cleaningStatus == 2 && wateringStatus == 2 && sweepingStatus == 2) {
+				this.status = 2;
+				this.color = "00AC00";
+				this.isStatusChange = true;
+			}else {
+				if(this.status != 1) {
+					this.isStatusChange = true;
+				}
+				this.status = 1;
+				this.color = "00ACFF";
+			}
+		}else if(!this.cleaningVehicle && !this.wateringVehicle && !this.sweepingVehicle) {
+			//如果都不需要执行，则判断完成
+			if(!this.cleaningNum && !this.wateringNum && !this.sweepingNum) {
+				this.status = 2;
+				this.color = "00AC00";
+				this.isStatusChange = true;
+			}else {
+				this.status = 0;
+				this.color = "818181";
+			}
+		}else {
+			if(this.cleaningVehicle) {//清洗车
+				if(this.wateringVehicle || this.sweepingVehicle) {//洒水车或者扫地车
+					if(this.wateringVehicle) {
+						this.loadWorkStatus_(cleaningStatus, wateringStatus, this.sweepingNum, this.sweepingNum);
+					}else {
+						this.loadWorkStatus_(cleaningStatus, sweepingStatus, this.wateringNum, this.wateringNum);
+					}
+				}else {
+					this.loadWorkStatus_(cleaningStatus, cleaningStatus, this.wateringNum, this.sweepingNum);
+				}
+			}else {
+				if(this.wateringVehicle || this.sweepingVehicle) {//洒水车或者扫地车
+					if(this.wateringVehicle) {
+						this.loadWorkStatus_(wateringStatus, wateringStatus, this.cleaningNum, this.sweepingNum);
+					}else {
+						this.loadWorkStatus_(sweepingStatus, sweepingStatus, this.cleaningNum, this.wateringNum);
+					}
+				}
+			}
+		}
+	}
+	return this.status;
+}
+
+//加载状态
+standardLine.prototype.loadWorkStatus_ = function(status1_, status2_, number1_, number2_) {
+	if(status1_ ==0 && status2_ == 0) {
+		this.status = 0;
+		this.color = "818181";
+	}else if(status1_ == 2 && status2_ == 2) {
+		if(number1_ || number2_) {//扫地车作业遍数不为空，则执行中
+			if(this.status != 1) {
+				this.isStatusChange = true;
+			}
+			this.status = 1;
+			this.color = "00ACFF";
+		}else {
+			this.status = 2;
+			this.color = "00AC00";
+			this.isStatusChange = true;
+		}
+	}else {
+		if(this.status != 1) {
+			this.isStatusChange = true;
+		}
+		this.status = 1;
+		this.color = "00ACFF";
+	}
+}
+
+//获取路线状态（环卫）
+standardLine.prototype.getStatusStr = function(){
+	if(this.status == 1) {
+		return "执行中";
+	}else if(this.status == 2) {
+		return "完成";
+	}
+	return "未执行";
+}
+
+/**
+ * 添加站点信息
+ * @param station  站点信息
+ * @param lineDirect 线路上下行 0上行 1下行
+ * @param stationIndex 站点序号
+ */
+standardLine.prototype.addStation = function(station, lineDirect, stationIndex){
+	if(lineDirect == 1) {
+		this.downDirect.addStation(station, stationIndex);
+	}else {
+		this.upDirect.addStation(station, stationIndex);
+	}
+}
+
+//线路是否包含车辆
+standardLine.prototype.isContainVehiIdno = function(vehiIdno){
+	var sx = String.fromCharCode(2);
+	var rt = new RegExp(sx + vehiIdno + sx);
+	return rt.test(sx + this.vehiIdnoList.join(sx) + sx);
+}
+
+//添加车辆到线路
+standardLine.prototype.addvehiIdno = function(vehiIdno, vehiType){
+	if(!this.isContainVehiIdno(vehiIdno)) {
+		this.vehiIdnoList.push(vehiIdno);
+	}
+}
+
+//获取线路下的车牌号
+standardLine.prototype.getVehiIdnoList = function(){
+	return this.vehiIdnoList;
+}
+
+/**
+ * 解析线路状态
+ * @param lineDirect  上下行 0上行 1下行
+ * @returns
+ */
+standardLine.prototype.getLineRealStatus = function(lineDirect) {
+	var ret = {};
+	ret.id =  this.getId();
+	ret.name =  this.getName();
+	ret.abbr = this.getAbbreviation(); //简称
+	ret.remark = this.getRemark(); //描述
+	ret.mapType = this.getMapType(); //地图类型
+	ret.parentId = this.getParentId(); //上级
+	
+	if(this.roleCls.isManageLine()) {//公交
+		ret.type = this.getTypeStr(); //线路类型
+		ret.ticket = this.getTicketTypeStr(); //售票类型
+		ret.price = this.getTicketPrice(); //价格
+	}else if(this.roleCls.isSanitationTruck()) {//环卫
+		ret.cleaningNum = this.cleaningNum; //清洗车作业遍数
+		ret.wateringNum = this.wateringNum; //洒水车作业遍数
+		ret.sweepingNum = this.sweepingNum; //扫地车作业遍数
+		ret.cleaningRate = this.cleaningRate; //清洗车作业分值百分比,3种类型车分值总和是100%
+		ret.wateringRate = this.wateringRate; //洒水车作业分值百分比,3种类型车分值总和是100%
+		ret.sweepingRate = this.sweepingRate; //扫地车作业分值百分比,3种类型车分值总和是100%
+		ret.isAlarm = this.isAlarm; //是否报警(是否受高峰禁止作业限制) 1是0否
+		ret.liChengRate = this.liChengRate; //里程数统计(百分比)
+		ret.speed = this.getSpeedStr(); //线路的速度(0-无限制 单位0.1KM/H)
+		ret.status = this.getStatus(); //执行状态 0未执行，1执行中，2完成
+	}
+	var lineInfo = null;
+	if(lineDirect == 1) {
+		lineInfo = this.getDownLine();
+		ret.color = '0071C6';
+	}else {
+		lineInfo = this.getUpLine();
+		if(this.roleCls.isSanitationTruck()) {//环卫
+			ret.color = this.color;
+		}else {
+			ret.color = '005600';
+		}
+	}
+	if(this.roleCls.isManageLine()) {//公交
+		ret.direct = lineInfo.getDirectStr(); //线路上下行
+		ret.totalTime = lineInfo.getTotalTimeStr(); //平均总耗时，单位秒
+		ret.normalTime = lineInfo.getItlNormalTimeStr(); //平峰发车间隔，单位秒
+		ret.peakTime = lineInfo.getItlPeakTimeStr();//高峰发车间隔，单位秒
+		ret.firstTime = lineInfo.getFirstTimeStr();  //首班车发车时间
+		ret.lastTime = lineInfo.getLastTimeStr();  //末班车发车时间
+	}
+	ret.length = lineInfo.getLengthStr(); //线路长度
+	ret.stationSum = lineInfo.getStationSum();  //站点数量
+	ret.mapJingDu = lineInfo.getJingDu();  //画线点经度
+	ret.mapWeiDu = lineInfo.getWeiDu();  //画线点纬度
+	
+	var html=[];
+	//线路简称
+	html.push('<span class="b">' + parent.lang.monitor_desc_label + '</span>&nbsp;' + ret.abbr);
+	if(this.roleCls.isManageLine()) {//公交
+		//线路类型
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.report_labelLoginType + '</span>&nbsp;' + ret.type + '<br/>');
+		//售票类型
+		html.push('<span class="b">' + parent.lang.monitor_ticket_type_label + '</span>&nbsp;' + ret.ticket);
+		//售票价格
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_ticket_price_label + '</span>&nbsp;' + ret.price + '<br/>');
+	}
+	if(this.roleCls.isManageLine()) {//公交
+		//线路长度
+		html.push('<span class="b">' + parent.lang.monitor_line_length_label + '</span>&nbsp;' + ret.length);
+		//全程耗时
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_line_time_label + '</span>&nbsp;' + ret.totalTime + '<br/>');
+		//平峰发车间隔
+		html.push('<span class="b">' + parent.lang.monitor_line_normal_label + '</span>&nbsp;' + ret.normalTime);
+		//高峰发车间隔
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_line_peak_label + '</span>&nbsp;' + ret.peakTime + '<br/>');
+		//首班时间
+		html.push('<span class="b">' + parent.lang.monitor_line_begin_label + '</span>&nbsp;' + ret.firstTime);
+		//末班时间
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_line_end_label + '</span>&nbsp;' + ret.lastTime + '<br/>');
+	}else if(this.roleCls.isSanitationTruck()) {//环卫
+		//线路长度
+		html.push('<br/><span class="b">' + parent.lang.monitor_line_length_label + '</span>&nbsp;' + ret.length + '<br/>');
+		//线路速度
+		html.push('<span class="b">线路速度：</span>&nbsp;' + this.getSpeedStr() + '<br/>');
+		//线路状态
+		html.push('<span class="b">线路状态：</span>&nbsp;' + this.getStatusStr() + '<br/>');
+		//洒水车列表
+		if(this.wateringVehicleList && this.wateringVehicleList.length > 0) {
+			html.push('<span class="b">洒水车：</span>&nbsp;' + this.wateringVehicleList.toString() + '<br/>');
+		}
+		//扫地车列表
+		if(this.sweepingVehicleList && this.sweepingVehicleList.length > 0) {
+			html.push('<span class="b">扫地车：</span>&nbsp;' + this.sweepingVehicleList.toString() + '<br/>');
+		}
+		//清洗车列表
+		if(this.cleaningVehicleList && this.cleaningVehicleList.length > 0) {
+			html.push('<span class="b">清洗车：</span>&nbsp;' + this.cleaningVehicleList.toString() + '<br/>');
+		}
+	}
+	ret.statusString = html.join("");
+	return ret;
+}
+
+/**
+ * 线路站点关联类
+ */
+function lineStationRelation(id){
+	this.id = id;
+	this.lineId = null;  //线路id
+	this.lineDirect = null;  //线路方向
+	this.stationId = null;  //站点ID
+	this.stationIndex = null;  //站点索引 从0开始
+	this.stationType = null;  //站点类型
+	this.speed = null;  //限制速度 0-无限制 单位0.1KM/S
+	this.length = null; //离始发站距离 单位米
+	
+	this.roleCls = null; //权限类对象
+}
+
+//赋值权限类对象
+lineStationRelation.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+
+lineStationRelation.prototype.setLineStationRelation = function(relation){
+	this.lineId = relation.lid;  //线路id
+	this.lineDirect = relation.direct;  //线路方向
+	this.stationId = relation.sid;  //站点ID
+	this.stationIndex = relation.sindex;  //站点索引 从0开始
+	this.stationType = relation.stype;  //站点类型
+	this.speed = relation.speed;  //限制速度 0-无限制 单位0.1KM/S
+	this.length = relation.len; //离始发站距离 单位米
+}
+
+lineStationRelation.prototype.getId = function(){
+	return this.id;
+};
+
+//线路id
+lineStationRelation.prototype.getLineId = function(){
+	return this.lineId;
+};
+
+//站点ID
+lineStationRelation.prototype.getStationId = function(){
+	return this.stationId;
+};
+
+//站点索引 从0开始
+lineStationRelation.prototype.getStationIndex = function(){
+	return this.stationIndex;
+};
+
+//线路方向
+lineStationRelation.prototype.getLineDirect = function(){
+	return this.lineDirect;
+};
+
+//线路方向
+lineStationRelation.prototype.getLineDirectStr = function(){
+	if(this.lineDirect == 1) {
+		return parent.lang.line_down;
+	}else {
+		return parent.lang.line_up;
+	}
+};
+
+//站点类型
+lineStationRelation.prototype.getStationType = function(){
+	return this.stationType;
+};
+
+//站点类型
+lineStationRelation.prototype.getStationTypeStr = function(){
+	if(this.stationType == 0) {
+		return parent.lang.line_station_qiDian;
+	}else if(this.stationType == 1) {
+		return parent.lang.line_station_zhongDian;
+	}else if(this.stationType == 2) {
+		return parent.lang.line_station_big;
+	}else if(this.stationType == 3) {
+		return parent.lang.line_station_small;
+	}else if(this.stationType == 4) {
+		return parent.lang.line_station_place;
+	}else {
+		return parent.lang.line_station_place_other;
+	}
+};
+
+//限制速度 0-无限制 KM/S
+lineStationRelation.prototype.getLimitSpeed = function(){
+	if(this.speed) {
+		if(isNaN(this.speed / 10)) {
+			return (this.speed / 10).toFixed(2);
+		}
+		return this.speed / 10;
+	}
+	return 0;
+};
+
+//限制速度 0-无限制 KM/S
+lineStationRelation.prototype.getLimitSpeedStr = function(){
+	return this.getLimitSpeed() + " " + parent.lang.KmPerHour;
+};
+
+//离始发站距离 单位米
+lineStationRelation.prototype.getLength = function(){
+	if(this.length) {
+		return this.length;
+	}
+	return 0;
+};
+
+//离始发站距离 单位公里
+lineStationRelation.prototype.getLengthStr = function(){
+	return this.getLength() / 1000 + ' ' + parent.lang.km;
+};
+
+/**
+ * 解析站点关联状态
+ * @param lineInfo 线路信息
+ * @param stationInfo 站点信息
+ * @returns
+ */
+lineStationRelation.prototype.getStationRealStatus = function(lineInfo, stationInfo) {
+	var ret = {};
+	ret.id =  this.getId();
+	ret.stationId = this.getStationId(); //站点id
+	ret.lineId = this.getLineId(); //线路id
+	ret.lineDirect = this.getLineDirectStr(); //线路类型
+	ret.stationIndex = this.getStationIndex(); //站点索引 从0开始
+	ret.stationType = this.getStationTypeStr(); //站点类型
+	ret.speed = this.getLimitSpeedStr(); //限制速度 0-无限制 单位0.1KM/S
+	ret.length = this.getLengthStr(); //离始发站距离 单位米
+	
+	var html=[];
+	//站点索引
+//	html.push('<span class="b">' + parent.lang.monitor_station_index_label + '</span>&nbsp;' + (ret.stationIndex + 1));
+	if(!this.roleCls.isSanitationTruck()) {//环卫
+		//站点类型
+		html.push('<span class="b">' + parent.lang.report_labelLoginType + '</span>&nbsp;' + ret.stationType);
+	}
+	//站点信息
+	if(stationInfo) {
+		var stationRet = stationInfo.getStationRealStatus();
+		ret.stationId =  stationRet.id;
+		ret.name =  stationRet.name;
+		ret.direct = stationRet.direct; //站点方向
+		ret.mapLngLatInStr = stationRet.mapLngLatInStr; //进站地图经纬度信息
+		ret.mapLngLatOutStr = stationRet.mapLngLatOutStr; //进站地图经纬度信息
+		ret.angleIn = stationRet.angleIn; //进站角度
+		ret.angleOut = stationRet.angleOut; //出站角度
+		ret.abbr = stationRet.abbr; //简称
+		ret.remark = stationRet.remark; //描述
+		ret.mapJingDu = stationRet.mapJingDu; //地图经度
+		ret.mapWeiDu = stationRet.mapWeiDu; //地图纬度
+		html.push(stationRet.statusString);
+	}
+	if(!this.roleCls.isSanitationTruck()) {//环卫
+		//限制速度
+		html.push('<span class="b">' + parent.lang.monitor_station_speed_label + '</span>&nbsp;' + ret.speed);
+		//距始发站
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_station_length_label + '</span>&nbsp;' + ret.length + '<br/>');
+	}
+	//线路信息
+	if(lineInfo) {
+		ret.lineName = lineInfo.getName();
+		//所属线路
+		html.push('<span class="b">' + parent.lang.monitor_station_line_label + '</span>&nbsp;' + ret.lineName);
+		if(!this.roleCls.isSanitationTruck()) {//环卫
+			//线路类型
+			html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">' + parent.lang.monitor_line_direct_label + '</span>&nbsp;' + ret.lineDirect + '<br/>');
+		}
+	}
+	
+	ret.statusString = html.join("");
+	return ret;
+}

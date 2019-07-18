@@ -1,0 +1,108 @@
+@charset "UTF-8";
+/***进入 启用禁用样式 开始*****/
+.memberIn.normal{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_enter_normal.jpg') no-repeat left top;
+}
+.memberIn.unable{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_enter_unable.jpg') no-repeat left top;
+}
+
+/********离开样式*************/
+.memberLeave.normal{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_exit_normal.jpg') no-repeat left top;
+}
+.memberLeave.unable{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_exit_unable.jpg') no-repeat left top;
+}
+
+/********发送消息************/
+.sendMessage.normal{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_message_normal.jpg') no-repeat left top;
+}
+/* .sendMessage.unable{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_message_unable.jpg') no-repeat left top;
+} */
+
+/**********强拉*******/
+.memberPush.normal{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_pull_normal.jpg') no-repeat left top;
+}
+.memberPush.unable{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_pull_unable.jpg') no-repeat left top;
+}
+
+/**********强拆*******/
+.memberPop.normal{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_Demolitions_normal.jpg') no-repeat left top;
+}
+.memberPop.unable{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_Demolitions_unable.jpg') no-repeat left top;
+}
+
+/*******刷新**********/
+.refulshGroup.normal{
+	 width:40px; 
+	 height:32px; 
+	 border:0; 
+	 background:url('../image/ptt/dlg_ptt_refresh_normal.jpg') no-repeat left top;
+}
+
+/**所有可以操作按钮**/
+button.normal:hover{
+	    cursor: pointer;
+}
+
+
+div#dispatch_tips {
+    margin-left: 10px;
+    margin-top: 6px;
+}
+
+/*******媒体播放***************/
+#dispatcher_complete{
+	color:#0080ff;
+}
+
+#dispatcher_unopened{
+	color:#EEEE00;
+}
+
+#dispatcher_playing{
+	color:#00CD00;
+}
+
+#dispatcher_interrupt{
+ 	color:#FF3030;
+}
+
+

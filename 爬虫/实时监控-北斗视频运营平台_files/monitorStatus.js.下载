@@ -1,0 +1,1729 @@
+/**
+ * 车辆状态处理类，包括车辆的在线状态，和实时状态
+ * 1、提供接口进行车辆勾选进行监控的相关操作，开启监控和取消监控
+ * 2、根据配置的刷新间隔，每隔一段时间从服务器获取一次位置信息
+ * 3、每5分钟从服务器刷新一次在线状态信息
+ * 并开启
+ */
+function monitorVehicleStatus(){
+	this.gpsMonitorTableObj = null;  //监控列表对象
+	this.gpsPeopleTableObj = null; //人员监控列表对象
+	this.mapVehicleList = new Hashtable();	//监控的车辆列表，hashtable映射
+	
+	this.vehicleList = [];//当前检测的车辆链表
+	this.vehicleStatusList = [];//当前检测状态
+	
+	this.mapDeviceList = new Hashtable();	//监控的设备列表，1个车辆对应1到两个设备
+	this.flashStatusInterval = 10000;		//默认间隔，需要启动时从cookie中读取
+	this.flashStatusTimer = null;			//刷新车辆状态的定时器
+	this.flashAllStatusTime = new Date();	//每5分钟刷新一个全部的车辆状态
+	this.monitorDevIdnos = "";
+	this.isClickPosition = false; //如果点击的是位置，则不执行刷新车辆信息的地理位置信息
+	
+	this.addVehiToMapList = new Array(); //勾选车辆树的车牌号集合，用于添加到地图
+	
+	this.mapVehiAddDel = new Hashtable();//车辆是否添加到地图上 1添加 否则去掉
+	this.updateVehiList = new Array();//一个车辆可以对应多个设备，因此使用一个更新的车辆链表来处理更新
+	this.mapVehicleStatusList = new Hashtable();	//监控的车辆状态列表，hashtable映射
+	this.onlyAddVehiToMapList = new Array(); //保存车牌号集合，用于添加到地图
+	this.mapOnlyVehiAddDel = new Hashtable();//车辆是否添加到地图上 1添加 否则去掉
+	this.selectedVehiIdno = null; //选中居中的车牌号
+	this.isClickEventTable = true; //是否是点击监控表格所选,点击表格的就不再选中表格
+	this.flashPositionVehicleList = []; //需要解析地理位置的车牌号
+	this.flashPositionInterval = 10; //10毫秒刷新
+	this.isFlashPosition = true;//是否刷新地理位置
+	this.isStartFlashPosition = true; //开始刷新地理位置
+	this.mapVehicleDevice = new Hashtable();	//车辆设备关系，1个车辆对应1到两个设备(危化使用)
+	this.isFlashAllDevStatus = false;
+}
+		
+//赋值flashStatusInterval
+monitorVehicleStatus.prototype.setFlashStatusInterval = function(flashStatusInterval){
+	this.flashStatusInterval = flashStatusInterval; 
+}
+
+monitorVehicleStatus.prototype.initialize = function(){
+	//初始化状态列表
+	this.initMonitorTable();
+	//初始化人员状态列表
+//	if(parent.myUserRole.isPolice()){}
+	this.initPeopleTable();
+	
+	//启动定时器获取车辆状态
+	//this.runStatusTimer();
+	//初始化监控设备状态数目
+//	this.initMonitorCount();
+}
+
+//初始化状态列表
+monitorVehicleStatus.prototype.initMonitorTable = function(){
+	var that = this;
+	/*var combobuttons = [
+	    {name: '按时间升序', bclass: "timeUp", bimage: "", tooltip: '按时间升序', onpress: 1}, 
+	    {name: '按时间降序', bclass: "timeDown", bimage: "", tooltip: '按时间降序', onpress: 2},
+	    {name: '按速度升序', bclass: "speedUp", bimage: "", tooltip: '按速度升序', onpress: 1}, 
+	    {name: '按速度降序', bclass: "speedDown", bimage: "", tooltip: '按速度降序', onpress: 1}
+	];
+	var buttons = [];*/
+	
+	var colmodel = [
+	    			{display: parent.lang.plate_number, name : 'idno',sortname:'id', width : 100,  sortable : true, align: 'center'},
+	    			{display: parent.lang.monitor_vehiStatusTime, name : 'gpsTime',width : 150,sortname:'gpsTime',  sortable : true, align: 'center'},
+	    			{display: parent.lang.monitor_vehiStatusPosition, name : 'position', sortname:'address', width : 200,  sortable : false, align: 'center'},
+	    			{display: parent.lang.monitor_vehiStatusSpeed, name : 'speed',sortType:'number' ,width : 100, sortname:'speed',sortable : true, align: 'center'},
+	    			{display: parent.lang.monitor_vehiStatusAlarm, name : 'alarm', width : 200, sortable : false, align: 'center'},
+	    			{display: parent.lang.monitor_vehiStatusNormal, name : 'normal', width : 200, sortable : false, align: 'center'},
+	    			{display: parent.lang.monitor_vehiStatusLiCheng, name : 'liCheng', width : 100, sortable : false, align: 'center'}
+	    			
+	                ];
+	
+	if(parent.myUserRole.isZSYRoadList()){
+		colmodel.push({display: "任务类型", name : 'rwType', width : 100, sortable : false, align: 'center'});
+		colmodel.push({display: "任务进度", name : 'rwJingdu', width : 100, sortable : false, align: 'center'});
+	}
+	colmodel.push({display: parent.lang.other_information, name : 'other', width : 200, sortable : false, align: 'center'});
+	
+	
+	this.gpsMonitorTableObj = $("#gpsMonitorTable").flexigrid({
+		url: "",	//StandardTrackAction_query.action
+		dataType: 'json',
+		colModel : colmodel,
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		onChangeSort: true,
+		rp: 15,
+		/*combobuttons: combobuttons,
+		buttons: buttons,*/
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	//本类对象
+	var myMonitorStatus = this;
+	this.gpsMonitorTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorStatus.fillMonitorTable(p, row, idx, index);	
+	});
+	this.gpsMonitorTableObj.flexSelectRowPropFun(function(obj) {
+		myMonitorStatus.selectMonitorRowProp(obj);
+	});
+	/*this.gpsMonitorTableObj.flexComboDoSelectEvent(function(obj) {
+		alert(obj);
+	});*/
+};
+
+//初始化人员状态列表
+monitorVehicleStatus.prototype.initPeopleTable = function() {
+	this.gpsPeopleTableObj = $("#gpsPeopleTable").flexigrid({
+		url: "",	//StandardTrackAction_query.action
+		dataType: 'json',
+		colModel : [
+			{display: parent.lang.policeOrVehicel, name : 'idno',sortname:'idno', width : 100, sortable : true, align: 'center'},
+			{display: parent.lang.monitor_vehiStatusTime, name : 'gpsTime', width : 150, sortable : false, align: 'center'},
+			{display: parent.lang.monitor_vehiStatusPosition, name : 'position', width : 200, sortable : false, align: 'center'},
+			{display: parent.lang.monitor_vehiStatusAlarm, name : 'alarm', width : 200, sortable : false, align: 'center'},
+			{display: parent.lang.monitor_vehiStatusNormal, name : 'normal', width : 200, sortable : false, align: 'center'},
+			{display: parent.lang.other_information, name : 'other', width : 200, sortable : false, align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		onChangeSort: true,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	//本类对象
+	var myMonitorStatus = this;
+	this.gpsPeopleTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorStatus.fillMonitorTable(p, row, idx, index);	
+	});
+	this.gpsPeopleTableObj.flexSelectRowPropFun(function(obj) {
+		myMonitorStatus.selectMonitorRowProp(obj);
+	});
+}
+
+//选中事件列表
+monitorVehicleStatus.prototype.selectMonitorRowProp = function(obj) {
+	this.selectVehicle($(obj).find('.idno span').text(), true, true, false);
+}
+
+monitorVehicleStatus.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+monitorVehicleStatus.prototype.fillMonitorTable = function(p, row, idx, index){
+		var name = p.colModel[idx].name;
+		var ret = "";
+		if(name == 'idno') { 
+			ret = row.idno;
+		} else if(name == 'gpsTime') { 
+			ret = row.gpsTime;
+		} else if(name == 'position') {
+			if(row.isGpsValid) {
+				if(row.address != "") {
+					return '<span class="maplngLat" data-type="1" onclick="changeMapAddress(this,'+row.mapJingDu+','+row.mapWeiDu+',\''+row.idno+'\');" title="'+ row.address +'" data-position="'+row.position+'">'+ row.address +'</span>';
+				}else {
+					return '<span class="maplngLat" data-type="1" onclick="changeMapAddress(this,'+row.mapJingDu+','+row.mapWeiDu+',\''+row.idno+'\');" title="'+ row.position +'">'+ row.position +'</span>';
+				}
+			}else {
+				ret = parent.lang.monitor_gpsUnvalid;
+			}
+		} else if(name == 'speed') { 
+			if(row.isGpsValid) {
+				ret = row.speed;
+			}else {
+				ret = parent.lang.monitor_invalid;
+			}
+		} else if(name == 'alarm') {
+			ret = this.getTableAlarm(row.gpsAlarm, row.videoAlarm, row.someAlarm);
+		} else if(name == 'normal') { 
+			ret = row.gpsStatus;
+		} else if(name == 'liCheng') { 
+			ret = row.liCheng;
+		} else if(name == 'other') { 
+			ret = this.getTableAlarm(row.videoStatus, row.someStatus);
+			//ret = row.id;
+		}else if(name == 'rwType'){
+			if(row.zsyRun){
+				ret = "路单任务";
+			}
+		}else if(name == 'rwJingdu'){
+			if(row.zsyRun && row.zsyStatus != 2){
+				if(row.zsyCount){
+					ret = "已完成"+row.zsyCount+"次数打卡";
+				}
+			}else{
+				ret = "无任务";
+			}
+		}
+		return this.getColumnTitle(ret);
+};
+
+//当设备树点击选中结点时
+monitorVehicleStatus.prototype.doCheckVehi = function(itemId, check){
+	if(typeof vehiTree != 'undefined' && vehiTree != null) {
+		//1为选择  0为未选中
+		if (check) {
+			//选中，则添加到监控列表中，并在地图上进行显示
+			if (vehiTree.isVehicleItem(itemId)) {
+				//如果选中的是车辆结点
+				this.addMonitorVehicle(itemId);
+			} else if (vehiTree.isGroupItem(itemId)){
+				//选中分组结点
+				var items = vehiTree.getAllSubItems(itemId).split(',');
+				if(items != '') {
+					for (var i = 0; i < items.length; ++ i) {
+						if (vehiTree.isVehicleItem(items[i])) {
+							//这边车辆可以已经进行监控了，进行监控的车辆，则不需要考虑
+							this.addMonitorVehicle(items[i]);
+						}
+					}
+				}
+			} else {
+				//不用考虑选中通道结点的情况
+			}
+		} else {
+			//取消选中，则从监控列表上移除，并在地图上进行移除
+			if (vehiTree.isVehicleItem(itemId)) {
+				//如果选中的是车辆结点
+				this.delMonitorVehicle(itemId);
+				this.updateMonitorDevIdnos();	//最好是全部更新
+			} else if (vehiTree.isGroupItem(itemId)){
+				//如果选中所有车辆,根节点
+				if(itemId == vehiTree.getTreeGroupId(parent.companyId)) {
+					this.delAllMonitorVehicle();
+				}else {
+					//选中分组结点
+					var items = vehiTree.getAllSubItems(itemId).split(',');
+					var isDelete = false;
+					if(items != '') {
+						for (var i = 0; i < items.length; ++ i) {
+							if (vehiTree.isVehicleItem(items[i])) {
+								//这边车辆可以已经进行监控了，进行监控的车辆，则不需要考虑
+								this.delMonitorVehicle(items[i]);
+								isDelete = true;
+							}
+						}
+					}
+					if (isDelete) {
+						this.updateMonitorDevIdnos();	//最好是全部更新
+					}
+				}
+			} else {
+				//不用考虑选中通道结点的情况
+			}
+		}
+	}
+//	this.initMonitorCount();
+	this.initVehicleStatusCount();
+};
+
+//当选择协同小组设备
+monitorVehicleStatus.prototype.doCheckGroupVehi = function(grouVehiTree, itemId, check){
+	if(typeof grouVehiTree != 'undefined' && grouVehiTree != null) {
+		//1为选择  0为未选中
+		if (check) {
+			//选中，则添加到监控列表中，并在地图上进行显示
+			if (grouVehiTree.isMemberItem(itemId)) {//成员节点
+				//如果选中的是车辆结点
+				var items =  grouVehiTree.getParentId(itemId);
+				if(items){
+					grouVehiTree.setCheck(items,true);//选中父节点
+					if(grouVehiTree.getParentId(items)){//root
+						grouVehiTree.setCheck(grouVehiTree.getParentId(items),true);//选中父节点
+					}
+				}
+			} else if (grouVehiTree.isGroupItem(itemId)){//如果是根节点要全部选择
+				if(!grouVehiTree.isRootItem(itemId)){
+					grouVehiTree.setCheck(grouVehiTree.getTreeGroupId(0),true);//选中根节点 *_0
+				}
+				grouVehiTree.setSubChecked(itemId,true);
+			}
+		} else {
+			//取消选中，则从监控列表上移除，并在地图上进行移除
+			if (grouVehiTree.isMemberItem(itemId)) {
+				var isBother =  grouVehiTree.isBotherItemSelected(itemId);
+				if(!isBother){
+					var parentItem = grouVehiTree.getParentId(itemId);
+					grouVehiTree.setCheck(parentItem,false);//取消成员父节点
+					var pIsBother = grouVehiTree.isBotherItemSelected(parentItem);
+					if(!pIsBother){
+						grouVehiTree.setCheck(grouVehiTree.getTreeGroupId(0),false);//取消根节点
+					}
+				}
+			} else if (grouVehiTree.isGroupItem(itemId)){
+				grouVehiTree.setSubChecked(itemId,false);//取消子节点选中
+				if(!grouVehiTree.isRootItem(itemId)){//非根节点
+					var isBother =  grouVehiTree.isBotherItemSelected(itemId);
+					if(!isBother){
+						grouVehiTree.setCheck(grouVehiTree.getTreeGroupId(0),false);//选中根节点 *_0
+					}
+				}
+			}
+		}
+	}
+};
+
+/****************************************点击车辆监控****************************************************/
+
+
+/*
+ * 选中车辆结点
+ */
+monitorVehicleStatus.prototype.selectVehicle  = function(vehiIdno, isShowTree, isShowMap, isShowTable){
+	this.selectedVehiIdno = vehiIdno;
+	//当搜索监控列表车辆时，需要将树列表，地图，监控列表都选中
+	//当点击树列表时，需要将地图和监控列表选中
+	//当点击监控列表时，需要将地图和树列表选中
+	if (isShowTree && this.isClickEventTable && typeof vehiTree != 'undefined' && vehiTree != null) {
+		var vehicle = parent.vehicleManager.getVehicle(vehiIdno);//授权设备取
+		if(vehicle && vehicle.isInSystemVehicle()) {
+			if(typeof loadTeamTree == 'function') {
+				loadTeamTree(vehicle.getParentId(), function() {
+					//在车辆列表中，将车辆置为选中状态，并使车辆结点处理可见状态
+					vehiTree.selectItem(vehiIdno);
+					vehiTree.focusItem(vehiIdno);
+				});
+			}else {
+				//在车辆列表中，将车辆置为选中状态，并使车辆结点处理可见状态
+				vehiTree.selectItem(vehiIdno);
+				vehiTree.focusItem(vehiIdno);
+			}
+		}
+	}
+	//以下两个需要判断是否存在监控的车辆，通过mapVehicleList这里面的对象可以来判断
+	if (isShowMap  && this.isClickEventTable && (typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+		var vehicle = parent.vehicleManager.getVehicle(vehiIdno);//授权设备取
+		if(vehicle != null) {
+			var status = this.mapVehicleStatusList.get(vehiIdno);
+			if(status != null && status.isGpsValid) {
+				status.id = vehiIdno;
+				monitorMapTip.addVehicleToMap(vehicle, status, false);
+				//在地图列表中，也将车辆居中
+				monitorMapTip.selectVehicle(vehiIdno);
+			}
+		}
+		
+		//监控列表里面的车辆，判断是否在地图可视范围内，如果在，则添加到地图中，否则，从地图删除
+		this.selectVehicleToMapEx(false);
+	}
+	if (isShowTable) {
+		var vehicle = parent.vehicleManager.getVehicle(vehiIdno);//vehicle.getVid()
+		if(vehicle && vehicle.isInSystemVehicle()) {
+			//在监控列表中，也将车辆置为选中状态，并使车辆结点处理可见状态
+			this.isClickEventTable = false;
+			if(vehicle.isPeopleTerminal()) {//人员设备
+				this.gpsPeopleTableObj.find(this.gpsPeopleTableObj.flexGetRowid(vehicle.getVid())).click();
+			}else {
+				this.gpsMonitorTableObj.find(this.gpsMonitorTableObj.flexGetRowid(vehicle.getVid())).click();
+			}
+		}
+	}else {
+		this.isClickEventTable = true;
+	}
+	////初始化车辆信息
+	if((isShowTree || isShowMap || isShowTable)  && this.isClickEventTable) {
+		if((typeof updatePaneVehicleInfo) == 'function') {
+			var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+			if(vehicle && vehicle.isInSystemVehicle()) {
+				updatePaneVehicleInfo(vehiIdno);
+			}else {
+				updatePaneVehicleInfo();
+			}
+		}
+	}
+};
+
+//车辆是否已加载到地图上  //车辆加载到地图上，也会加载到列表中
+monitorVehicleStatus.prototype.findMonitorVehicle = function(vehiIdno){
+	if (this.mapVehicleList.get(vehiIdno) != null) {
+		return true;
+	} else {
+		return false;
+	}
+};
+
+//添加1车辆进行监控
+//selVehi 是否车辆居中
+monitorVehicleStatus.prototype.addMonitorVehicle = function(vehiIdno){
+	//这边车辆可以已经进行监控了，进行监控的车辆，则不需要考虑
+	if (this.findMonitorVehicle(vehiIdno)) {
+		return ;
+	}
+	//添加到地图上的车辆列表
+	this.addVehiToMapList.push(vehiIdno);
+	this.mapVehiAddDel.put(vehiIdno, 1);
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);//授权设备取
+	var idnos = vehicle.getDevIdnos();
+	for (var i = 0; i < idnos.length; ++ i) {
+		//加入监控设备列表
+		this.mapDeviceList.put(idnos[i], idnos[i]);
+	}
+	this.mapVehicleDevice.put(vehiIdno, idnos);
+	//追加设备到监控设备列表
+	this.addMonitorDevIdnos(idnos.toString());
+	
+	//加入监控车辆列表
+	this.mapVehicleList.put(vehiIdno, vehiIdno);
+	
+	//加入
+	this.vehicleList.push(vehicle);
+	
+	//启动添加车辆到地图的定时器
+	if(this.flashAddVehiToMapTimer == null) {
+		this.runAddVehiToMapTimer();
+	}
+};
+
+
+
+
+//添加车辆到地图的定时器
+monitorVehicleStatus.prototype.runAddVehiToMapTimer = function(){
+	var myMonitorStatus = this;
+	//当删除操作执行完全后才执行,否则等待删除
+	this.flashAddVehiToMapTimer = setTimeout(function () {
+		myMonitorStatus.startFlashAddVehiTime = (new Date()).getTime();
+		myMonitorStatus.flashAddVehiToMap();
+	}, 20);
+};
+
+//添加车辆到地图
+monitorVehicleStatus.prototype.flashAddVehiToMap = function(){
+	if(this.addVehiToMapList != null && this.addVehiToMapList.length > 0) {
+		var rows_vehicle = []; //车辆
+		var rows_people = []; //人员
+		while(rows_vehicle.length <= 10 && rows_people <=10 && this.addVehiToMapList.length > 0) {
+			//取数组第一个值，然后再删除
+			var vehiIdno = this.addVehiToMapList[0];
+			this.addVehiToMapList.splice(0,1);
+			//是否添加到地图，否则就是删除
+			var isAdd = this.mapVehiAddDel.get(vehiIdno);
+			if(isAdd != null && isAdd == 1) {//添加
+				//获取状态
+				var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+				var vehiId = vehicle.getVid();
+				var data = this.mapVehicleStatusList.get(vehiIdno);
+				if(data == null){
+					data = vehicle.gpsParseTrackStatus();
+					this.mapVehicleStatusList.put(vehiIdno, data);
+				}
+				//改成     id+车辆id
+				data.id = vehiId; 
+				data.idno = vehiIdno;
+				data.address = this.getGeoAddress(data.mapJingDu, data.mapWeiDu);
+				//添加到车辆地理位置刷新列表
+				if(vehicle && vehicle.isLocationInvalid()) {
+					this.flashPositionVehicleList.push(vehicle);
+				}
+				//系统内车辆才能加载
+				if(vehicle.isInSystemVehicle()) {
+					////更新设备树上的颜色
+					this.updateVehiTreeStatus(vehicle.getStatueImg(data.image, vehicle.getDispatchImage()), vehiIdno);
+					//如果监控列表存在，则不添加
+					//添加进车辆状态列表，批量添加
+					if(vehicle.isPeopleTerminal()) {//人员 或者调度设备
+						if(this.gpsPeopleTableObj.find(this.gpsPeopleTableObj.flexGetRowid(vehiId)).length <= 0) {
+							rows_people.push(data);
+						}
+					}else {
+						if(this.gpsMonitorTableObj.find(this.gpsMonitorTableObj.flexGetRowid(vehiId)).length <= 0) {
+							data.id= data.id;
+							rows_vehicle.push(data);
+						}
+					}
+				}
+				this.mapVehiAddDel.put(vehiIdno, 2);//已处理
+				
+				//最后添加的位置有效的车辆，居中显示
+			//	if(vehicle.isLocationInvalid()) {
+					this.lastAddVehiIdno = vehiIdno;
+			//	}
+			}else if(isAdd != null && isAdd == 0) {//删除
+				//从车辆状态列表删除
+				this.mapVehicleStatusList.remove(vehiIdno);
+				
+				if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+					monitorMapTip.removeVehicleInMap(vehiIdno);
+				}
+				this.removeVehicleInEvent(vehiIdno);
+				this.mapVehiAddDel.put(vehiIdno, 2);
+				this.lastAddVehiIdno = '';
+			}
+		}
+		if(rows_vehicle.length > 0) {
+			this.gpsMonitorTableObj.flexAppendRowJson(rows_vehicle, true);
+		}
+		if(rows_people.length > 0) {
+			this.gpsPeopleTableObj.flexAppendRowJson(rows_people, true);
+		}
+		if((new Date()).getTime() - this.startFlashAddVehiTime < 500) {
+			this.flashAddVehiToMap();
+		}else {
+			//刷新地理位置信息
+			this.isStartFlashPosition = true;
+			//这个有乱刷情况
+			this.flashVehiclePosition();
+			this.runAddVehiToMapTimer();
+		}
+	}else {
+		//刷新地理位置信息
+		this.isStartFlashPosition = true;
+		this.flashVehiclePosition();
+		//居中选中状态
+		if(this.lastAddVehiIdno != null && this.lastAddVehiIdno != '') {
+			this.selectVehicle(this.lastAddVehiIdno, true, true, true);
+		}
+		this.flashAddVehiToMapTimer = null;
+		//地图上添加事件
+		this.visibleMapResize();
+	}
+};
+
+//添加事件列表上
+monitorVehicleStatus.prototype.addVehicleToEvent = function(vehiObj, data){
+	var rows = [];
+	rows.push(data);
+	this.gpsMonitorTableObj.flexAppendRowJson(rows, true);
+	this.updateVehiTreeStatus(vehiObj.getStatueImg(data.image, vehicle.getDispatchImage()), vehiObj.getIdno());
+//	this.updateVehiTableStatus(data.color, $('#gpsMonitorTable').find($('#gpsMonitorTable').flexGetRowid(vehiObj.getIdno())));
+};
+
+//删除危化数据
+monitorVehicleStatus.prototype.deleteChemicalVehicle = function(vehiIdno) {
+	//这边车辆可以已经进行监控了，进行监控的车辆，则不需要考虑
+	if (!this.findMonitorVehicle(vehiIdno)) {
+		return ;
+	}
+	this.mapVehicleList.remove(vehiIdno);
+	
+	if(this.vehicleList.length > 0){
+		for(var j = 0 ; j <this.vehicleList.length;j++ ){
+			if(this.vehicleList[j].idno == vehiIdno){
+				this.vehicleList.splice(j, 1);
+			}
+		}
+	}
+	
+	var idnos = this.mapVehicleDevice.get(vehiIdno);
+	if(idnos && idnos.length > 0) {
+		for (var i = 0; i < idnos.length; ++ i) {
+			this.mapDeviceList.remove(idnos[i]);
+		}
+	}
+	this.mapVehicleDevice.remove(vehiIdno);
+	this.updateMonitorDevIdnos();	//最好是全部更新
+	//移除监控列表
+	
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle){
+		var vehiId = vehicle.getVid();
+		if(vehiId){
+			this.gpsMonitorTableObj.flexRemoveRow(vehiId);
+		}
+	}
+	
+	//从车辆状态列表删除
+	this.mapVehicleStatusList.remove(vehiIdno);
+	//移除地图上车辆
+	if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+		monitorMapTip.removeVehicleInMap(vehiIdno);
+	}
+}
+
+//取消车辆的监控
+monitorVehicleStatus.prototype.delMonitorVehicle = function(vehiIdno){
+	//这边车辆可以已经进行监控了，进行监控的车辆，则不需要考虑
+	if (!this.findMonitorVehicle(vehiIdno)) {
+		return ;
+	}
+	//需要从地图删除的车辆
+	this.addVehiToMapList.push(vehiIdno);
+	
+	this.mapVehiAddDel.put(vehiIdno, 0);
+	
+	this.mapVehicleList.remove(vehiIdno);
+	
+	if(this.vehicleList.length > 0){
+		for(var j = 0 ; j <this.vehicleList.length;j++ ){
+			if(this.vehicleList[j].idno == vehiIdno){
+				this.vehicleList.splice(j, 1);
+			}
+		}
+	}
+	
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	var idnos = vehicle.getDevIdnos();
+	for (var i = 0; i < idnos.length; ++ i) {
+		this.mapDeviceList.remove(idnos[i]);
+	}
+	this.mapVehicleDevice.remove(vehiIdno);
+	//启动删除地图上车辆的定时器
+	if(this.flashAddVehiToMapTimer == null) {
+		this.runAddVehiToMapTimer();
+	}
+	
+	//取消位置实时跟踪
+	if(typeof monitorMenu != 'undefined' && monitorMenu != null) {
+		monitorMenu.doRealtimeTracking(vehiIdno, false);
+	}
+};
+
+//取消所有的车辆的监控
+monitorVehicleStatus.prototype.delAllMonitorVehicle = function(){
+	//清除所有车辆的实时跟踪
+	if(typeof monitorMenu != 'undefined' && monitorMenu != null) {
+		this.mapVehicleList.each(function(key, value) {
+			monitorMenu.doRealtimeTracking(key, false);
+		});
+	}
+	
+	//清空监控车辆
+	this.mapVehicleList.clear();
+	this.vehicleList = [];
+
+	//清空车辆地理位置刷新列表
+	this.flashPositionVehicleList = [];
+	//停止添加车辆到地图
+	if(this.flashOnlyAddVehiToMapTimer != null && this.onlyAddVehiToMapList.length > 0) {
+		clearTimeout(this.flashOnlyAddVehiToMapTimer);
+		this.flashOnlyAddVehiToMapTimer = null;
+	}
+	this.onlyAddVehiToMapList = [];
+	this.mapOnlyVehiAddDel.clear();
+	//如果添加车辆计时器在运行，则停止
+	if(this.flashAddVehiToMapTimer != null && this.addVehiToMapList.length > 0) {
+		clearTimeout(this.flashAddVehiToMapTimer);
+		this.flashAddVehiToMapTimer = null;
+	}
+	//清空数据
+	this.addVehiToMapList = [];
+	this.mapVehiAddDel.clear();
+	this.mapDeviceList.clear();
+	this.mapVehicleDevice.clear();
+	this.monitorDevIdnos = '';
+	this.mapVehicleStatusList.clear();
+	//清空监控列表
+	this.removeAllVehicleInEvent();
+	//移除地图所有车辆
+	if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+		monitorMapTip.removeAllVehicleInMap();
+	}
+	this.flashAddVehiToMap();
+};
+
+//移除事件列表上
+monitorVehicleStatus.prototype.removeVehicleInEvent = function(vehiIdno){
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle != null && vehicle.isInSystemVehicle()) {
+		var vehiId  = vehicle.getVid();
+		if(vehiId){
+			if(vehicle.isPeopleTerminal()) {//人员设备
+				this.gpsPeopleTableObj.flexRemoveRow(vehiId);
+			}else {
+				this.gpsMonitorTableObj.flexRemoveRow(vehiId);
+			}
+		}
+	}
+};
+
+//移除事件列表上所有数据
+monitorVehicleStatus.prototype.removeAllVehicleInEvent = function(vehiIdno){
+	this.gpsMonitorTableObj.flexClear();
+	this.gpsPeopleTableObj.flexClear();
+};
+
+//追加监控设备号
+monitorVehicleStatus.prototype.addMonitorDevIdnos = function(devIdnos){
+	if(this.monitorDevIdnos != '') {
+		this.monitorDevIdnos += ',';
+	}
+	this.monitorDevIdnos += devIdnos;
+};
+
+//更新监控设备号
+monitorVehicleStatus.prototype.updateMonitorDevIdnos = function(){
+	var devIdnos = [];
+	this.mapDeviceList.each(function(key, value) {
+		devIdnos.push(key);
+	});
+	this.monitorDevIdnos = devIdnos.toString();
+};
+
+//启动定时器获取车辆状态
+monitorVehicleStatus.prototype.runStatusTimer = function(){
+	var myMonitorStatus = this;
+	if(this.flashStatusTimer == null){
+		this.flashStatusTimer = setInterval(function () {
+			myMonitorStatus.flashVehicleStatus();
+		}, myMonitorStatus.flashStatusInterval);
+	}
+};
+
+//刷新车辆状态
+//刷新时间大概 200-300ms  卡的时候1000+ 2000+ 3000+  500辆车 9画面视频
+monitorVehicleStatus.prototype.flashVehicleStatus = function(){
+	//1分钟刷新一次所有的状态 改为1分钟刷新所有  及时更新上线状态
+	var isFlashAllStatus = false;
+	if (dateIsTimeout(this.flashAllStatusTime, 60000)) {
+		isFlashAllStatus = true;
+	}
+	this.isFlashAllDevStatus = isFlashAllStatus;
+	var data = {};
+	//2分钟刷新一次局部状态
+	if (!isFlashAllStatus) {
+		//线路监控的车辆
+		if(parent.myUserRole && typeof monitorLine != 'undefined' && monitorLine != null) {
+			if((typeof parent.myUserRole.isManageLine == 'function' 
+				&& parent.myUserRole.isManageLine()) || 
+				(typeof parent.myUserRole.isSanitationTruck == 'function' 
+					&& parent.myUserRole.isSanitationTruck())) {
+				var curDevIdnos = monitorLine.getAllLineDevIdnos(); //获取所有线路下的设备
+				if(curDevIdnos) {
+					data.devIdnos = curDevIdnos;
+				}
+			}
+		}
+		//如果中石油的需要刷新所有的状态
+		if(parent.myUserRole.isZSYRoadList()){
+			data.devIdnos = parent.vehicleManager.getAllDevIdnos();
+			if (data.devIdnos == "") {
+				this.runStatusTimer();
+				return ;
+			}
+		}
+		
+		if (this.mapDeviceList.size() <= 0 && !data.devIdnos) {
+			this.runStatusTimer();
+			return ;
+		}
+		
+		if(data.devIdnos) {
+			if(this.monitorDevIdnos) {
+				data.devIdnos = data.devIdnos + "," + this.monitorDevIdnos;
+			}
+		}else {
+			data.devIdnos = this.monitorDevIdnos;
+		}
+	} else {
+		if(parent.myUserRole.isDispatcher()){//防止初始化消耗时间过长
+			data.devIdnos = parent.vehicleManager.getAllDispatchDevIdnos();
+		}else{
+			data.devIdnos = parent.vehicleManager.getAllDevIdnos();
+		}
+		if (data.devIdnos == "") {
+			this.runStatusTimer();
+			return ;
+		}
+	}
+//	loadConsoleTime(true, 'flashVehicleStatus');
+	//本类对象
+	var myMonitorStatus = this;
+	var url_ = 'StandardPositionAction_statusEx.action?toMap='+parent.toMap;
+	if(isFlashAllStatus){
+		url_ += "&loadAll=1";
+	}
+	//数据库取实时状态
+	$.myajax.jsonPost(url_, data, false, function(json, success) {
+		if(success) {
+			if(json.status != null && json.status.length > 0) {
+				//公交线路
+				/*if(!myMonitorStatus.snm || myMonitorStatus.snm >= 38) {
+					myMonitorStatus.snm = 0;
+				}
+				if(!myMonitorStatus.sst) {
+					myMonitorStatus.sst = 1;
+				}else {
+					myMonitorStatus.sst = 0;
+					myMonitorStatus.snm++;
+				}*/
+				myMonitorStatus.updateVehiList = [];
+				for (var i = 0; i < json.status.length; i++) {
+					var device;
+					if(parent.myUserRole.isDispatcher()){
+						device = parent.vehicleManager.getDispatchDevice(json.status[i].id);//授权+协同小组设备取
+					}else{
+						device = parent.vehicleManager.getDevice(json.status[i].id);//授权设备取
+					}
+//					var device = parent.vehicleManager.getDevice(json.status[i].id);
+					if (device != null) {
+						var vehiIdno = device.getVehiIdno();
+						var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+						if(vehicle){
+							if(typeof(monitorAlarm) != undefined){
+								if(json.status[i].ol) {//车辆上线
+									//车辆不在线，则把车辆上线时的guid保存
+									var olInfo_ =	monitorAlarm.mapVehiOnlineList.get(vehiIdno);
+									if(olInfo_){
+									}else{
+										monitorAlarm.mapVehiOnlineList.put(vehiIdno,  vehiIdno);
+										monitorAlarm.updateOnline(vehicle, json.status[i].id, true);
+									}
+								}else {
+									//设置成离线
+									monitorAlarm.updateOnline(vehicle, json.status[i].id, false);
+									var oldvehiIdno = monitorAlarm.mapVehiOnlineList.get(vehiIdno);
+									if(oldvehiIdno != null && oldvehiIdno != '') {
+										monitorAlarm.mapVehiOnlineList.remove(vehiIdno);
+									}
+									if(monitorAlarm.flashUpdateOnlineTimer == null) {
+										monitorAlarm.runUpdateOnlineTimer();
+									}
+								}
+							}
+						}
+						if (!device.isEqualStatus(json.status[i])) {
+							//服务期限
+							if(vehicle && !vehicle.getIsDisable() && vehicle.isServicePeriod()){
+								if(device.status && json.status[i]) {
+									if(vehicle != null) {
+										json.status[i].isDrowing = vehicle.isDrowing;
+									}
+									var isGeoAddress = false;
+									if (myMonitorStatus.findMonitorVehicle(vehiIdno)) {
+										isGeoAddress = true;//出现再地图上刷
+									}
+									if (isGeoAddress) {
+										var weidu = json.status[i].glat;//纬度
+										var jingdu = json.status[i].glng;//经度
+										var  toMapType =  parent.toMap;
+										if(parent.toMapLoaction != null){
+											toMapType =  parent.toMapLoaction;
+										}
+										vehicle.mapType = toMapType;
+										myMonitorStatus.getGeoAddress(jingdu, weidu, vehicle);
+									}
+									//公交线路
+									/*json.status[i].dct = 1;
+									json.status[i].sfg = 0;
+									json.status[i].snm = myMonitorStatus.snm;
+									json.status[i].sst = myMonitorStatus.sst;*/
+									device.setStatus(json.status[i]);
+									//							device.setOnline(json.status[i].ol);
+								}
+								
+								if (vehicle != null) {
+									if(myMonitorStatus.selectedVehiIdno != null && myMonitorStatus.selectedVehiIdno != '' 
+										&& myMonitorStatus.selectedVehiIdno == vehiIdno) {
+										myMonitorStatus.updateVehicleStatus(vehicle);
+									}else {
+										myMonitorStatus.updateVehiList.push(vehicle);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			//中石油更新位置
+			if(parent.myUserRole.isZSYRoadList()){
+				var zsyVehicleStatusList = json.zsyVehicleStatus;
+				if(zsyVehicleStatusList && zsyVehicleStatusList.length > 0) {
+					for (var i = 0; i < zsyVehicleStatusList.length; i++) {
+						var zsy_status_ = zsyVehicleStatusList[i];
+						var veh = parent.vehicleManager.getVehicle(zsy_status_.vn);//获取车辆信息
+						if(veh && !veh.getIsDisable() && veh.isServicePeriod()) {
+							veh.zsyUpdateStatus(zsy_status_);
+						}
+					}
+				}
+				var zsyVehicleTaskList = json.zsyVehicleTask;
+				if(zsyVehicleTaskList && zsyVehicleTaskList.length > 0){
+					//更新
+					for (var i = 0; i < zsyVehicleTaskList.length; i++) {
+						var zsy_status_ = zsyVehicleTaskList[i];
+						var veh = parent.vehicleManager.getVehicle(zsy_status_.vn);//获取车辆信息
+						if(veh  && !veh.getIsDisable() && veh.isServicePeriod()) {
+							veh.zsyUpdateTask(zsy_status_);
+						}
+					}
+				}
+			}
+			//公交线路 和 环卫
+			if(parent.myUserRole && typeof monitorLine != 'undefined' && monitorLine != null) {
+				if((typeof parent.myUserRole.isManageLine == 'function' 
+					&& parent.myUserRole.isManageLine()) || 
+					typeof parent.myUserRole.isSanitationTruck == 'function' 
+						&& parent.myUserRole.isSanitationTruck()) {
+					if(typeof parent.myUserRole.isSanitationTruck == 'function' 
+						&& parent.myUserRole.isSanitationTruck()) { //环卫，需要刷新线路上的车辆状态
+						//主要用于画线
+						if(json.vehicleStatus != null && json.vehicleStatus.length > 0) {
+							monitorLine.updateLineVehicleStatus(json.vehicleStatus); //更新环卫车辆状态
+						}
+					}
+					monitorLine.updateLineStatus();
+				}
+			}
+			
+			//开启读取//本地读取车辆状态信息的定时器
+			if(this.flashLocalStatusTimer == null) {
+				myMonitorStatus.runLocalStatusTimer();
+			}
+			
+			//刷新地理位置
+			if(myMonitorStatus.flashPositionTimer != null) {
+				clearTimeout(myMonitorStatus.flashPositionTimer);
+			}
+			myMonitorStatus.flashPositionVehicleList = [];
+			myMonitorStatus.isStartFlashPosition = true;
+			myMonitorStatus.flashVehiclePosition();
+			
+//			loadConsoleTime(false, 'flashVehicleStatus');
+			//有更新的设备，则刷新监控数量
+//			if(updateVehiList.size() > 0) {
+//				myMonitorStatus.initMonitorCount();
+//			}
+//			myMonitorStatus.initVehicleStatusCount();
+		} else {
+			//提示刷新车辆失败
+			$.dialog.tips(parent.lang.monitor_flashVehicleError, 2);
+			myMonitorStatus.runStatusTimer();
+		}
+	});
+};
+
+
+//中石油临时路单 刷新车辆状态 调用一次刷新一次
+//更新车辆路单状态等
+monitorVehicleStatus.prototype.flashVehicleStatusHandle = function(){
+	var data = {};
+	//如果中石油的需要刷新所有的状态
+	if(parent.myUserRole.isZSYRoadList()){
+		data.devIdnos = parent.vehicleManager.getAllDevIdnos();
+		if (data.devIdnos == "") {
+			return ;
+		}
+	}
+	//本类对象
+	var myMonitorStatus = this;
+	var url_ = 'StandardPositionAction_statusEx.action?toMap='+parent.toMap;
+	//数据库取实时状态
+	$.myajax.jsonPost(url_, data, false, function(json, success) {
+		if(success) {
+			//中石油更新位置
+			if(parent.myUserRole.isZSYRoadList()){
+				var zsyVehicleStatusList = json.zsyVehicleStatus;
+				if(zsyVehicleStatusList && zsyVehicleStatusList.length > 0) {
+					for (var i = 0; i < zsyVehicleStatusList.length; i++) {
+						var zsy_status_ = zsyVehicleStatusList[i];
+						var veh = parent.vehicleManager.getVehicle(zsy_status_.vn);//获取车辆信息
+						if(veh && !veh.getIsDisable() && veh.isServicePeriod()) {
+							veh.zsyUpdateStatus(zsy_status_);
+						}
+					}
+				}
+				var zsyVehicleTaskList = json.zsyVehicleTask;
+				if(zsyVehicleTaskList && zsyVehicleTaskList.length > 0){
+					//更新
+					for (var i = 0; i < zsyVehicleTaskList.length; i++) {
+						var zsy_status_ = zsyVehicleTaskList[i];
+						var veh = parent.vehicleManager.getVehicle(zsy_status_.vn);//获取车辆信息
+						if(veh  && !veh.getIsDisable() && veh.isServicePeriod()) {
+							veh.zsyUpdateTask(zsy_status_);
+						}
+					}
+				}
+			}
+		} 
+	});
+};
+
+
+//定时刷新车辆本地状态的定时器
+monitorVehicleStatus.prototype.runLocalStatusTimer = function(){
+	var myMonitorStatus = this;
+	this.flashLocalStatusTimer = setTimeout(function () {
+		myMonitorStatus.startFlashStatusTime = (new Date()).getTime();
+		myMonitorStatus.flashLocalStatus();
+	}, 20);
+};
+
+//刷新车辆本地状态
+monitorVehicleStatus.prototype.flashLocalStatus = function(){
+	if(this.updateVehiList != null && this.updateVehiList.length > 0) {
+		this.updateVehicleStatus(this.updateVehiList[0]);
+		this.updateVehiList.splice(0, 1);
+		if((new Date()).getTime() - this.startFlashStatusTime < 500) {
+			this.flashLocalStatus();
+		}else {
+			this.runLocalStatusTimer();
+		}
+	}else {
+		this.flashLocalStatusTimer = null;
+		//监控列表里面的车辆，判断是否在地图可视范围内，如果在，则添加到地图中，否则，从地图删除
+		var myMonitorStatus = this;
+		setTimeout(function () {
+			myMonitorStatus.selectVehicleToMapEx(false);
+		}, 500);
+		//刷新一次车辆设备数目
+		this.initVehicleStatusCount();
+		//如果超过5分钟
+		if (dateIsTimeout(this.flashAllStatusTime, 60000)) {
+			//全局刷新的时候刷新车辆树在线数
+//			if(typeof countGroupVehiOnline == 'function' 
+//				&& typeof vehiTree != 'undefined' && vehiTree != null
+//				&& typeof getCompanySid == 'function') {
+//				countGroupVehiOnline(vehiTree.getTreeGroupId(getCompanySid()));
+//			}
+			if(typeof countGroupVehiOnlineEx == 'function') {
+				countGroupVehiOnlineEx();
+			}
+			this.flashAllStatusTime = new Date();
+		}
+		
+		this.runStatusTimer();
+	}
+};
+
+
+//更新设备树上的颜色
+monitorVehicleStatus.prototype.updateVehiTreeStatus = function(image,vehiIdno) {
+	if(typeof vehiTree != 'undefined' && vehiTree != null) {
+		vehiTree.setItemImage2(vehiIdno,image,image,image);
+	}
+	
+	if(typeof dispatchTree != 'undefined' && dispatchTree != null) {
+		var matchItems = [];//查找匹配的节点
+		if(dispatchTree.trueMemberItems && dispatchTree.trueMemberItems.length > 0){
+			for(var i = 0; i < dispatchTree.trueMemberItems.length; i++){
+				if(dispatchTree.trueMemberItems[i].indexOf('$'+vehiIdno) != -1){
+					matchItems.push(dispatchTree.trueMemberItems[i]);
+				}
+			}
+		}
+		if(matchItems && matchItems.length > 0){
+			for(var i = 0 ; i < matchItems.length; i++){
+				dispatchTree.setItemImage2(matchItems[i],image,image,image);
+			}
+		}
+	}
+}
+
+
+
+
+//更新监控列表上的颜色
+monitorVehicleStatus.prototype.updateVehiTableStatus = function(color,tableRow) {
+	tableRow.css('color', color);
+}
+
+//更新中石油任务状态
+monitorVehicleStatus.prototype.updateZsyVehicleTask = function(vehiIdno) {
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle &&  vehicle.getVid()){
+	}else{
+		return;
+	}
+	var appTypeName_ = "路单任务"; 
+	if(vehicle.appTypeName){
+		appTypeName_ = vehicle.appTypeName;
+	}
+	var obj = this.gpsMonitorTableObj.find(this.gpsMonitorTableObj.flexGetRowid(vehicle.getVid()));
+	if(obj && obj.length > 0) {
+//		var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+		if(vehicle.zsyRun){
+			if(vehicle.zsyStatus != 2){
+				if(vehicle.zsyCount){
+					obj.find('.rwJingdu div').html(this.getColumnTitle("已完成"+vehicle.zsyCount+"次打卡"));
+					obj.find('.rwType div').html(this.getColumnTitle(appTypeName_));
+				}else{
+					obj.find('.rwJingdu div').html(this.getColumnTitle(""));
+					obj.find('.rwType div').html(this.getColumnTitle(appTypeName_));
+				}
+			}else{
+				obj.find('.rwType div').html(this.getColumnTitle(""));
+				obj.find('.rwJingdu div').html(this.getColumnTitle("无任务"));
+			}
+		}else{//任务完成了
+			obj.find('.rwType div').html(this.getColumnTitle(""));
+			obj.find('.rwJingdu div').html(this.getColumnTitle("无任务"));
+		}
+	}
+}
+
+//刷新车辆状态
+//刷新时间在 15-20ms 0ms  500辆车 9画面视频
+monitorVehicleStatus.prototype.updateVehicleStatus = function(vehicle){
+//	loadConsoleTime(true, 'updateVehicleStatus');
+	var vehiIdno = vehicle.getIdno();
+	//解析车辆状态
+	var data = vehicle.gpsParseTrackStatus();
+	//添加到车辆状态列表
+	this.mapVehicleStatusList.put(vehiIdno, data);
+	//更新到状态列表上
+	
+	var obj;
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle && vehicle.getVid()) {
+	}else{
+		return;
+	}
+	if(vehicle.isPeopleTerminal()) {//人员设备
+		obj = this.gpsPeopleTableObj.find(this.gpsPeopleTableObj.flexGetRowid(vehicle.getVid()));
+	}else {
+		obj = this.gpsMonitorTableObj.find(this.gpsMonitorTableObj.flexGetRowid(vehicle.getVid()));
+	}
+	if(obj.length > 0) {
+		obj.find('.gpsTime div').html(this.getColumnTitle(data.gpsTime));
+		if(data.isGpsValid) {
+			data.address = this.getGeoAddress(data.mapJingDu, data.mapWeiDu);
+			var position = "";
+			if(data.address != "") {
+				position = '<span class="maplngLat" data-type="1" onclick="changeMapAddress(this,'+data.mapJingDu+','+data.mapWeiDu+',\''+vehiIdno+'\');" title="'+ data.address +'" data-position="'+data.position+'">'+ data.address +'</span>';
+			}else {
+				position = '<span class="maplngLat" data-type="1" onclick="changeMapAddress(this,'+data.mapJingDu+','+data.mapWeiDu+',\''+vehiIdno+'\');" title="'+ data.position +'">'+ data.position +'</span>';
+			}
+			obj.find('.position div').html(position);
+			obj.find('.speed div').html(this.getColumnTitle(data.speed));
+		}else {
+			obj.find('.position div').html(this.getColumnTitle(parent.lang.monitor_gpsUnvalid));
+			obj.find('.speed div').html(this.getColumnTitle(parent.lang.monitor_invalid));
+		}
+		//中石油的
+		if(parent.myUserRole.isZSYRoadList()){
+//			zsyCount:5
+//			zsyRun:1
+//			zsyStatus:1
+			//任务类型
+			this.updateZsyVehicleTask(vehiIdno);
+		}
+		
+		
+		obj.find('.liCheng div').html(this.getColumnTitle(data.liCheng));
+		obj.find('.alarm div').html(this.getColumnTitle(this.getTableAlarm(data.gpsAlarm, data.videoAlarm, data.someAlarm)));
+		obj.find('.normal div').html(this.getColumnTitle(data.gpsStatus));
+		obj.find('.other div').html(this.getColumnTitle(this.getTableAlarm(data.videoStatus, data.someStatus)));
+		
+		//更新监控列表上的颜色
+		this.updateVehiTableStatus(data.color, obj);
+	}
+	//更新设备树上的颜色
+	this.updateVehiTreeStatus(vehicle.getStatueImg(data.image, vehicle.getDispatchImage()), vehiIdno);
+
+	//更新到地图上，更新到地图时，需要考虑车辆gps状态是否有效，暂缓
+	if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+			monitorMapTip.updateStatusInMap(vehiIdno, data);
+	}
+	//如果面板上显示的是vehiIdno,则更新面板上车辆信息
+	if(typeof paneInfo != 'undefined' && paneInfo != null && paneInfo.showVehiIdno == vehiIdno) {
+		paneInfo.refreshVehiStatus(vehiIdno, vehicle, data);
+	}
+	//如果存在位置实时跟踪，则更新
+	if(typeof monitorMenu != 'undefined' && monitorMenu != null) {
+		monitorMenu.addVehiclePoint(vehiIdno);
+	}
+};
+
+monitorVehicleStatus.prototype.getTableAlarm = function(gpsAlarm, videoAlarm, someAlarm) {
+	var str = '';
+	if(gpsAlarm != null && gpsAlarm != '') {
+		str = gpsAlarm;
+	}
+	if(videoAlarm != null && videoAlarm != '') {
+		if(str != '') {
+			str += ',';
+		}
+		str += videoAlarm;
+	}
+	if(someAlarm != null && someAlarm != '') {
+		if(str != '') {
+			str += ',';
+		}
+		str += someAlarm;
+	}
+	return str;
+}
+
+/*
+ * 初始化监控设备数量
+ */
+monitorVehicleStatus.prototype.initMonitorCount = function() {
+	var isMonitorCount = 0; //监控总数
+	
+	var isOnlineCount = 0; //在线总数
+	var isAlarmCount = 0; //报警总数
+	var isOfflineCount = 0; //离线总数
+	var isParkingCount = 0; //停车未熄火总数
+	var isParkedCount = 0; //停车熄火总数
+	var isInvalidCount = 0; //定位无效总数
+	
+	isMonitorCount = this.mapVehicleList.size();
+	this.mapVehicleList.each(function(key,value){
+		var vehiObj = parent.vehicleManager.getVehicle(value);
+		if(vehiObj != null) {
+			//在线
+			if(vehiObj.isOnline()) {
+				isOnlineCount++;
+				if(vehiObj.isAlarm()) {//报警
+					isAlarmCount++;
+				}
+				if(vehiObj.isLocationInvalid()) {//定位有效
+					if(vehiObj.isParked()) {//停车熄火总数
+						isParkedCount++;
+					}
+					if(vehiObj.isParking()) {//停车未熄火总数
+						isParkingCount++;
+					}
+				}else {//定位无效
+					isInvalidCount++;
+				}
+			}else {//离线
+				isOfflineCount++;
+			}
+			
+		}
+	});
+	
+	$('#gps-status .status-monitor .status-val').text(isMonitorCount);
+	$('#gps-status .status-online .status-val').text(isOnlineCount);
+	$('#gps-status .status-alarm .status-val').text(isAlarmCount);
+	$('#gps-status .status-offline .status-val').text(isOfflineCount);
+	$('#gps-status .status-parking .status-val').text(isParkingCount);
+	$('#gps-status .status-parked .status-val').text(isParkedCount);
+	$('#gps-status .status-invalid .status-val').text(isInvalidCount);
+}
+
+/**
+ * 初始化车辆设备数目   当前为授权车辆
+ */
+monitorVehicleStatus.prototype.initVehicleStatusCount = function() {
+	if(parent.myUserRole && parent.myUserRole.isDispatcher()){
+		this.initDispatcherStatusCount();
+	}else{
+		this.initVehicleNewStatusCount();
+	}
+}
+
+/**
+ * 初始化车辆设备数目   当前为授权车辆 以前的模式
+ */
+monitorVehicleStatus.prototype.initVehicleNewStatusCount = function() {
+	var isAlarmCount = 0; //存储介质报警总数
+	var isOnlineCount = 0; //在线总数
+	var isDamageCount = 0; //定损总数
+	var isAllVehicleCount = 0; //车辆总数
+	var isOnlineRates = 0; //在线率
+	var isDamageRates = 0; //定损率
+	isAllVehicleCount = parent.vehicleManager.mapVehiList.size();
+	parent.vehicleManager.mapVehiList.each(function(key,vehiObj){
+		if(vehiObj != null) {
+			//在线
+			if(vehiObj.isOnline()) {
+				isOnlineCount++;
+				//存储介质报警
+				var storageAlarm = vehiObj.getStorageAlarm();
+				if(storageAlarm != null && storageAlarm != '' && !vehiObj.isPeopleTerminal()) {
+					isAlarmCount++;
+				}
+			}else {
+				//定损  车辆超过72小时未上线，则认为是定损状态，定损时长可以配置
+				var gpsTime = vehiObj.getParseGpsTime();  //最后在线时间
+				if(gpsTime != null && gpsTime != '') {
+					var dB = dateStrLongTime2Date(gpsTime);
+					var dE = new Date();
+					var span = dE.getTime() - dB.getTime();
+					if ( span >= (1000*60*60*damageTime) ) {
+						isDamageCount++;
+					}
+				}
+			}
+		}
+	});
+	if(isAllVehicleCount != 0) {
+		//在线率
+		isOnlineRates = (isOnlineCount/isAllVehicleCount * 100).toFixed(2) + "%";
+		//定损率
+		isDamageRates = (isDamageCount/isAllVehicleCount * 100).toFixed(2) + "%";
+	}
+	
+	$('#gps-storage .storage-alarm .status-val').text(isAlarmCount);
+	$('#gps-storage .storage-online .status-val').text(isOnlineCount);
+	$('#gps-storage .storage-damage .status-val').text(isDamageCount);
+	$('#gps-storage .storage-all .status-val').text(isAllVehicleCount);
+	$('#gps-storage .storage-onlinerates .status-val').text(isOnlineRates);
+	$('#gps-storage .storage-damagerates .status-val').text(isDamageRates);
+}
+
+/**
+ * 初始化车辆设备数目   当前为授权车辆
+ */
+monitorVehicleStatus.prototype.initDispatcherStatusCount = function() {
+	var isOnlineCount = 0; //在线总数
+	var isAllVehicleCount = 0; //车辆总数
+	var isOnlineRates = 0; //在线率
+	isAllVehicleCount = parent.vehicleManager.mapAllVehiList.size();
+	parent.vehicleManager.mapAllVehiList.each(function(key,vehiObj){
+		if(vehiObj != null) {
+			//在线
+			if(vehiObj.isOnline()) {
+				isOnlineCount++;
+			}
+		}
+	});
+	if(isAllVehicleCount != 0) {
+		//在线率
+		isOnlineRates = (isOnlineCount/isAllVehicleCount * 100).toFixed(2) + "%";
+	}
+	$('#gps-storage .storage-online .status-val').text(isOnlineCount);
+	$('#gps-storage .storage-all .status-val').text(isAllVehicleCount);
+	$('#gps-storage .storage-onlinerates .status-val').text(isOnlineRates);
+}
+
+/*
+ * 添加在地图之前刷新地图gps数据
+ */
+monitorVehicleStatus.prototype.preFillVehi2Map = function(doReloadTtxMap) {
+	var data = {};
+	data.devIdnos = parent.vehicleManager.getAllDevIdnos();
+	if (data.devIdnos == "") {
+		if(typeof doReloadTtxMap == 'function') {
+			doReloadTtxMap();
+		}
+		return ;	
+	}
+	//本类对象
+	var myMonitorStatus = this;
+	//数据库取实时状态
+	$.myajax.jsonPost('StandardPositionAction_statusEx.action?toMap='+parent.toMap+'&loadAll=1', data, false, function(json, success) {
+		if(success) {
+			myMonitorStatus.updateVehiList = [];
+			//一个车辆可以对应多个设备，因此使用一个更新的车辆链表来处理更新
+			for (var i = 0; i < json.status.length; i++) {
+				var device = parent.vehicleManager.getDevice(json.status[i].id);
+				if (device != null) {
+					var vehiIdno = device.getVehiIdno();
+					var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+					//服务期限
+					if(vehicle != null && !vehicle.getIsDisable() && vehicle.isServicePeriod()) {
+						if(device.status && json.status[i]) {
+							device.setStatus(json.status[i]);
+						}
+//					if(vehicle != null && vehicle.isUse()) {
+						myMonitorStatus.updateVehiList.push(vehicle);
+					}
+				} 
+			}
+			//更新中石油车辆状态
+			if(parent.myUserRole.isZSYRoadList()){
+				var zsyVehicleStatusList = json.zsyVehicleStatus;
+				if(zsyVehicleStatusList && zsyVehicleStatusList.length > 0) {
+					for (var i = 0; i < zsyVehicleStatusList.length; i++) {
+						var veh = parent.vehicleManager.getVehicle(zsyVehicleStatusList[i].vn);//获取车辆信息
+						if(veh && !veh.getIsDisable() && veh.isServicePeriod()) {
+							veh.zsyUpdateStatus(zsyVehicleStatusList[i]);
+						}
+					}
+				}
+				
+				var zsyVehicleTaskList = json.zsyVehicleTask;
+				if(zsyVehicleTaskList && zsyVehicleTaskList.length > 0){
+					//更新
+					for (var i = 0; i < zsyVehicleTaskList.length; i++) {
+						var veh = parent.vehicleManager.getVehicle(zsyVehicleTaskList[i].vn);//获取车辆信息
+						if(veh && !veh.getIsDisable() && veh.isServicePeriod() ) {
+							veh.zsyUpdateTask(zsyVehicleTaskList[i]);
+						}
+					}
+				}
+			}
+			
+			//刷新监控数量
+//			myMonitorStatus.initMonitorCount();
+			myMonitorStatus.initVehicleStatusCount();
+			//刷新地理位置
+			if(myMonitorStatus.flashPositionTimer != null) {
+				clearTimeout(myMonitorStatus.flashPositionTimer);
+			}
+			myMonitorStatus.flashPositionVehicleList = [];
+			myMonitorStatus.isStartFlashPosition = true;
+			myMonitorStatus.flashVehiclePosition();
+			if(typeof doReloadTtxMap == 'function') {
+				doReloadTtxMap();
+			}
+		}
+	});
+}
+
+/*
+ * 将添加到地图上
+ */
+monitorVehicleStatus.prototype.fillVehi2Map = function() {
+	if(this.flashLocalStatusTimer == null) {
+		this.runLocalStatusTimer();
+	}
+};
+
+//刷新地理位置
+monitorVehicleStatus.prototype.switchPosition = function(pos1, pos2, vehiIdno){
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);//授权设备取
+	//刷新地图图标
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle &&  vehicle.getVid()){
+	}else{
+		return;
+	}
+	var obj;
+	if(vehicle.isPeopleTerminal()) {//人员
+		obj = this.gpsPeopleTableObj.find(this.gpsPeopleTableObj.flexGetRowid(vehicle.getVid()));
+	}else {
+		obj = this.gpsMonitorTableObj.find(this.gpsMonitorTableObj.flexGetRowid(vehicle.getVid()));
+	}
+	
+	if(obj.length > 0) {
+		obj.find('.position div .maplngLat').attr('data-position', pos2);
+		obj.find('.position div .maplngLat').html(pos1);
+		obj.find('.position div .maplngLat').attr('title',pos1);
+		//中石油的
+		if(parent.myUserRole.isZSYRoadList()){
+			this.updateZsyVehicleTask(vehiIdno);
+		}
+	}
+}
+
+//监控列表里面的车辆，判断是否在地图可视范围内，如果在，则添加到地图中，否则，从地图删除
+//isMove 是否是地图改变事件
+//耗时大概15-20ms  500辆车 9画面视频
+monitorVehicleStatus.prototype.selectVehicleToMapEx = function(isMove){
+	this.onlyAddVehiToMapList = [];
+	var myMonitorStatus = this;
+	var delCount = 0;
+	this.mapVehicleList.each(function(key, vehiIdno) {
+		if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+			var isAdd = false; //是否添加到地图
+			var isDel = false; //是否从地图删除
+			var status = myMonitorStatus.mapVehicleStatusList.get(vehiIdno);
+			if(status != null) {
+				if(status.isGpsValid) {//gps有效
+					if(!isMove && myMonitorStatus.selectedVehiIdno == vehiIdno) {
+						myMonitorStatus.mapOnlyVehiAddDel.put(vehiIdno, 1);
+					}else {
+						//如果地图在可视范围内
+						if(monitorMapTip.isVehiclePtInVisibleMap(status.mapJingDu, status.mapWeiDu)) {
+							//车辆不在地图上,添加到地图
+							myMonitorStatus.mapOnlyVehiAddDel.put(vehiIdno, 1);
+						}else {//车辆不在范围内
+							//车辆在地图上,从地图删除
+							myMonitorStatus.mapOnlyVehiAddDel.put(vehiIdno, 0);
+							delCount++;
+						}
+					}
+				}else {
+					myMonitorStatus.mapOnlyVehiAddDel.put(vehiIdno, 0);
+					delCount++
+				}
+				myMonitorStatus.onlyAddVehiToMapList.push(vehiIdno);
+			}
+		}
+	});
+	if(delCount == this.mapVehicleList.size()) {
+		this.onlyAddVehiToMapList = [];
+		this.mapOnlyVehiAddDel.clear();
+		//移除地图所有车辆
+		if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+			monitorMapTip.removeAllVehicleInMap();
+		}
+	}else {
+		if(this.flashOnlyAddVehiToMapTimer == null) {
+			myMonitorStatus.runOnlyAddVehiToMapTimer();
+		}
+	}
+}
+
+//添加车辆到地图的定时器
+monitorVehicleStatus.prototype.runOnlyAddVehiToMapTimer = function(){
+	var myMonitorStatus = this;
+	//当删除操作执行完全后才执行,否则等待删除
+	this.flashOnlyAddVehiToMapTimer = setTimeout(function () {
+		myMonitorStatus.startFlashOnlyAddVehiTime = (new Date()).getTime();
+		myMonitorStatus.flashOnlyAddVehiToMap();
+		myMonitorStatus.flashOnlyAddVehiToMap2();
+	}, 20);
+};
+
+//添加车辆到地图
+//从列表第一个开始添加
+monitorVehicleStatus.prototype.flashOnlyAddVehiToMap = function(){
+	if(this.onlyAddVehiToMapList != null && this.onlyAddVehiToMapList.length > 0) {
+		var vehiIdno = this.onlyAddVehiToMapList[0];
+		this.onlyAddVehiToMapList.splice(0, 1);
+		if(vehiIdno) {
+			this.doAddVehiToMap(vehiIdno);
+		}
+		if((new Date()).getTime() - this.startFlashAddVehiTime < 500) {
+			this.flashOnlyAddVehiToMap();
+		}else {
+			this.runOnlyAddVehiToMapTimer();
+		}
+	}else {
+		this.flashOnlyAddVehiToMapTimer = null;
+	}
+};
+
+//添加车辆到地图
+//从列表最后一个开始添加
+monitorVehicleStatus.prototype.flashOnlyAddVehiToMap2 = function(){
+	if(this.onlyAddVehiToMapList != null && this.onlyAddVehiToMapList.length > 0 && this.onlyAddVehiToMapList.length >= 100) {
+		var vehiIdno = this.onlyAddVehiToMapList.pop();
+		if(vehiIdno) {
+			this.doAddVehiToMap(vehiIdno);
+		}
+		if((new Date()).getTime() - this.startFlashAddVehiTime < 500) {
+			this.flashOnlyAddVehiToMap2();
+		}
+	}
+};
+
+//添加车辆到地图
+//添加一辆车时间大概15 - 20ms  0ms  500辆车 9画面视频
+monitorVehicleStatus.prototype.doAddVehiToMap = function(vehiIdno) {
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if(vehicle != null) {
+		var status = this.mapVehicleStatusList.get(vehiIdno);
+		if(status != null) {
+			status.id = vehiIdno;
+			if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+				var isAdd = this.mapOnlyVehiAddDel.get(vehiIdno);
+				if(isAdd != null) {
+					if(isAdd == 1) {
+						monitorMapTip.addVehicleToMap(vehicle, status, false);
+					}else if(isAdd == 0) {
+						monitorMapTip.removeVehicleInMap(vehiIdno);
+					}
+					this.mapOnlyVehiAddDel.put(vehiIdno, 2);
+				}
+			}
+		}
+	}
+}
+
+/**
+* 地图可视区域发生变化时调用(包含更改缩放级别、拖拽地图)
+*/
+monitorVehicleStatus.prototype.visibleMapResize = function(){
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		var myMonitorStatus = this;
+		ttxMap.visibleMapResize(function() {
+			myMonitorStatus.selectVehicleToMapEx(true);
+		});
+	}
+}
+
+//是否百度地图
+monitorVehicleStatus.prototype.isBaiduMap = function() {
+	if (parent.mapType != null && parent.mapType == 3) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//是否高德地图
+monitorVehicleStatus.prototype.isGaoDeMap = function() {
+	if (parent.mapType != null && parent.mapType == 4) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
+//启动自动刷新地理位置的定时器
+monitorVehicleStatus.prototype.runPositionTimer = function(){
+	var that = this;
+//	if(this.flashPositionTimer  == null){
+		this.flashPositionTimer = setTimeout(function () {
+			that.flashVehiclePosition();
+		}, that.flashPositionInterval);
+//	}
+};
+
+//自动刷新地理位置
+//百度地图才刷新
+//isGetAddress 是否解析地理位置
+monitorVehicleStatus.prototype.flashVehiclePosition = function() {
+	if(this.isFlashPosition/* && (this.isBaiduMap() || this.isGaoDeMap())*/) {
+		var that = this;
+		if(this.flashPositionVehicleList.length > 0 ) {
+			this.flashPositionInterval = 50;
+			var vehicle = this.flashPositionVehicleList[this.flashPositionVehicleList.length - 1];
+			this.flashPositionVehicleList.splice(this.flashPositionVehicleList.length - 1,1);
+			var object;
+			//车牌号 编码()不支持
+			var vehiIdno = vehicle.getIdno();
+			//车辆id
+			if(vehicle.isPeopleTerminal()) {//人员
+				object = this.gpsPeopleTableObj.find(this.gpsPeopleTableObj.flexGetRowid(vehicle.getVid()));
+			}else {
+				object = this.gpsMonitorTableObj.find(this.gpsMonitorTableObj.flexGetRowid(vehicle.getVid()));
+			}
+			if(object.length > 0) {
+				if(typeof ttxMap != 'undefined' && ttxMap != null) {
+					var position = $.trim(object.find('.position div .maplngLat').html());//34.56,115.4454 这种才解析  深圳XXX这种格式不解析
+					var point = vehicle.getLastLngLat();
+					var jingDu = point.lng;
+					var weiDu = point.lat;
+					//判断当前经纬度和上一次境外i的是否一致
+					var newPoint = weiDu+','+jingDu;
+					//车辆已经解析出来了的
+					if(vehicle.lastJingWeiDu && newPoint == vehicle.lastJingWeiDu){
+						var address =	vehicle.lastPostion;
+						that.switchPosition(address, newPoint, vehiIdno);
+						paneInfo.switchPosition(address, newPoint, vehiIdno);
+						var data = that.mapVehicleStatusList.get(vehiIdno);
+						//将状态更新到地图上及监控列表上
+						if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+							monitorMapTip.addVehicleToMap(vehicle, data, true);
+						}
+						//添加到车辆状态列表
+						if(data != null) {
+							monitorMapTip.updateStatusInMapNew(vehiIdno, data);
+						}
+					}else{
+						if(position.indexOf(',') != -1){
+							//解析
+							var userDate = {};
+							var  toMapType =  parent.toMap;
+							if(parent.toMapLoaction != null){
+								toMapType =  parent.toMapLoaction;
+							}
+							userDate.mapType = toMapType;
+							userDate.vehiIdno = vehiIdno;
+							userDate.obj = object;
+							userDate.topLeave = 1;
+							ttxMap.geocoderAddress(weiDu+','+jingDu, jingDu, weiDu, function(key, jingDu, weiDu, address, city, objs) {
+								if(address != '' && address != position) {
+									var obj = objs.obj;
+									var position  =  $.trim(obj.find('.position div .maplngLat').html());
+									var vehiIdno  = objs.vehiIdno;
+									that.switchPosition(address, position, vehiIdno);
+									if(typeof paneInfo != 'undefined' && paneInfo != null) {
+										if(paneInfo.showVehiIdno == vehiIdno) {
+											paneInfo.switchPosition(address, position, vehiIdno);
+										}
+									}
+									var vehicle = parent.vehicleManager.getVehicle(vehiIdno);//授权设备取
+									if(vehicle != null) {
+										vehicle.lastJingWeiDu =weiDu+","+jingDu;
+										vehicle.lastPostion = address;
+										var data = vehicle.gpsParseTrackStatus();
+										data.id = vehicle.getVid();
+										data.address = address;
+										//添加到车辆状态列表
+										that.mapVehicleStatusList.put(vehiIdno, data);
+										//将状态更新到地图上及监控列表上
+										if(typeof monitorMapTip != 'undefined' && monitorMapTip != null) {
+											monitorMapTip.addVehicleToMap(vehicle, data, true);
+										}
+										//添加到车辆状态列表
+										if(data != null) {
+											monitorMapTip.updateStatusInMapNew(vehiIdno, data);
+										}
+									}
+								}
+							}, userDate);
+						}
+					}
+				}
+			}
+			that.runPositionTimer();
+		}else {
+			if(this.isStartFlashPosition && this.mapVehicleList.size() > 0) {
+				this.isStartFlashPosition = false;
+				this.flashPositionVehicleList = [];
+				this.flashPositionInterval = 2000;
+				this.mapVehicleList.each(function(key, value) {
+					var vehicle = parent.vehicleManager.getVehicle(key);
+					//位置有效才解析
+					if(vehicle && vehicle.isLocationInvalid()) {
+						that.flashPositionVehicleList.push(vehicle);
+					}
+				});
+			}else {
+				this.flashPositionInterval = 120000;
+			}
+			this.runPositionTimer();
+		}
+	}
+}
+
+/**
+ * 获取地图缓存地理位置信息
+ * @param jingDu
+ * @param weiDu
+ */
+monitorVehicleStatus.prototype.getGeoAddress = function(jingDu, weiDu, vehicle) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		var  toMapType =  parent.toMap;
+		if(parent.toMapLoaction != null){
+			toMapType =  parent.toMapLoaction;
+		}
+		var position = ttxMap.getGeoAddress(jingDu, weiDu, toMapType);
+		if(position != null && position.address != null) {
+			return position.address;
+		}else{
+			var	key =	jingDu + "-" + weiDu;
+			if(vehicle){//实时状态优先解析
+				vehicle.topLeave = 1;
+				
+				ttxMap.geocoderAddress(key, jingDu, weiDu, setVehicleLastPosition, vehicle) 
+			}
+		}
+	}
+	return "";
+}
+
+function setVehicleLastPosition(key, jingDu, weiDu, address, city, userdata){
+	if(address){
+		userdata.lastJingWeiDu = jingDu+","+weiDu;
+		userdata.lastPostion = address;
+	}
+}

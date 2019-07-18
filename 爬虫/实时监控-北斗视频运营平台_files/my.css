@@ -1,0 +1,226 @@
+@font-face {
+  font-family: 'icomoon';
+  src:  url('../fonts/icomoon.eot?v15rxk');
+  src:  url('../fonts/icomoon.eot?v15rxk#iefix') format('embedded-opentype'),
+    url('../fonts/icomoon.ttf?v15rxk') format('truetype'),
+    url('../fonts/icomoon.woff?v15rxk') format('woff'),
+    url('../fonts/icomoon.svg?v15rxk#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+ [class^="icon-"], [class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+    padding-bottom: 4px;
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+ 
+ 
+div#alarm_dialog {
+    position: absolute;
+    z-index: 9999;
+    /* margin-top: 7%; */
+    /* margin-left: 29%; */
+    background: white;
+    width: 534px;
+    height: 469px;
+    right: 0;
+    bottom: 100px;
+    left: 50px;
+    top: 50px;
+    border-radius: 8px;
+}
+div#alarm_dialog_head {
+    height:  30px;
+    background-color: #4178D7;
+    border-radius: 4px;
+    font-size: 19px;
+}
+span#alarm_dialog_head_title {
+    padding-left:  16px;
+}#alarm_dialog_head_close {
+      float: right;
+    width: 30px;
+    height: 30px;
+    background: url(../fonts/close.png) no-repeat 7px 6px;
+}
+span#alarmInfoTitle {
+     height: 50px;
+    line-height: 50px;
+    font-size: 14px;
+    color: #3f3f3f;
+    letter-spacing: -.39px;
+    font-weight: 500;
+    margin: 3px 0 4px;
+    text-align: left;
+    font-weight: 700;
+}div#alarm_dialog_body {
+    background: #fff;
+    padding: 15px;
+}
+.tool_tip_info {
+    float: right;
+    line-height: 50px;
+    font-size: 18px;
+}
+.icon-jingbao:before {
+    content: "\e951";
+}
+.icon-shishishipin1:before {
+    content: "\e912";
+}
+.icon-fasongxiaoxi:before {
+    content: "\e91a";
+}
+.icon-tupianzhuapai:before {
+    content: "\e90f";
+}
+
+#showAlrmTable>.button {
+       background: url(../image/alarm_tip.png) no-repeat 12px 6px;
+    width: 95px;
+    height: 80px;
+/*     border: solid; */
+    position: absolute;
+}
+
+.icon-xiaoxi1:before {
+    content: "\ea83";
+}
+.icon-duolushipin:before {
+    content: "\e913";
+}
+.icon-notifyMaster:before {
+    content: "\e972";
+}
+.tool_tip_info>span {
+    cursor:  pointer;
+}
+.tool_tip_info>span:hover {
+   background-color: darkgray;
+    height: 25px;
+}
+div#handle_alarm_top {
+    height: 250px;
+}
+span#handle_alarm_media_num {
+    margin-left:  50%;
+}
+div#handle_operation_way{
+    width:  279px;
+    float: left;
+}
+div#handle_operation_describe {
+      width: 207px;
+    float: left;
+    margin-left: 10px;
+}
+
+#handle_operation_way>h3,#handle_operation_describe>h3 {
+    font-size: 12px;
+    color: #3f3f3f;
+    height: 25px;
+    line-height: 25px;
+    font-weight: 500;
+}
+#handle_operation_describe>textarea {
+    width: 219px;
+    margin-top: 10px;
+    height: 40px;
+    padding: 5px 10px;
+    -o-box-sizing: border-box;
+    -ms-box-sizing: border-box;
+    box-sizing: border-box;
+    border: 1px solid #c6ccd7;
+    border-radius: 4px;
+    resize: none;
+}.handle_alarm_footer {
+    display: block;
+    text-align: center;
+    float: right;
+}
+label.el-radio {
+    color: #b3b9c8;
+    font-size: 12px;
+}
+#radio_group input[type="radio"]:checked+span{
+     color: blue;
+}    
+div#radio_group {
+    padding-top: 10px;
+}.tool_tip_info>span.active{
+	 background-color: #808084;
+}.tool_tip_info span.disabled {
+    cursor: not-allowed;
+}div#handle_alarm_media_infos {
+    float:  left;
+}
+div#handle_alarm_detail_infos{
+    width: 207px;
+    float:  left;
+    padding-left: 16px;
+}
+.alarm_dialog_info_head {
+    display:  block;
+}
+.alarm_dialog_info_alarType
+ {
+    display:  block;
+    padding-top: 5px;
+}
+.alarm_dialog_info_head>div{
+  display: inline;
+}
+div#handle_alarm_detail_infos {
+    width: 207px;
+    float:  left;
+}
+div#alarm_dialog_type {
+    /* font-size: 14px; */
+    height: 50px;
+    line-height: 50px;
+    font-size: 14px;
+    color: #3f3f3f;
+    letter-spacing: -.39px;
+    font-weight: 500;
+    margin: 3px 0 4px;
+    text-align: left;
+    font-weight: 700;
+}
+.alarm_dialog_info_head>lebal {
+    /* font-size: 14px; */
+    height: 50px;
+    line-height: 10px;
+    font-size: 10px;
+  	color: #ADB6C8;
+    letter-spacing: -.39px;
+    margin: 3px 0 4px;
+    text-align: left;
+    font-weight: 350;
+}
+div#handle_alarm_detail_only {
+    float: left;
+    padding-left: 32px;
+}
+.alarm_dialog_info_only>lebal {
+    /* font-size: 14px; */
+    height: 50px;
+    line-height: 10px;
+    font-size: 10px;
+  	 color: #ADB6C8;
+    letter-spacing: -.39px;
+    margin: 3px 0 4px;
+    text-align: left;
+    font-weight: 350;
+}
+.alarm_dialog_info_only>div{
+  display: inline;
+}

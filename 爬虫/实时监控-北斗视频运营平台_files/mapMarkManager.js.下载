@@ -1,0 +1,391 @@
+
+/**
+ * 车辆管理类
+ */
+function MapMarkManager(){
+	//标记map集合(id,mark信息)
+	this.mapMarkMap = new Hashtable();
+	this.mapMarkList = [];
+	this.maxMarkId = "";
+	this.adminArea = [];//行政区域
+	
+	this.viewPointMarkList = []; //共享点  1
+	this.viewAreaMarkList = []; //共享圆多边形  2,3,10
+	this.viewLineMarkList = []; //共享线路  4
+	
+	this.viewForbidAreaList = []; //禁行区域 11,12,14
+	this.viewForbidLineList = []; //禁行线路13
+}
+
+MapMarkManager.prototype.getMapmarkers = function(){
+	var that = this;
+	$.myajax.jsonGet('StandardLoginAction_markerLists.action?markId='+ this.maxMarkId, function(json,action,success){
+		if(success) {
+			if(json.markers != undefined && json.markers != null){
+				for (var i = 0 ; i < json.markers.length ;i++) {
+					var mapMark = new standardMapMark(json.markers[i].i);
+					mapMark.setStandardMark(json.markers[i]);
+					that.addMapMark(json.markers[i].i, mapMark);
+				}
+				if(json.markers.length  > 0){
+					that.setMaxMarkId(json.markers);
+				}
+			}
+			isLoadMapMarkerList = true;
+		};
+	}, null);
+}
+
+MapMarkManager.prototype.setMaxMarkId = function(lstMarks){
+	if(lstMarks.length > 0){
+		this.maxMarkId =  lstMarks[lstMarks.length-1].i;
+	}
+};
+
+MapMarkManager.prototype.addMapMark = function(id, mark){
+	if(id != null && id != ''){
+		var obj = this.getMapMark(id.toString());//
+		//所有标记
+		if (obj == null) {
+			//所有点
+			this.mapMarkMap.put(id.toString(), mark);
+			this.mapMarkList.push(mark);
+			//行政区域
+			if(mark.areaType == 1){
+				this.adminArea.push(mark);
+			}
+			if(mark.areaType != 1 && mark.view == 1) {
+				if(mark.markerType == 1) {
+					this.viewPointMarkList.push(mark); //共享点
+				}else if(mark.markerType == 4) {
+					this.viewLineMarkList.push(mark); //共享线路
+				}else if(mark.markerType == 2 || mark.markerType == 3 || mark.markerType == 10){
+					this.viewAreaMarkList.push(mark); //共享圆多边形
+				}else if(mark.markerType == 13) {
+					this.viewForbidLineList.push(mark); //禁行线路13
+				}else if(mark.markerType == 11 || mark.markerType == 12 || mark.markerType == 14) {
+					this.viewForbidAreaList.push(mark); //禁行区域 11,12,14
+				}
+			}
+		}else{
+			this.mapMarkMap.put(id.toString(), mark);
+			//所有点
+			for (var i = 0; i < this.mapMarkList.length; i++) {
+				if(this.mapMarkList[i].id == id) {
+					this.mapMarkList[i].setStandardMarkJingWei(mark);
+					break;
+				}
+			}
+			//行政区域标记(不会涉及修改行政区域)
+			/*for (var i = 0; i < this.adminArea.length; i++) {
+				if(this.adminArea[i].id == id) {
+					this.adminArea[i].setStandardMarkJingWei(mark);
+					break;
+				}
+			}*/
+			//共享点
+			if(mark.markerType == 1) {
+				for (var i = 0; i < this.viewPointMarkList.length; i++) {
+					if(this.viewPointMarkList[i].id == id) {
+						this.viewPointMarkList[i].setStandardMarkJingWei(mark);
+						break;
+					}
+				}
+			}else if(mark.markerType == 4) {
+				//共享线路
+				for (var i = 0; i < this.viewLineMarkList.length; i++) {
+					if(this.viewLineMarkList[i].id == id) {
+						this.viewLineMarkList[i].setStandardMarkJingWei(mark);
+						break;
+					}
+				}
+			}else if(mark.markerType == 2 || mark.markerType == 3 || mark.markerType == 10){
+				//共享圆多边形
+				for (var i = 0; i < this.viewAreaMarkList.length; i++) {
+					if(this.viewAreaMarkList[i].id == id) {
+						this.viewAreaMarkList[i].setStandardMarkJingWei(mark);
+						break;
+					}
+				}
+			}else if(mark.markerType == 13) {
+				//禁行线路13
+				for (var i = 0; i < this.viewForbidLineList.length; i++) {
+					if(this.viewForbidLineList[i].id == id) {
+						this.viewForbidLineList[i].setStandardMarkJingWei(mark);
+						break;
+					}
+				}
+			}else if(mark.markerType == 11 || mark.markerType == 12 || mark.markerType == 14) {
+				//禁行区域 11,12,14
+				for (var i = 0; i < this.viewForbidAreaList.length; i++) {
+					if(this.viewForbidAreaList[i].id == id) {
+						this.viewForbidAreaList[i].setStandardMarkJingWei(mark);
+						break;
+					}
+				}
+			}
+		}
+	}
+};
+
+MapMarkManager.prototype.updateMapMark = function(id, mark){
+	this.mapMarkMap.put(id.toString(), mark);
+	for (var i = 0; i < this.mapMarkList.length; i++) {
+		if(this.mapMarkList[i].id == id) {
+			this.mapMarkList[i].setStandardMarkJingWei(mark);
+			break;
+		}
+	}
+	//行政区域标记(不会涉及修改行政区域)
+	/*for (var i = 0; i < this.adminArea.length; i++) {
+		if(this.adminArea[i].id == id) {
+			this.adminArea[i].setStandardMarkJingWei(mark);
+			break;
+		}
+	}*/
+	//共享点
+	if(mark.markerType == 1) {
+		for (var i = 0; i < this.viewPointMarkList.length; i++) {
+			if(this.viewPointMarkList[i].id == id) {
+				this.viewPointMarkList[i].setStandardMarkJingWei(mark);
+				break;
+			}
+		}
+	}else if(mark.markerType == 4) {
+		//共享线路
+		for (var i = 0; i < this.viewLineMarkList.length; i++) {
+			if(this.viewLineMarkList[i].id == id) {
+				this.viewLineMarkList[i].setStandardMarkJingWei(mark);
+				break;
+			}
+		}
+	}else if(mark.markerType == 2 || mark.markerType == 3 || mark.markerType == 10){
+		//共享圆多边形
+		for (var i = 0; i < this.viewAreaMarkList.length; i++) {
+			if(this.viewAreaMarkList[i].id == id) {
+				this.viewAreaMarkList[i].setStandardMarkJingWei(mark);
+				break;
+			}
+		}
+	}else if(mark.markerType == 13) {
+		//禁行线路13
+		for (var i = 0; i < this.viewForbidLineList.length; i++) {
+			if(this.viewForbidLineList[i].id == id) {
+				this.viewForbidLineList[i].setStandardMarkJingWei(mark);
+				break;
+			}
+		}
+	}else if(mark.markerType == 11 || mark.markerType == 12 || mark.markerType == 14) {
+		//禁行区域 11,12,14
+		for (var i = 0; i < this.viewForbidAreaList.length; i++) {
+			if(this.viewForbidAreaList[i].id == id) {
+				this.viewForbidAreaList[i].setStandardMarkJingWei(mark);
+				break;
+			}
+		}
+	}
+};
+
+MapMarkManager.prototype.getMapMark = function(id){
+	return this.mapMarkMap.get(id.toString());
+};
+
+MapMarkManager.prototype.removeMapMark = function(id){
+	var mark_ = null;
+	this.mapMarkMap.remove(id.toString());
+	for (var i = 0; i < this.mapMarkList.length; i++) {
+		if(this.mapMarkList[i].id == id) {
+			mark_ = this.mapMarkList.splice(i, 1);
+			break;
+		}
+	}
+	//行政区域标记(不会涉及修改行政区域)
+	/*for (var i = 0; i < this.adminArea.length; i++) {
+		if(this.adminArea[i].id == id) {
+			this.adminArea.splice(i, 1);
+			break;
+		}
+	}*/
+	if(mark_ != null) {
+		if(mark_.length > 0) {
+			mark_ = mark_[0];
+		}
+		//共享点
+		if(mark_.markerType == 1) {
+			for (var i = 0; i < this.viewPointMarkList.length; i++) {
+				if(this.viewPointMarkList[i].id == id) {
+					this.viewPointMarkList.splice(i, 1);
+					break;
+				}
+			}
+		}else if(mark_.markerType == 4) {
+			//共享线路
+			for (var i = 0; i < this.viewLineMarkList.length; i++) {
+				if(this.viewLineMarkList[i].id == id) {
+					this.viewLineMarkList.splice(i, 1);
+					break;
+				}
+			}
+		}else if(mark_.markerType == 2 || mark_.markerType == 3 || mark_.markerType == 10){
+			//共享圆多边形
+			for (var i = 0; i < this.viewAreaMarkList.length; i++) {
+				if(this.viewAreaMarkList[i].id == id) {
+					this.viewAreaMarkList.splice(i, 1);
+					break;
+				}
+			}
+		}else if(mark_.markerType == 13) {
+			//禁行线路13
+			for (var i = 0; i < this.viewForbidLineList.length; i++) {
+				if(this.viewForbidLineList[i].id == id) {
+					this.viewForbidLineList.splice(i, 1);
+					break;
+				}
+			}
+		}else if(mark_.markerType == 11 || mark_.markerType == 12 || mark_.markerType == 14) {
+			//禁行区域 11,12,14
+			for (var i = 0; i < this.viewForbidAreaList.length; i++) {
+				if(this.viewForbidAreaList[i].id == id) {
+					this.viewForbidAreaList.splice(i, 1);
+					break;
+				}
+			}
+		}
+	}
+};
+
+//添加标记，nativeMarker原生标记点
+MapMarkManager.prototype.addNativeMapMark = function(nativeMarker){
+	var mapMark = new standardMapMark(nativeMarker.id);
+	mapMark.setStandardMarkJingWei(nativeMarker);
+	this.addMapMark(nativeMarker.id, mapMark);
+}
+
+//共享点 1
+MapMarkManager.prototype.getViewPointMarkList = function() {
+	return this.viewPointMarkList;
+}
+
+//共享圆多边形 2,3,10
+MapMarkManager.prototype.getViewAreaMarkList = function() {
+	return this.viewAreaMarkList;
+}
+
+//共享线路 4
+MapMarkManager.prototype.getViewLineMarkList = function() {
+	return this.viewLineMarkList;
+}
+
+//共享禁行圆多边形 11,12,14
+MapMarkManager.prototype.getViewForbidAreaList = function() {
+	return this.viewForbidAreaList;
+}
+
+//共享禁行线路 13
+MapMarkManager.prototype.getViewForbidLineList= function() {
+	return this.viewForbidLineList;
+}
+
+//获取所有城市
+MapMarkManager.prototype.getAllCity = function() {
+	var cityList = [];
+	for(var i = 0; i < this.adminArea.length; i++){
+		if(this.adminArea[i].parentId == 0){
+			cityList.push(this.adminArea[i]);
+		}
+	}
+	return cityList;
+}
+
+//获取城市下的行政区域
+MapMarkManager.prototype.getCityZone = function(parentId) {
+	var zoneList = [];
+	for(var i = 0; i < this.adminArea.length; i++){
+		if(this.adminArea[i].parentId == parentId){
+			zoneList.push(this.adminArea[i]);
+		}
+	}
+	return zoneList;
+}
+
+function standardMapMark(id,name) {
+	this.id = id;
+	this.name = name; //名称
+	this.markerType = null;//标记类型
+	this.parentId = null;//上级行政区域
+	this.areaName = null;//区域名称
+	this.areaType = null;//区域类型
+	
+	
+	this.jingDu = null;//经度
+	this.weiDu = null;//纬度
+	this.color = null;//颜色
+	this.radius = null;//半径
+	this.type = null;  //地理位置类型 
+	this.creator = null;  //用户id
+	this.remark = null;   //
+	this.userID = null;  //V6表示用户id，v7表示公司id
+	this.mapType = null;  //地图类型
+	this.share = null;   //是否共享 0不共享 1分组共享 2全部共享
+	this.areaId = null;   //
+	this.image = null;//图片
+	this.startPoint = null; //开始经纬度
+	this.endPoint = null; //结束经纬度
+	this.startPosition = null; //开始位置
+	this.endPosition = null; //结束位置
+	this.param = null; //危化参数  最高限速(公里/时),最低速度(公里/时),开始时间1(秒),结束时间1(秒),开始时间2(秒),结束时间2(秒)
+	this.parentName = null; //上级区域名称
+	this.companyName = null;//公司名称
+	
+	this.view = null;//是否有显示查看的权限
+}
+
+standardMapMark.prototype.setStandardMark = function(mark){
+	this.name = mark.n;
+	this.markerType = mark.m;//标记类型	
+	this.parentId = mark.p;//上级行政区域
+	this.areaName = mark.a;//区域名称
+	this.areaType = mark.t;//区域类型
+	this.share = mark.s;   //是否共享 0不共享 1分组共享 2全部共享
+	this.creator = mark.c;  //用户id
+	this.userID = mark.u;//V6表示用户id，v7表示公司id
+	this.view = mark.g;//是否有显示查看的权限
+};
+
+standardMapMark.prototype.setStandardMarkNew = function(mark){
+	this.name = mark.name;
+	this.markerType = mark.markerType;//标记类型
+	this.parentId = mark.parentId;//上级行政区域
+	this.areaName = mark.areaName;//区域名称
+	this.areaType = mark.areaType;//区域类型
+};
+
+standardMapMark.prototype.setStandardMarkJingWei = function(mark){
+	this.name = mark.name;
+	this.parentId = mark.parentId;//上级行政区域
+	this.areaName = mark.areaName;//区域名称
+	this.areaType = mark.areaType;//区域类型
+	this.markerType = mark.markerType;//标记类型
+	this.jingDu = mark.jingDu;
+	this.weiDu = mark.weiDu;//标记类型
+	this.color = mark.color;//上级行政区域
+	this.radius = mark.radius;//区域名称
+	this.type = mark.type;  //地理位置类型 
+	this.creator = mark.creator;  //用户id
+	this.remark = mark.remark;   //
+	this.userID = mark.userID;  //V6表示用户id，v7表示公司id
+	this.mapType = mark.mapType;  //地图类型
+	this.share = mark.share;   //是否共享 0不共享 1分组共享 2全部共享
+	this.areaId = mark.areaId;   //
+	this.image = mark.image;//图片
+	this.startPoint = mark.startPoint; //开始经纬度
+	this.endPoint = mark.endPoint; //结束经纬度
+	this.startPosition = mark.startPosition; //开始位置
+	this.endPosition = mark.endPosition; //结束位置
+	this.param = mark.param; //危化参数  最高限速(公里/时),最低速度(公里/时),开始时间1(秒),结束时间1(秒),开始时间2(秒),结束时间2(秒)
+	this.parentName = mark.parentName; //上级区域名称
+	this.companyName = mark.companyName;//公司名称
+	if(mark.view != null) {
+		this.view = mark.view;
+	}
+};

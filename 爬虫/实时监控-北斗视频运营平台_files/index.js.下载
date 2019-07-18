@@ -1,0 +1,2282 @@
+var userId = null;  //用户id
+var account = null;  //用户名
+var loginAccount = null;  //用户账号
+var companyId = null;  //用户所在公司id
+var clientMapType = null; // 客户端选定mapType
+
+var myUserRole = null; //用户权限类
+var screenWidth = null;
+var screenHeight = null;
+var indexWidth = null;
+var indexHeight = null;
+var mainHeight = null;
+var longbtime = null;
+var longetime = null;
+var daybtime = null;
+var dayetime = null;
+var monthbtime = null;
+var monthetime = null;
+
+var pageclik = getUrlParameter("pageclik");
+var isLogin = getUrlParameter("isLogin");//登录操作
+
+var defaultTrackVehiIdno = decodeURIComponent(getUrlParameter("vehiIdno"));
+var  htmlDialogParent_ = {};
+
+var toMap = 2;  		//	1 GOOGLE  2 BAIDU 3gaode 解析类型 9 必应
+var mapType = 3;		//0 GOOGLE	1 MAPINFO, 2 HTTPS GOOGLE, 3 BAIDU,4 Gaode 地图类型 9 必应
+
+var DEF_MAP_TYPE = "MapType";
+var DEF_PAGE_MONITOR = "PageMonitor";//监控界面是地图或者视频或者线路监控
+var DEF_PAGE_REALTIME = "PageRealTime";
+
+var weizhiPage = 'weizhi'; //位置页面
+var guijiPage = null;  //轨迹页面
+var multimapPage = null; // 多地图页面
+var luxiangPage = null; //录像回放页面
+var mobileMonitorPage = null; //移动监控页面（环卫）
+var otherPage = null;  //其他页面
+var myPageStyle = null; //样式
+var mapPageManage = new Hashtable(); //页面管理，管理每个主标签下的标签页
+var bulletin = null; //公告信息管理类
+var isCheck = ($.cookie('enableStrongPassword') == null ? 0 : $.cookie('enableStrongPassword') ) == 1 ? true : false ; //1 密码强度校验
+var initZoom = null;
+var initJingDu = null;
+var initWeiDu = null;
+var initMapType = null;
+var mapConfig = null;
+var allDevMap = new Hashtable();//用于存放设备id - 设备编号
+var allDevMapId = new Hashtable();//用于存放设备编号-设备id
+//默认开启显示运营线路
+var enableShowLinesOperation = ($.cookie('EnableShowLinesOperation') == null ? 1 : $.cookie('EnableShowLinesOperation') ) == 1 ? true : false ;
+
+//var ttxPlayerClose = null;
+
+//轨迹界面的地图类型 纠偏解析类型
+var toMapTrack = 2;  		//	1 GOOGLE  2 BAIDU 3高德
+var mapTypeTrack = 3;  		//0 GOOGLE	1 MAPINFO, 2 HTTPS GOOGLE, 3 BAIDU,4 Gaode 地图类型
+//实时定位实时视频 
+var LOCTION_MAP_TYPE = "MapTypeLoaction";
+var toMapLoaction = 2;  		//纠偏解析类型
+var mapTypeLoaction = 3;  		//地图类型
+//录像回放
+var toMapVedioReplay = 2;  		//纠偏解析类型
+var mapTypeReplay = 3;  		//地图类型
+//窗口缩放
+var resizeCount = 0;
+
+var isAddVehi = false;//是否vehicleManager添加车辆完毕
+var realTimePage = null;
+
+
+
+//模拟点击事件
+function simulationEvent(element){
+	document.getElementById("tab-"+element).click();
+}
+
+function saveMapTypeLoaction(type) {
+    mapTypeLoaction = type;
+    if (type == 3) {//3百度   
+        toMapLoaction = 2;
+    } else if (type == 4) {//  4  高德  
+        toMapLoaction = 3;
+    }else if (type == 9) {//   9 必应
+        toMapLoaction = 9;
+    }  else {//0 谷歌
+        toMapLoaction = 1;
+    }
+    mapTypeReplay = type;
+	$.cookie(LOCTION_MAP_TYPE, mapType, { expires: 365 });
+}
+
+function inintLocationMap(){
+	mapTypeLoaction = $.cookie(LOCTION_MAP_TYPE); 
+	if (mapTypeLoaction == null) {
+		if (langIsChinese()) {
+			mapTypeLoaction = 3;
+            toMap = 2;
+        } else {//非中文默认 谷歌地图
+//            mapTypeLoaction = 0;
+//            toMap = 1;
+        	mapTypeLoaction = 9;
+        	toMap = 9;
+        }
+    } else {
+        mapTypeLoaction = parseInt(mapTypeLoaction);
+    }
+    if (mapTypeLoaction == 0 ) {// 谷歌解析经纬度一致
+        toMapLoaction = 1;	//`
+    } else if (mapTypeLoaction == 4) {//高德
+        toMapLoaction = 3;
+    } else if (mapTypeLoaction == 9) {//必应
+        toMapLoaction = 9;
+    } else {//百度 
+        toMapLoaction = 2;
+    }
+}
+
+$(document).ready(function(){
+	langInitByUrl();
+	inintLocationMap();
+	var _toMap = getUrlParameter("toMap");
+	if (_toMap == "") {
+		mapType = $.cookie(LOCTION_MAP_TYPE);
+	} else {
+		//windows客户端			0: google , 1:mapinfo,  2:google https, 3:baidu, 
+		//#define MAP_TYPE_MAPINFO			1
+		//#define MAP_TYPE_GOOGLE_HTTPS		2
+		//#define MAP_TYPE_BAIDU				3
+		//#define MAP_TYPE_AIRPORT_CHANGSHUI	4
+		//#define MAP_TYPE_AIRPORT_HONGQIAO	5
+		//#define MAP_TYPE_AIRPORT_PUDONG		6
+		//#define MAP_TYPE_AIRPORT_XIAN		7
+		//#define MAP_TYPE_ARC				8
+		//#define MAP_TYPE_MAPBAR				9
+		//#define MAP_TYPE_ARCGIS_EX			10
+		//#define MAP_TYPE_SUPER				11			//超图地图
+		//#define MAP_TYPE_GAODE				12			  //高德
+    	  //#define MAP_TYPE_GAODE				13			  //必应
+		if (_toMap == 0) {
+			mapType = 0;
+		} else if (_toMap == 12) {
+			mapType = 4;
+        } else if (_toMap == 13) {
+            mapType = 9;
+		} else {
+			mapType = 3;
+		}
+	}
+	
+	if (mapType == null) {
+		if (langIsChinese()) {
+			mapType = 3;
+		} else {
+            mapType = 9;
+		}
+	} else {
+		mapType = parseInt(mapType);
+	}
+	if (mapType == 0) {//高德 谷歌解析经纬度一致
+        toMap = 1;
+		window.toMap = 1;	//
+	}else if(mapType == 4) {
+        toMap = 3;	//高德
+        window.toMap = 3;
+    }else if (mapType == 9) {
+        toMap = 9;	//必应
+        window.toMap = 9;
+    } else {
+        toMap = 2;	//百度
+        window.toMap = 2;
+	}
+	loadReadyPage();
+});
+
+function loadReadyPage() {
+	if (typeof parent.lang == "undefined") {
+		setTimeout(loadReadyPage, 50);
+	} else {
+		//初始化样式
+		myPageStyle = new pageStyle();
+		var pageStyleInt = getUrlParameter("pageStyle");//1天空蓝;2夜空黑;3青草绿
+		if(Number(pageStyleInt) &&  0 < Number(pageStyleInt) < 4){
+			SetCookie("style", Number(pageStyleInt));
+		}
+		myPageStyle.initCommonStyle("index");
+		
+		if(myPageStyle.getStyle() == 'hb') {
+			$('#logoImg').css('width', '52px');
+		}else if(myPageStyle.getStyle() == 'gj' || myPageStyle.getStyle() == 'xc') {
+			$('#logoImg').css('width', '50px').css('height', '51px');
+		}
+		
+		var imgUrl =  myPageStyle.getCommonPageUrl('logo');
+		if(myPageStyle.getStyle() == 'jy'){
+			var imgUrls = GetCookie('image');
+			if(imgUrls != 'undefined' && imgUrls != null) {
+				imgUrl = '../'+imgUrls;
+			}
+		}
+		$('#logoImg').attr('src', imgUrl);
+		loadIndexPage();
+	}
+}
+
+function isHBManagement() {
+	return myPageStyle.getStyle() == 'hb';
+}
+
+function getMapType() {
+	return mapType;
+}
+
+function saveMapType(type) {
+	mapType = type;
+/*	if(type == 0) {
+		toMap = 1;
+	}else*/ 
+	if(type == 3){//百度
+		window.toMap = 2;
+	}else if(type == 4) {
+        window.toMap = 3;
+    } else if (type == 9) {//9 必应 
+        window.toMap = 9;
+    } else {//0 谷歌 9 必应 
+        window.toMap = 1;
+	}
+	// $.cookie(DEF_MAP_TYPE, mapType, { expires: 365 });
+}
+
+function getGeocoderMapType() {
+	return myUserRole.getGeocoderMapType();
+}
+
+function getDefaultGeocoderMapType() {
+	return myUserRole.getDefaultGeocoderMapType();
+}
+
+function setMapConfig(jingDu, weiDu, level) {
+	initZoom = level;
+	initJingDu = jingDu;
+	initWeiDu = weiDu;
+	initMapType = mapType;
+}
+
+function getInitZoom() {
+	return initZoom;
+}
+
+function getInitJingDu() {
+	return initJingDu;
+}
+
+function getInitWeiDu() {
+	return initWeiDu;
+}
+
+function getInitMapType() {
+	return initMapType;
+}
+
+//刷新主页面
+function refreshMainPage() {
+	//保存速度单位到Cookie
+	SetCookie("velocityType", myUserRole.getVelocityType());
+	//刷新页面
+	window.location.reload();
+}
+
+function loadIndexPage() {
+	//先判断session，再判断用户名和密码
+	var session = getUrlParameter("userSession");
+	var account_ = getUrlParameter("account");
+	var password_ = getUrlParameter("password");
+	if (session != "" || (account_ != '' && password_ != '')) {
+		setTimeout(directLogin, 100);
+	} else {
+		// 判断session是否被销毁（ie）
+        checkCookieExpire();
+		loadPage();
+		//重新加载一次	标题信息填充等	
+		ajaxLoadInformation();
+//		var mainTitleName = GetCookie('mainTitle');
+//		if(mainTitleName != null && mainTitleName != 'undefined') {
+//			chineseMainTitle = mainTitleName;
+//			englishMainTitle = mainTitleName;
+//			twMainTitle = mainTitleName;
+//			showTitleAndCopyRight();
+//		}else{
+//			if(getUrlParameter("clientLogin") == 1) {
+//				setTimeout(ajaxLoadInformation, 100000);
+//			}
+//		}
+	}
+}
+
+function checkCookieExpire(){
+	// ie生效
+	if(isBrowseIE()) {
+        var isCookieSuc = GetCookie('loginName');
+        if(!isCookieSuc) {
+            alert(lang.errSessionUnvalid);
+            window.location = "login.html?lang="+langCurLocal();
+            // 缓存不再生效
+            return ;
+        }
+	}
+}
+
+function getPageWin(name) {
+	var ret = null;
+	/*if (name == 'weizhi' || name == 'shipin' || name == 'xianlu') {
+		ret = weizhiPage;
+	} else */if(name == 'multimap') {
+		ret = multimapPage;
+	} else if (name == 'guiji') {
+		ret = guijiPage;
+	} else if (name == 'luxiang') {
+		ret = luxiangPage;
+	} else if(name == 'mobileMonitor') {
+		ret = mobileMonitorPage;
+	} else {
+		ret = otherPage;
+	}
+	return ret;
+}
+
+function getPageName(name) {
+	var ret = null;
+	var lstName = name.split(',');
+	for (var i = 0; i < lstName.length; ++ i) {
+		/*if (lstName[i] == 'weizhi' || lstName[i] == 'shipin' || lstName[i] == 'xianlu') {
+			ret = "weizhi";
+			break;
+		} else */if(lstName[i] == 'multimap') {
+			ret = "multimap";
+			break;
+		} else if (lstName[i] == 'guiji') {
+			ret = "guiji";
+			break;
+		} else if (name == 'luxiang') {
+			ret = "luxiang";
+		} else if (name == 'mobileMonitor') {
+			ret = "mobileMonitor";
+		}else {
+			ret = "other";
+			break;
+		}
+	}
+
+	return ret;
+}
+
+/*
+ * 打开界面
+ * direct如果不存在，是否直接打开
+ * 返回已经打开的窗口对象
+ */
+function openMyPage(name, direct, target) {
+	//直接打开，暂时不处理
+	//return window.open(target);
+	
+	var winName = getPageName(name);
+	//firefox 不支持focus，因此直接打开链接
+	if ($.browser.mozilla && direct) {
+		return window.open(target);
+	}
+	
+	var lstName = name.split(',');
+	var hasLoad = false;
+	var pageName = '';
+	for (var i = 0; i < lstName.length; ++ i) {
+		if (lstName[i] != "" && isLoaded(lstName[i])) {
+			hasLoad = true;
+			pageName = lstName[i];
+			break;
+		}
+	}
+	
+	var ret = null;
+	var reOpen = true;
+	if (true) {
+		var page = getPageWin(winName);
+		
+		if (page != null && !page.closed) {
+			try {
+				window.blur();
+				setTimeout(function() {
+					page.focus();
+				}, 10);
+				reOpen = false;
+				ret = page;
+			} catch(e1){
+			}
+		}
+		//可能父窗口打开过，父窗口会再调用次窗口的接口
+		if (reOpen) {
+			if (window.opener != null) {
+				if (typeof window.opener.pageclik != "undefined") {
+					if (getPageName(window.opener.pageclik) == winName) {
+						ret = window.opener;
+						window.blur();
+						setTimeout(function() {	
+							ret.focus();
+						}, 10);
+						reOpen = false;
+					}
+				}
+				if (reOpen && typeof window.opener.openMyPage == "function") {
+					try {
+						ret = window.opener.openMyPage(name, false, target);
+						if (ret != null) {
+							reOpen = false;
+						}
+					} catch(e1){
+					}
+				} 
+			}
+		}
+	}
+	
+	if (reOpen && direct) {
+		ret = window.open(target, winName);
+	}
+	//返回是否打开已经存在的窗口
+	return ret;
+}
+
+//获取页面的url
+var pageUrlList = [];
+function getPageUrl(pageName) {
+	for (var i = 0; i < pageUrlList.length; i++) {
+		if(pageUrlList[i].name == pageName) {
+			return pageUrlList[i].url;
+		}
+	}
+	return "";
+}
+
+function  inintAlarmShiled(isShieldReport){
+	alarmClassNew = new	AlarmShieldManager();
+	var isShieldReport_ = false;
+	if(typeof isShieldReport != 'undefined' && isShieldReport != null 
+			&& isShieldReport == 1) {
+		isShieldReport_ = true;
+	}
+	alarmClassNew.initAlarmShield(isShieldReport_);
+}
+
+//加载主页面
+var isloadSuc = false;//添加div成功
+function loadPage(){
+	$.myajax.jsonGet('StandardLoginAction_getNavPage.action?clientLogin='+getUrlParameter("clientLogin"), function(json,action,success){
+		if(success) {
+			pageUrlList = JSON.parse(decrypt(json.pages,getKey()));
+			userId = GetCookie('userId');
+			account = decrypt(GetCookie('loginName'),getKey());
+			loginAccount =  decrypt(GetCookie('loginAccount'),getKey());
+			companyId = GetCookie('companyId');
+			loadLang();
+			inintAlarmShiled(GetCookie('shieldReport'));
+			//初始化权限处理类
+			myUserRole = new userRole();
+			myUserRole.setPrivileges(GetCookie('privilege'));
+			myUserRole.setIsAdmin(GetCookie('isAdmin'));
+			myUserRole.setIsMaster(GetCookie('isMaster'));
+			myUserRole.setIsFirstCompany(GetCookie('isFirstCompany'));
+			myUserRole.setIsSecondCompany(GetCookie('isSecondCompany'));
+			myUserRole.setIsThreeCompany(GetCookie('isThreeCompany'));
+			myUserRole.setHasAddArea(GetCookie('hasAddArea'));
+			myUserRole.setHasLine(GetCookie('hasLine'));
+			myUserRole.setHasRoadRule(GetCookie('hasRoadRule'));
+			myUserRole.setIsAllowManage(GetCookie('isAllowManage'));
+			myUserRole.setIsManageLine(GetCookie('isManageLine'));
+			myUserRole.setIsSanitationTruck(GetCookie('isSanitationTruck'));
+			myUserRole.setIsChemicals(GetCookie('isChemicals'));
+			myUserRole.setCompanyLevel(GetCookie('level'));
+			myUserRole.setCompanyVerify(GetCookie('verify'));
+			myUserRole.setIsPolice(GetCookie('isPolice'));
+			myUserRole.setBaiDuWebAPIKey(GetCookie('baiDuWebAPIKey'));
+			myUserRole.setGoogleWebAPIKey(GetCookie('googleWebAPIKey'));
+			myUserRole.setGaoDeWebAPIKey(GetCookie('gaoDeWebAPIKey'));
+			myUserRole.setSiWeiWebAPIKey(GetCookie('siWeiWebAPIKey'));
+			myUserRole.setGeocoderMapType(GetCookie('geocoderMapType'));
+			myUserRole.setDefaultGeocoderMapType(GetCookie('defaultGeocoderMapType'));
+			myUserRole.setIsChangePsw(GetCookie('isAllowPassword'));
+			myUserRole.setIsXinTianDi(GetCookie('isXinTianDi'));
+			myUserRole.setIsFangHao(GetCookie('isFangHao'));
+			myUserRole.setIsYunNanTransport(GetCookie('isYunNanTransport'));
+			myUserRole.setIsPoliceOperation(GetCookie('policeOperation'));
+			myUserRole.setGeoAddress(GetCookie('isGeoAddress'));
+			myUserRole.setLoginName(decrypt(GetCookie('loginName'),getKey()));
+			myUserRole.setIsZSYRoadList(GetCookie('isZSYRoadList'));
+//			SetCookie("isDispatcher", json.isDispatcher);
+			myUserRole.setIsDispatcher(GetCookie('isDispatcher'));
+			myUserRole.setVelocityType(GetCookie('velocityType'));
+			myUserRole.setIsMuck(GetCookie('isMuck'));
+			myUserRole.setIsXinJiang(GetCookie('isXinJiang'));
+			myUserRole.setSTY(GetCookie('isSTY'));
+			myUserRole.setIsVehiInternet(GetCookie('isVehiInternet'));
+			myUserRole.setIsHaiJu(GetCookie('isHaiJu'));
+			myUserRole.setShieldReport(GetCookie('shieldReport'));
+			myUserRole.setIsLoadMapFence(GetCookie('loadMapFence'));
+			myUserRole.setIsRealVedioGps(GetCookie('realVideo'));
+			myUserRole.setIsBackVedioGps(GetCookie('backVideo'));
+			myUserRole.setAlarmParam(GetCookie('alarmParam'));
+			//账号是否禁用修改密码 
+			if(!myUserRole.isChangePsw()){
+				$('.down .arrows').hide();
+				$('.quick-menu').hide();
+			}else{
+				$(".login-mess .down").click(function(){
+					$(".quick-menu").slideDown(300);
+					$(".quick-menu").mouseleave(function(){
+						$(this).hide();
+					});
+				});
+			}
+			
+			if(myUserRole.isChemicals() && !myUserRole.isAdmin()) {
+				$('.login-mess #perfectInfo').show();
+			}
+			//计算打开的页面标签
+			var pageNameList = [];
+			var decryPages = JSON.parse(decrypt(json.pages,getKey()));
+			$.each(decryPages,function(i, page){
+				pageNameList.push(page.name);
+			});
+			if(pageclik == '') {
+				var temppage = $.cookie(DEF_PAGE_MONITOR);
+				if (temppage != null) {
+					if(!pageNameList.in_array(temppage) ) {
+						pageclik = pageNameList[0];
+					}else {//cookie清空前 退出重新登录 存在异常现象  刷新页面 ，非loaction 导致alarmClass 未初始化， 轨迹回放报警屏蔽无效
+						if(isLogin && isLogin == 1){//登录操作
+							pageclik = temppage;
+						}else{
+							pageclik = temppage;
+						}
+					}
+				}
+				if (pageclik == '') {
+					pageclik = pageNameList[0];
+					if(pageclik == 'monitore'){
+						pageclik = pageNameList[1];
+					}
+				}
+			}
+			//生成导航
+			var content = "";
+			var mod = [];
+			/*var safeDrive = {
+		        "name":"anquanjiashi",
+		        "index":null,
+		        "lang":null,
+		        "privi":22,
+		        "url":"http://116.62.49.212:9090/apc/login.do",
+		        "title":null
+		    };
+			json.pages.push(safeDrive);*/
+			$.each(decryPages,function(i, page){
+				var title = getPageDisplay(page.privi);
+				var pclass = "";
+				if(page.name == pageclik) {
+					pclass = "current";
+					document.title = title;
+					if(GetCookie('maintitle')) {
+						document.title += '-' + GetCookie('maintitle');
+					}
+					if(page.name == 'weizhi' || page.name == 'shipin' || page.name == 'xianlu') {
+						if(pageclik == 'weizhi' || pageclik == 'shipin' || pageclik == 'xianlu') {
+							controlMonitorPage(pageclik);
+						}
+					}
+					content += getMainPane(page.name,page.url,pclass);
+				}
+				var display = title;
+				if(title != null && title.length != null && title.length > 10) {
+					display = title.substring(0,10)+'...';
+				}
+				mod.push({
+					display: display,
+					title: title,
+					name: page.name,
+					pclass: pclass,
+					preicon : true
+				});
+				
+				if( (pageclik == 'guiji' && page.name == 'guiji') 
+						|| (pageclik == 'weizhi' && page.name == 'weizhi') 
+						|| (pageclik == 'shipin' && page.name == 'shipin')
+						|| (pageclik == 'xianlu' && page.name == 'xianlu')
+						|| (pageclik == 'luxiang' && page.name == 'luxiang')
+						|| (pageclik == 'multimap' && page.name == 'multimap') 
+						|| (pageclik == 'lineguiji' && page.name == 'lineguiji')
+						|| (pageclik == 'mobileMonitor' && page.name == 'mobileMonitor')
+						|| (pageclik == 'tongji' && page.name == 'tongji')
+						|| (pageclik == 'safety' && page.name == 'safety')
+						|| (pageclik == 'playback' && page.name == 'playback')) {
+					weizhiPage = page.name;
+				}
+			});
+			$('#rightTabs').flexPanel({
+				TabsModel : mod
+			});
+			
+			// 安全驾驶tag样式调整
+			/*var anquanjiashiDiv = [];
+			anquanjiashiDiv.push('<a title="安全驾驶" style="padding: 18px 22px;"><div style="height:15px;width:70px"></div><span class="text">安全驾驶</span></a>');
+			$("#tab-anquanjiashi").html(anquanjiashiDiv);*/
+			
+			//添加页面
+			//只添加打开的页面
+			$('#mainPanel-all').append(content);
+			
+			//点击后加载其他页面
+			$('#rightTabs li').each(function(i){
+				var name = $(this).attr('data-tab');
+				var target = "index.html?lang="+langCurLocal() + "&pageclik="+name;
+				$(this).on('click',function(){
+						//录像回放
+					loadDefaultValue(name);
+					
+					if(name == 'safeDashboard' || name == 'realTime' || name == 'playback' || name == 'safety' || name == 'monitore' 
+						|| name == 'customer' || name == 'guiji' || name == 'luxiang' || name == 'tongji' || name == 'yunying' || name == 'guize' || name == 'server'){
+						loadSubPage(this, name);
+						controlMonitorPage(name);
+					}else if(name == 'guiji' || name == 'luxiang' || name == 'multimap' || name == 'lineguiji' || name == 'mobileMonitor') {
+						if(name == 'guiji') {
+							if(pageclik != 'guiji') {
+								guijiPage = openMyPage('guiji', true, target);
+							}else {
+								loadSubPage(this, name);
+							}
+						}else if(name == 'luxiang') {
+							if(pageclik != 'luxiang') {
+								luxiangPage = openMyPage('luxiang', true, target);
+							}else {
+								loadSubPage(this, name);
+							}
+						}else if(name == 'multimap') {
+							if(pageclik != 'multimap') {
+								multimapPage = openMyPage('multimap', true, target);
+							}else {
+								loadSubPage(this, name);
+							}
+						}else if(name == 'lineguiji') {
+							if(pageclik != 'lineguiji') {
+								guijiPage = openMyPage('lineguiji', true, target);
+							}else {
+								loadSubPage(this, name);
+							}
+						}else if(name == 'mobileMonitor') {
+							if(pageclik != 'mobileMonitor') {
+								guijiPage = openMyPage('mobileMonitor', true, target);
+							}else {
+								loadSubPage(this, name);
+							}
+						}
+					}else if(name == 'denglu'){
+						window.open("http://yaozw.gicp.net:8001/index_jqsd.asp");//location.href = "http://yaozw.gicp.net:8001/index_jqsd.asp";
+					}/*else if (name == 'anquanjiashi') {
+						window.open("http://116.62.49.212:9090/apc/login.do");
+					}*/else {
+						if(pageclik == 'guiji' || pageclik == 'luxiang' || pageclik == 'multimap' || pageclik == 'lineguiji' || pageclik == 'mobileMonitor') {
+							if(pageclik == 'guiji' || pageclik == 'luxiang' ){
+								loadSubPage(this, name);
+								controlMonitorPage(name);
+							}else{
+								otherPage = openMyPage('weizhi,shipin,xianlu,safety,tongji,yunying,xiaoche,lajiche,taxi,guize,server,whMgr,police,waybill', true, target);
+							}
+						}else {
+							if(name == 'weizhi' || name == 'shipin' || name == 'xianlu') {
+								if(name == 'weizhi' || name == 'shipin' ){
+									loadSubPage(this, name);
+								}else{
+									loadSubPage(this, weizhiPage);
+								}
+								controlMonitorPage(name);
+							}else {
+								loadSubPage(this, name);
+								$.cookie(DEF_PAGE_MONITOR, name, { expires: 365 });
+								setChildPanelWidth(name);
+							}
+						}
+					}
+				});
+			});
+			loadDefaultValue(pageclik);
+			// 加载地图参数配置（包括离线地图跟https，用户key配置）
+			loadMapConfig(clientMapType);
+			//自动退出
+			loginOutAuto();
+			setPanelWidth();
+			isloadSuc = true;
+		};
+	}, null);
+	
+	
+	var ctype = getUrlParameter("ctype");
+	if(ctype != 1) {
+		$('.login-mess').show();
+	}else{//客户端登录 防止五分钟失效
+//		setInterval(ajaxLoadInformation, 25000);
+	}
+	//控制面板无操作问题  防止五分钟失效  三分钟刷新一次
+	setInterval(ajaxLoadInformation, 180000);
+	var buttons = [];
+	var but = [];
+	but.push({
+		display: parent.lang.close, 
+		name : '', 
+		pclass : 'close',
+		bgcolor : 'gray', 
+		hide : false
+	});
+	buttons.push(but);
+	$('#toolbar-btn').flexPanel({
+		ButtonsModel : buttons 
+	});
+	$('#browserTip').text(parent.lang.browser_tip);
+	/*$('#browser').width(window.screen.availWidth);
+	$('#browserTip').width(window.screen.availWidth-200);*/
+	$('#toolbar-btn').width(100);
+
+	 var localLang = GetCookie("language");
+//	isWeather
+	 if(localLang.indexOf('zh')  == -1){
+		 $('.isWeather').hide();
+	 }
+
+	$('.close','#toolbar-btn').on('click',function(){
+		$('#browser').hide();
+	});
+	//修改密码
+	$('.login-mess .password').on('click',function() {
+		$.dialog({id:'setPwd', title:parent.lang.modify_password,content: 'url:OperationManagement/user_password.html?id='+userId,
+            width:'500px',height:'220px',min:false, max:false, lock:true});
+		$('.quick-menu').hide();
+	});
+
+	//退出操作
+	$('#login-out').on('click',function(){
+		if(!confirm(lang.isExit)) {
+			return;
+		}
+		//发送退出登录的请求
+		$.myajax.showLoading(true, lang.home_exitTip);
+		$.myajax.jsonGet("StandardLoginAction_logout.action", function(json,action,success){
+			$.myajax.showLoading(false);
+			//重定向到登录界面
+			window.location = "login.html";
+//			SetCookie("pagecliks", '');
+		}, null);
+		//避免发送请求时间过长
+		setTimeout(function () {
+			//重定向到登录界面
+			window.location = "login.html";
+		}, 2000);
+	});
+	
+	//设置页面宽度
+	setPanelWidthEx();
+	//禁止系统右键
+	disableSysRight('body',true);
+};
+
+var isLoadDefaultValue = false;
+function loadDefaultValue(pageclik_){
+	if(pageclik_ != 'safeDashboard' && pageclik_ != 'tongji' && !isLoadDefaultValue){
+		//获取授权车辆等信息
+		getUserVehicles();
+		if(myUserRole.isDispatcher()){
+			getUserAllVehicles();
+			getUserDispatchGroup();
+		}
+		//获取公司信息
+		getParentCompanyTeams();
+		//获取区域信息
+		mapMarkManager.getMapmarkers();
+		//获取授权车辆信息
+		getParentVehiList();
+		//每隔5分钟刷新公司信息和授权车辆信息，如果有改变
+		flashCompanyTeamsAndVehicleTimer();
+		//获取司机信息
+		getParentDrivers();
+		//如果是危化监管平台
+		if(myUserRole.isChemicals()) {
+			//不是管理员
+			if(!myUserRole.isAdmin()) {
+				//判断是否已审核通过
+				loadCompanyVerify();
+				//获取信息完善界面
+				loadInfoPerfectPage();
+				//初始化公告信息管理
+				bulletin = new standardBulletin();
+				bulletin.initialize();
+				//加载当前公司信息
+				if(!myUserRole.isRescueCompany()) {
+					loadCurrentCompanyInfo();
+				}
+			}
+		}
+		if(myUserRole.isIsLoadMapFence()) {
+			getUserMapFenceRule();
+		}
+		isLoadDefaultValue = true;
+	}
+}
+
+
+
+var loginTime = null;
+var nowTime = null;
+var outTime = null;
+function loginOutAuto(){
+	//退出登录的分钟数
+	if(outTime == null){
+		outTime = GetCookie('loginOut');
+	}
+	if(outTime && outTime > 0){
+		if(loginTime == null){//设置登录时间
+			loginTime = new Date();
+		}
+		nowTime = new Date();
+		if(nowTime.getTime() - loginTime.getTime() > outTime*60*1000){
+			doLoginOut();
+		}else{
+			//每五秒判断是否需要退出
+			setTimeout(loginOutAuto, 5000);
+		}
+	}
+}
+
+function doLoginOut(){
+	//发送退出登录的请求
+	$.myajax.showLoading(true, lang.home_exitTip);
+	$.myajax.jsonGet("StandardLoginAction_logout.action", function(json,action,success){
+		$.myajax.showLoading(false);
+		//重定向到登录界面
+		window.location = "login.html";
+//		SetCookie("pagecliks", '');
+	}, null);
+	//避免发送请求时间过长
+	setTimeout(function () {
+		//重定向到登录界面
+		window.location = "login.html";
+	}, 2000);
+}
+
+
+//设置页面宽度
+function setPanelWidthEx() {
+	if(isloadSuc) {
+		//设置页面大小
+		setTimeout(setPanelWidth, 200);
+	}else {
+		setTimeout(setPanelWidthEx, 50);
+	}
+}
+
+//设置子页面宽度大小
+function setChildPanelWidth(name) {
+	var child = $('#right-'+name, "#mainPanel-"+name).get(0);
+	if(child != null) {
+		if (typeof child.contentWindow.loadReportTableWidth == "function") {
+			if(typeof child.contentWindow.fixHeight == "function") {
+				child.contentWindow.loadReportTableWidth(child.contentWindow.fixHeight);
+			}else {
+				child.contentWindow.loadReportTableWidth();
+			}
+		}
+	}else {
+		//调整每个标签页管理的大小
+		if(mapPageManage != null) {
+			var pageManage_ = mapPageManage.get(name);
+			if(pageManage_ && typeof pageManage_.pageManageResize == "function") {
+				pageManage_.pageManageResize();
+			}
+		}
+		
+		/*$("#mainPanel-"+name+' .iframePage iframe').each(function() {
+			if (typeof this.contentWindow.loadReportTableWidth == "function") {
+				if(typeof this.contentWindow.fixHeight == "function") {
+					this.contentWindow.loadReportTableWidth(this.contentWindow.fixHeight);
+				}else {
+					this.contentWindow.loadReportTableWidth();
+				}
+			}
+		});*/
+	}
+}
+
+//切换主菜单界面
+function switchTopMenuPage(name) {
+	if(name != null && name != '') {
+		$('#tab-'+name).click();
+	}
+}
+
+var monitorName = "";
+function controlMonitorPage(name) {
+	$.cookie(DEF_PAGE_MONITOR, name, { expires: 365 });
+	monitorName = name;
+	switchMonitorPage();
+}
+
+//设置实时监控界面
+function setCookiePage(name){
+	if(myUserRole.IsRealVedioGps()){
+		$.cookie(DEF_PAGE_REALTIME, name, { expires: 365 });
+	}
+}
+
+
+function reloadPage(type){
+	document.getElementById('all-'+type).src = getPageUrl(type)+'.html';  
+}
+
+function reloadPlayBackPage(type, url){
+	document.getElementById('all-'+type).src = url;  
+}
+
+//加载子页面
+function loadSubPage(tabObj, pageName) {
+	$(tabObj).addClass('current').siblings().removeClass("current");
+	document.title = $(tabObj).find('.text').html();
+	if(GetCookie('maintitle')) {
+		document.title += '-' + GetCookie('maintitle');
+	}
+	if(screenWidth<1024){
+        screenWidth = 1100;
+	}
+	if($('#mainPanel-all #mainPanel-'+pageName).length <= 0) {
+		$('#mainPanel-all').append(getMainPane(pageName, getPageUrl(pageName), ""));
+		if(pageName == 'safeDashboard'){
+			$('#mainPanel-all #mainPanel-'+pageName).css('min-height', window.screen.height*0.64+170);
+		}else{
+			$('#mainPanel-all #mainPanel-'+pageName).css('height', indexHeight - 5 +'px');
+		}
+		$('#mainPanel-all #mainPanel-'+pageName).find('#leftPanel').css('width','250px').css('height', indexHeight - 5 +'px');
+		$('#mainPanel-all #mainPanel-'+pageName).find('#rightPanel').css('width', screenWidth - 250 +'px').css('height', indexHeight - 5 +'px').css("marginLeft", "250px");
+	}
+    if(pageName == 'safeDashboard'){
+        $('#mainPanel-all #mainPanel-safeDashboard').css('min-height', window.screen.height*0.64+170);
+    }else{
+        $('#mainPanel-all #mainPanel-safeDashboard').css('min-height','0px');
+    }
+
+	$('#mainPanel-all #mainPanel-'+pageName).addClass('current').siblings().removeClass("current");
+}
+
+function switchMonitorPage() {
+	var obj = document.getElementById('all-weizhi');
+	if (obj == null) {
+		obj = document.getElementById('all-shipin');
+		if (obj == null) {
+			obj = document.getElementById('all-xianlu');
+		}
+	}
+	
+	if (obj == null	|| typeof obj.contentWindow.showMonitorPage != "function") {
+		setTimeout(switchMonitorPage, 50);
+	} else {
+		if(monitorName == 'weizhi' || monitorName == 'shipin'){
+			//需要判断当前角色是否具有视频和定位两个权限
+			if(myUserRole.IsRealVedioGps()){
+				realTimePage = $.cookie(DEF_PAGE_REALTIME);
+			}
+			if(realTimePage && realTimePage !=  monitorName){
+				obj.contentWindow.showMonitorPage(realTimePage);
+			}else{
+				obj.contentWindow.showMonitorPage(monitorName);
+			}
+		}else{
+			obj.contentWindow.showMonitorPage(monitorName);
+		}
+	}
+}
+
+function loadLang() {
+	$('#main .mainTitle').attr('title',lang.title);
+	$('#main .mainTitle img').attr('alt',lang.title);
+	document.title = lang.operations_management;
+	if(GetCookie('maintitle')) {
+		document.title += '-' + GetCookie('maintitle');
+	}
+	if(account && account.length > 6) {
+		$('.login-mess .account').text(account.substring(0,6)+'...');
+	}else {
+		$('.login-mess .account').text(account);
+	}
+	$('.login-mess .account').attr('title',account);
+	$('.login-mess .login-out').attr('title',lang.logout);
+	
+	if(myPageStyle.styleId == 2 || myPageStyle.styleId == 3) {
+		$('.login-mess .login-out span').text(lang.logout);
+	}
+	if(lang.modify_password.length > 6) {
+		$('.login-mess .password').text(lang.modify_password.substring(0,6)+'...');
+	}else {
+		$('.login-mess .password').text(lang.modify_password);
+	}
+	$('.login-mess .password').attr('title',lang.modify_password);
+	if(GetCookie('maintitle')) {
+		var title_now =  GetCookie('maintitle');
+		if(title_now && title_now != ''){
+			var mainTitle = title_now.split('&')[0];
+			var mainTitleSub = '';
+			if(title_now.split('&').length > 1){
+				mainTitleSub = title_now.split('&')[1];
+			}
+			var html_ = '<span id="mainTitle">'+mainTitle+'</span><span id="mainTitleSub" style="display: block;font-size: 11px;" >'+mainTitleSub+'</span>';
+			$('#spanTitle').empty();
+			$('#spanTitle').append(html_);
+		}
+	}
+	$('.login-mess .perfectInfo').text('信息完善');
+	$('.login-mess .perfectInfo').attr('title', '信息完善');
+}
+
+function doPasswordSuc() {
+	$.dialog({id:'setPwd'}).close();
+	$.dialog.tips(parent.lang.saveok, 1);
+}
+
+/**
+ * 获取页面名称
+ */
+function getPageDisplay(key) {
+	var name = '';
+	switch (key) {
+	case 1:
+		name = lang.location_positioning;
+		break;
+	case 2:
+		name = lang.statistical_reports;
+		break;
+	case 3:
+		name = lang.operations_management;
+		break;
+	case 4:
+		name = lang.Internal_management;
+		break;
+	case 5:
+		name = lang.rules_management;
+		break;
+	case 6:
+		name = lang.Server_management;
+		break;
+	case 7:
+		name = lang.track_management;
+		break;
+	case 8:
+		name = lang.real_time_video;
+		break;
+	case 9:
+		name = lang.video_query;
+		break;
+	case 10:
+		name = '基础信息管理';
+		break;
+	case 11:
+		name = parent.lang.monitor_lineMonitor;
+		break;
+	case 12:
+		name = parent.lang.school_bus_management;
+		break;
+	case 13:
+		name = parent.lang.zt;
+		break;
+	case 14:
+		name = parent.lang.multimap;
+		break;
+	case 15:
+		name = "智慧出租";
+		break;
+	case 16:
+		if(myUserRole.isAdmin()) {
+			name = "危化管理";
+		}else {
+			name = "运营管理";
+		}
+		break;
+	case 17:
+		name = parent.lang.policeManager;
+		break;
+	case 18:
+		name = "线路回放";
+		break;
+	case 19:
+		name = "流量卡管理";
+		break;
+	case 20:
+		name = parent.lang.wayBill;
+		break;
+	case 21:
+		name = "移动监管";
+		break;
+	case 22:
+		name = "安全驾驶";
+		break;
+	case 23:
+		name = parent.lang.customer;
+		break;	
+	case 24:
+		name =  parent.lang.safetyBoard;
+		break;	
+	case 25:
+		name = parent.lang.real_time_monitoring;
+		break;		
+	case 26:
+		name = parent.lang.history_back;
+		break;	
+	case 27:
+		name = parent.lang.safetyManager;
+		break;
+	case 88:
+		name = "智能监管";
+		break;	
+	}
+	return name;
+}
+
+/**
+ *	获取对应页面
+ */
+function getMainPane(name,url,pclass) {
+	var content = '';
+	content += '<div id="mainPanel-'+name+'" class="mainPanel '+ pclass +'">';
+	
+	/*if(name == 'guiji' || name == 'weizhi' || name == 'shipin' || name == 'shouye') {
+		if(name == 'shipin' || name == 'weizhi') {
+			url += ".html";
+		} else if (name == 'shouye'){
+			url = url;
+		} else {
+			url += ".html";
+		}*/
+	if(name == 'monitore' || name == 'guiji' || name == 'weizhi' || name == 'shipin' || name == 'xianlu' || name == 'luxiang' || name == 'multimap' || name == 'lineguiji' || name == 'flow'
+		|| name == 'safeDashboard' || name == 'mobileMonitor'  || name == 'realTime'   ) {
+		url += ".html";
+		content += 	'<iframe id="all-'+name+'" width="100%" height="100%" frameborder="0" src="'+url+'"></iframe>';
+	}else if(name == 'playback' ){
+		content += 	'<iframe id="all-'+name+'" width="100%" height="100%" frameborder="0" src="'+url+'"></iframe>';
+	}else {
+		content += 	'<div id="leftPanel">';
+		content += 	'<iframe id="left-'+name+'" width="100%" height="100%" frameborder="0" src="'+url+'"></iframe>';
+		content += 	'</div>';
+		content += 	'<div id="rightPanel">';
+		if(name == 'guize') {
+			content += 	'<iframe id="right-'+name+'" width="100%" height="100%" frameborder="0" src="RulesManagement/'+ myPageStyle.getCommonPageUrl('RuleMaintain') +'.html"></iframe>';
+		}else if(name == 'server') {
+			content += 	'<iframe id="right-'+name+'" width="100%" height="100%" frameborder="0" src="ServerManagement/AllServer.html?"></iframe>';
+		}else if(name == 'customer' || name == 'safety' || name == 'tongji' || name == 'yunying' || name == 'xiaoche' || name == 'lajiche' || name == 'taxi' || name == 'whMgr' || name == 'police'|| name == 'waybill') {
+//			content += 	'<div id="'+ name +'Top" class="paneTop">标签页</div>';
+//			content += 	'<iframe id="right-'+name+'" width="100%" height="100%" frameborder="0" src=""></iframe>';
+		}else {
+			content += 	'<iframe id="right-'+name+'" width="100%" height="100%" frameborder="0" src=""></iframe>';
+		}
+		content += 	'</div>';
+		
+		
+	}
+	content +=  '</div>';
+	return content;
+}
+
+/**
+ *设置页面大小
+ */
+ function setPanelWidth() {
+	var offsetWidth = document.body.offsetWidth;
+	if (!$.support.leadingWhitespace) {		//ie8 
+		//alert($(window).height() + " - " + screenHeight);
+		if (resizeCount > 3) {
+			if ($(window).height() == screenHeight || $(window).height() + 23 == screenHeight) {
+				return ;
+			} else {
+				//resizeCount = 0;
+			}
+		}
+	} 
+
+	resizeCount ++;
+	var screenCssPixelRatio = 1;
+	if (typeof window.outerWidth != "undefined" && typeof window.outerWidth != "undefined") {
+		screenCssPixelRatio = window.outerWidth/window.innerWidth;
+	}
+	screenWidth =  window.screen.availWidth / screenCssPixelRatio; //$(window).width();//
+	if (screenWidth < 1280) {
+		screenWidth = 1280;
+	}
+	
+	//获取网页可见区域宽（包括边线）
+	screenHeight = $(window).height();//document.documentElement.clientHeight;//$(window).height();// window.screen.availHeight;
+	//不能少于1024
+	indexHeight = screenHeight;
+	if (!$.support.leadingWhitespace) {
+		//ie8
+		screenWidth -= 10;
+		indexHeight -= 2;
+	}
+	if($('#main-topPanel').hasClass('show')) {
+		indexHeight = indexHeight - $('#main-topPanel').height();
+	}
+	indexWidth = screenWidth;
+	mainHeight = screenHeight - 100;
+	
+	var li = $('#rightTabs ul li').size(); //导航数量
+	var width = $('#main-topPanel .header-title').width(); //左侧图标大小
+	
+	$('#main-topPanel').css('min-width', li*80+width+88+240+'px');
+	$('#main-topPanel #rightTabs').css('min-width',li*80+20+'px');
+//	$('#mainPanel-all').css('min-width', '1263px');
+	$('#mainPanel-all').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-all .mainPanel').each(function(){
+		$(this).css('height', indexHeight - 5 +'px');
+		$(this).find('#leftPanel').css('width','250px').css('height', indexHeight - 5 +'px');
+		$(this).find('#rightPanel').css('width', screenWidth - 300 +'px').css('height', indexHeight - 5 +'px').css("marginLeft", "250px");
+	});
+	$('#mainPanel-weizhi').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-guiji').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-luxiang').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-shipin').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-tongji').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-yunying').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-guize').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-server').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-monitore').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-safety').css('min-width', li*80+width+88+240+'px');
+	$('.current#mainPanel-safeDashboard').css('min-height', window.screen.height*0.64+170);
+    $('#mainPanel-safeDashboard').css('min-width', li*80+width+88+240+'px');
+	$('#mainPanel-playback').css('min-width', li*80+width+88+240+'px');
+    $('#mainPanel-playback').css('height', indexHeight - 5 +'px');
+	var width = $(window).width();
+	var height = $(window).height();
+	//不能少于1024
+	if(width < 1024) {
+		width = 1100;
+	}
+
+	$('#main #rightPanel').width(width - $('#leftPanel').width());
+
+
+//	$('#mainPanel-tongji').find('#rightPanel').css('width', screenWidth - 300 +'px').css('height', indexHeight - 5 +'px').css("marginLeft", "250px");
+//	$('#mainPanel-monitore').css('min-height', '680px');
+	
+	/*$('#main-topPanel').css('min-width', '1330px');
+	$('#mainPanel-all').css('min-width', '1063px');
+	$('#mainPanel-all .mainPanel').each(function(){
+		$(this).css('height', indexHeight - 5 +'px');
+		$(this).find('#leftPanel').css('width','250px').css('height', indexHeight - 5 +'px');
+		$(this).find('#rightPanel').css('width', screenWidth - 255 +'px').css('height', indexHeight - 5 +'px').css("marginLeft", "250px");
+	});
+	$('#mainPanel-weizhi').css('min-width', '1330px');
+	$('#mainPanel-guiji').css('min-width', '1330px');
+	$('#mainPanel-luxiang').css('min-width', '1330px');
+	$('#mainPanel-shipin').css('min-width', '1330px');
+	$('#mainPanel-tongji').css('min-width', '1330px');
+	$('#mainPanel-yunying').css('min-width', '1330px');
+	$('#mainPanel-guize').css('min-width', '1330px');
+	$('#mainPanel-server').css('min-width', '1330px');*/
+	//修改样式
+	if(myPageStyle) {
+		myPageStyle.setIndexItemWidth();
+	}
+ }
+
+var vehicleManager = new VehicleManager(); //车辆管理类
+var vehicleList = null;	//车辆链表(报表等页面)
+var vehicleListEx = null; //车辆列表（位置定位等页面）
+var vehicleAllListEx = null;//所有车辆 包含协同小组未授权的车辆   （位置定位等页面）
+
+var vehiGroupList = null;	//车辆车队链表
+
+
+var vehiLineList = null;	//所有线路
+var vehiOilList = new Array();
+var vehiOBDList = new Array();
+var vehiPeopleList = new Array();
+var vehiTpmsList = new Array();
+var vehiTempList = new Array();
+var companys = null; //公司链表
+var driverList = new Array();
+//var mapMarker = new Array(); //全部区域
+var isLoadVehiGroupList = false; // 是否已经加载车队链表
+var isLoadCompanyList = false; //是否已经加载公司链表
+var isLoadDriverList = false; //是否已经加载司机链表
+var isLoadVehiList = false;	//是否已经加载车辆列表
+var alarmClass = null;	//车辆报警监听类,子页面传递过来
+var alarmClassNew = null;
+var isChangedVehiGroup = false; //是否改变了公司车队信息
+var isChangedVehicle = false; //是否改变了授权车辆信息
+var isLoadMapMarkerList = false; //是否加载区域信息
+var flashCompanyTeamsAndVehicleTime = 10000; //刷新信息时间间隔
+var departments = []; //部门列表
+
+
+//每隔10分钟刷新公司信息和授权车辆信息，如果有改变
+function flashCompanyTeamsAndVehicleTimer() {
+	setTimeout(flashCompanyTeamsAndVehicle, flashCompanyTeamsAndVehicleTime);
+}
+
+function flashCompanyTeamsAndVehicle() {
+	//如果公司信息有改变
+	if(isChangedVehiGroup) {
+		getParentCompanyTeams();
+		isChangedVehiGroup = false;
+	}
+	//如果授权车辆信息有改变
+	if(isChangedVehicle) {
+		getParentVehiList();
+		isChangedVehicle = false;
+	}
+	flashCompanyTeamsAndVehicleTimer();
+}
+
+/**
+ * 获得账号下可选公司和车队  报表等页面
+ */
+function getParentCompanyTeams() {
+	$.myajax.jsonGet('StandardLoginAction_loadCompanyList.action', function(json,action,success){
+		if(success) {
+			vehiGroupList = json.companys;
+			companys = [];
+			vehiLineList = [];
+			departments = [];
+			for(var i = 0; i < vehiGroupList.length; i++) {
+				if(vehiGroupList[i].level == 1 || vehiGroupList[i].level == 4) {
+					companys.push(vehiGroupList[i]);
+				}else if(vehiGroupList[i].level == 3){
+					vehiLineList.push(vehiGroupList[i]);
+				}else if(vehiGroupList[i].level == 12) {
+					departments.push(vehiGroupList[i]);
+				}
+			}
+			isLoadVehiGroupList = true;
+		};
+	}, null);
+}
+
+
+var mapMarkManager = new MapMarkManager();
+//获取区域信息(所有的区域信息)
+//获取区域信息()
+//设置经纬度半径等详细信息
+function getMapmarkerInfo(id) {
+	$.myajax.jsonGet('StandardLoginAction_findArea.action?id='+id, function(json,action,success){
+		if(success) {
+			var mapMarkerInfo = json.marker;
+			var  mapMark = mapMarkManager.getMapMark(mapMarkerInfo.id);
+			mapMark.setStandardMarkJingWei(mapMarkerInfo);
+			mapMarkManager.addMapMark(mapMarkerInfo.id, mapMark);
+		};
+	}, null);
+}
+
+
+/**
+ * 获取公司下司机信息
+ */
+function getParentDrivers(){
+	$.myajax.jsonGet('StandardLoginAction_loadDriverList.action?type=0', function(json,action,success){
+		if(success) {
+			driverList = json.infos;
+			isLoadDriverList = true;
+		};
+	}, null);
+}
+
+/**
+ * 获取已授权车辆，报表等页面
+ */
+function getParentVehiList() {
+	$.myajax.jsonGet('StandardLoginAction_loadUserVehicleList.action', function(json,action,success){
+		if(success) {
+			vehicleList = json.vehicles;
+			for (var i = 0; i < vehicleList.length; i++) {
+				if(vehicleList[i].count != null && vehicleList[i].count == 1){
+					vehiOilList.push(vehicleList[i]);
+				}
+				if(vehicleList[i].obd != null && vehicleList[i].obd == 1){
+					vehiOBDList.push(vehicleList[i]);
+				}
+				if(vehicleList[i].level != null && vehicleList[i].level == 1){
+					vehiPeopleList.push(vehicleList[i]);
+				}
+				if(vehicleList[i].tpms != null && vehicleList[i].tpms == 1){
+					vehiTpmsList.push(vehicleList[i]);
+				}
+				if(vehicleList[i].temp != null && vehicleList[i].temp == 1){
+					vehiTempList.push(vehicleList[i]);
+				}
+			}
+			isLoadVehiList = true;
+		};
+	}, null);
+}
+
+//加载线路和站点信息
+function loadLineStationManage(lineInfos_, stationInfos_, lineRelations_, groupInfos_) {
+	//分解线路分组信息
+	if(groupInfos_ != null && groupInfos_.length > 0) {
+		for (var i = 0; i < groupInfos_.length; i++) {
+			var group_ = new StandardLineGroup(groupInfos_[i].id, groupInfos_[i].name);
+			group_.setLineGroupInfo(groupInfos_[i]);
+			vehicleManager.addLineGroup(groupInfos_[i].id, group_);
+		}
+	}
+	//分解线路信息
+	if(lineInfos_ != null && lineInfos_.length > 0) {
+		for (var i = 0; i < lineInfos_.length; i++) {
+			var line_ = new standardLine(lineInfos_[i].id, lineInfos_[i].name);
+			line_.setRoleCls(myUserRole);
+			line_.setStandardLine(lineInfos_[i]);
+			vehicleManager.addLineInfo(lineInfos_[i].id, line_);
+		}
+	}
+	//站点信息
+	if(stationInfos_ != null && stationInfos_.length > 0) {
+		for (var i = 0; i < stationInfos_.length; i++) {
+			var station_ = new standardStation(stationInfos_[i].id, stationInfos_[i].name);
+			station_.setMapType(mapType);
+			station_.setRoleCls(myUserRole);
+			station_.setStandardStation(stationInfos_[i]);
+			vehicleManager.addStationInfo(stationInfos_[i].id, station_);
+		}
+	}
+	//站点关联信息
+	if(lineRelations_ != null && lineRelations_.length > 0) {
+		for (var i = 0; i < lineRelations_.length; i++) {
+			var relation_ = new lineStationRelation(lineRelations_[i].id);
+			relation_.setRoleCls(myUserRole);
+			relation_.setLineStationRelation(lineRelations_[i]);
+			//线路id-线路方向-站点索引
+			var relationId_ = relation_.getLineId()+'-'+relation_.getLineDirect()+'-'+relation_.getStationIndex();
+			vehicleManager.addStationRelation(relationId_, relation_);
+			//添加站点id到线路信息
+			var line_ = vehicleManager.getLineInfo(relation_.getLineId());
+			if(line_ != null) {
+				var station = vehicleManager.getStationInfo(relation_.getStationId());
+				line_.addStation(station, relation_.getLineDirect(), relation_.getStationIndex());
+			}
+		}
+	}
+}
+
+//加载司机信息
+function loadDriverManage(drivers) {
+	if(drivers != null && drivers.length > 0) {
+		for (var i = 0; i < drivers.length; i++) {
+			var driver = new standardDriver(drivers[i].id, drivers[i].dn);
+			driver.setStandardDriver(drivers[i]);
+			vehicleManager.addDriverInfo(drivers[i].id, driver);
+		}
+	}
+}
+
+
+
+function loadAllVehiToMap() {
+	if(vehicleAllListEx != null && vehicleAllListEx.length > 0) {
+		var tempArray = [];
+		var sortVehiList = [];
+		//先解析车辆信息，放入sortVehiList链表中
+		for (var i = 0; i < vehicleAllListEx.length; i++) {
+			var vehi_old = vehicleAllListEx[i];
+			var vehi = new standardVehicle(vehi_old.nm);
+			vehi.setVehicle(vehi_old);
+			//环卫不添加车牌号到线路
+			if(vehi_old.dl != null) {
+				var devices = vehi_old.dl;
+				for (var j = 0; j < devices.length; j++) {
+					var dev_old = devices[j];
+					// console.log(dev_old);
+					var dev = new standardDevice(dev_old.id);
+					allDevMap.put(parseInt(dev_old.dId), dev_old.id);
+					allDevMapId.put(dev_old.id, parseInt(dev_old.dId));
+					dev.setDevice(dev_old);
+					dev.setVehiIdno(vehi_old.nm);
+					dev.setPeopleTerminal(vehi.isPeopleTerminal());
+					dev.setDispactherTerminal(vehi.isDispactherTerminal());
+					dev.setLstChn(dev_old.sdc);
+	                //dev.setFlowLimitType(dev_old.nflt);
+					if(dev_old.st){
+						dev.setLoginType(dev_old.st.lt);//设备设置一个登录类型 多个设备难找
+						vehi.setLoginType(dev_old.st.lt);//车辆对象设置一个登录类型
+					}
+					vehi.addDevList(dev);
+					//将车辆加入到map集合
+					vehicleManager.addAllDevice(dev_old.id, dev);
+				}
+			}
+			//只加车辆 、、、不加调度员vehi.isDispactherTerminal()
+			sortVehiList.push(vehi);
+		}
+	
+		var tempArray = [];
+		for (var i = 0; i < sortVehiList.length; i++) {
+			var vehi = sortVehiList[i];
+			//将车辆加入到map集合
+			if(vehi.isOnline()) {
+				vehicleManager.addAllVehicle(vehi.getIdno(), vehi);
+				//将车牌号加入公司车队
+				if(vehi.getParentId()) {
+					//得到对应的车辆
+					var team_ = vehicleManager.getAllTeam(vehi.getParentId().toString());
+					if(team_) {
+						team_.addOnlineVehiIdno(vehi.getIdno());//加载到在线链表里面
+					}
+				}
+			}else {
+				tempArray.push(vehi);
+			}
+		}
+		
+		for (var i = 0; i < tempArray.length; i++) {
+			vehicleManager.addAllVehicle(tempArray[i].getIdno(),tempArray[i]);
+			//将车牌号加入公司车队
+			if(tempArray[i].getParentId()) {
+				var team_ = vehicleManager.getAllTeam(tempArray[i].getParentId().toString());
+				if(team_) {
+					team_.addOfflineVehiIdno(tempArray[i].getIdno());//加载到不在线的链表里面
+				}
+			}
+		}
+	}
+	vehicleManager.updateAllGroupVehiIdnos();
+	vehicleManager.updateAllGroupDevIdnos();
+}
+
+
+function loadVehiToMap() {
+	if(vehicleListEx != null && vehicleListEx.length > 0) {
+		//先解析车辆信息，放入sortVehiList链表中
+		var tempArray = [];
+		var sortVehiList = [];
+		for (var i = 0; i < vehicleListEx.length; i++) {
+			var vehi_old = vehicleListEx[i];
+			var vehi = new standardVehicle(vehi_old.nm);
+			vehi.setVehicle(vehi_old);
+			//环卫不添加车牌号到线路
+			if(vehi.getParentId() && !myUserRole.isSanitationTruck()) {
+				//将线路下的车辆加入线路
+				var line = vehicleManager.getLineInfo(vehi.getParentId());
+				if(line) {
+					line.addvehiIdno(vehi.getIdno(), vehi.getVehiType());
+				}
+			}
+			if(vehi_old.dl != null) {
+				var devices = vehi_old.dl;
+				for (var j = 0; j < devices.length; j++) {
+					var dev_old = devices[j];
+					var dev = new standardDevice(dev_old.id);
+					allDevMap.put(parseInt(dev_old.dId), dev_old.id);
+                    allDevMapId.put(dev_old.id, parseInt(dev_old.dId));
+                    dev.setDevice(dev_old);
+                    dev.setVehiIdno(vehi_old.nm);
+                    dev.setPeopleTerminal(vehi.isPeopleTerminal());
+                    dev.setDispactherTerminal(vehi.isDispactherTerminal());
+                    dev.setLstChn(dev_old.sdc);
+                   // dev.setFlowLimitType(dev_old.nflt);
+					if(dev_old.st){
+						dev.setLoginType(dev_old.st.lt);//设备设置一个登录类型 多个设备难找
+						vehi.setLoginType(dev_old.st.lt);//车辆对象设置一个登录类型
+					}
+					vehi.addDevList(dev);
+					//将车辆加入到map集合
+					vehicleManager.addDevice(dev_old.id, dev);
+					//加入所有设备列表
+					vehicleManager.addAllDevice(dev_old.id, dev);
+				}
+			}
+			sortVehiList.push(vehi);
+		}
+		var tempArray = [];
+		for (var i = 0; i < sortVehiList.length; i++) {
+			var vehi = sortVehiList[i];
+			vehicleManager.addVehicle(vehi.getIdno(), vehi);
+			//加入到所有车辆列表
+			vehicleManager.addAllVehicle(vehi.getIdno(), vehi);
+			//将车辆加入到map集合
+			if(vehi.isOnline()) {
+				//将车牌号加入公司车队
+				if(vehi.getParentId()) {
+					//得到对应的车辆
+					var team_ = vehicleManager.getTeam(vehi.getParentId().toString());
+					if(team_) {
+						team_.addOnlineVehiIdno(vehi.getIdno());//加载到在线链表里面
+					}
+					//得到对应的车辆
+					var allTeam_ = vehicleManager.getAllTeam(vehi.getParentId().toString());
+					if(allTeam_) {
+						allTeam_.addOnlineVehiIdno(vehi.getIdno());//加载到在线链表里面
+					}
+				}
+			}else {
+				tempArray.push(vehi);
+			}
+		}
+        isAddVehi = true;
+		for (var i = 0; i < tempArray.length; i++) {
+			//将车牌号加入公司车队
+			if(tempArray[i].getParentId()) {
+				var team_ = vehicleManager.getTeam(tempArray[i].getParentId().toString());
+				if(team_) {
+					team_.addOfflineVehiIdno(tempArray[i].getIdno());//加载到不在线的链表里面
+				}
+				//得到对应的车辆
+				var allTeam_ = vehicleManager.getAllTeam(tempArray[i].getParentId().toString());
+				if(allTeam_) {
+					allTeam_.addOfflineVehiIdno(tempArray[i].getIdno());//加载到不在线的链表里面
+				}
+			}
+		}
+	}else{
+        isAddVehi = true;
+	}
+	vehicleManager.updateAllVehiIdnos();
+	vehicleManager.updateAllDevIdnos();
+	
+	if(myUserRole.isDispatcher()){
+		vehicleManager.updateAllGroupVehiIdnos();
+		vehicleManager.updateAllGroupDevIdnos();
+	}
+	
+}
+
+//更新环卫车辆状态
+function updateLineVehicleStatus(vehicleStatusList) {
+	//数据格式[{id,lid,vid,stu,num,time,sid}]
+	//更新之前，先把以前的数据清空
+	var mapLineStatus = new Hashtable();
+	for (var i = 0; i < vehicleStatusList.length; i++) {
+		var lineInfo = parent.vehicleManager.getLineInfo(vehicleStatusList[i].lid);//线路信息
+		if(lineInfo) {
+			if(mapLineStatus.get(vehicleStatusList[i].lid) == null ||
+					mapLineStatus.get(vehicleStatusList[i].lid) != 1) {
+				lineInfo.clearLineVehicleStatus();
+			}
+			lineInfo.updateVehicleStatus(vehicleStatusList[i]);
+			mapLineStatus.put(vehicleStatusList[i].lid, 1);
+		}
+	}
+}
+
+
+//更新中石油车辆状态
+function updatezsyVehicleStatus(vehicleStatusList) {
+	//更新
+	for (var i = 0; i < vehicleStatusList.length; i++) {
+		var vehicle = parent.vehicleManager.getVehicle(vehicleStatusList[i].vn);//获取车辆信息
+		if(vehicle) {
+			vehicle.zsyUpdateStatus(vehicleStatusList[i]);
+		}
+	}
+}
+
+//更新中石油车辆任务状态
+function updatezsyVehicleTask(vehicleStatusList) {
+	//更新
+	for (var i = 0; i < vehicleStatusList.length; i++) {
+		var vehicle = parent.vehicleManager.getVehicle(vehicleStatusList[i].vn);//获取车辆信息
+		if(vehicle) {
+			vehicle.zsyUpdateTask(vehicleStatusList[i]);
+		}
+	}
+}
+/**
+ * 加载用户所有的围栏信息
+ * @param func
+ */
+var   userMapFenceRuleLst = [];
+function getUserMapFenceRule() {
+	$.myajax.jsonGet('StandardVehicleRuleAction_getMapFenceRules.action?ruleType=forbidInto,forbidOut&isAll=1', function(json,action,success){
+		if(success) {
+			userMapFenceRuleLst = json.infos;
+		}
+	}, null);
+}
+
+
+
+/**
+ * 获取授权车辆+协同小组车辆(监控、回放等界面)
+ */
+var  isLoadAllVehiList = false;
+function getUserAllVehicles(func) {
+	$.myajax.jsonGet('StandardLoginAction_getUserVehicleContainsGroup.action?toMap='+toMap, function(json,action,success){
+		if(success) {
+			//公司信息
+			var permitVehiGroupList = json.companys;
+			for(var i = 0; i < permitVehiGroupList.length; i++) {
+				//所有的车辆 所对应的公司
+				var team = new vehicleTeam(permitVehiGroupList[i].id, permitVehiGroupList[i].name);
+				team.setVehicleTeam(permitVehiGroupList[i]);
+				vehicleManager.addToAllTeam(permitVehiGroupList[i].id, team);
+			}
+			//所有车辆信息
+			vehicleAllListEx = json.vehicles;//vtp = 5 调度员  4 警员
+			loadAllVehiToMap(json.vehicles);
+			if(func){
+				func();
+			}
+			isLoadAllVehiList = true;
+		}
+	}, null);
+}
+
+
+var isLoadPermitVehiGroupList = false; //公司信息是否加载完成
+/**
+ * 获取授权车辆(监控、回放等界面)
+ */
+var   permitVehiGroupLst = [];
+function getUserVehicles() {
+	$.myajax.jsonGet('StandardLoginAction_getUserVehicleEx.action?toMap='+toMap, function(json,action,success){
+		if(success) {
+			// 加载用户数据
+			loadUserData();
+			if(myUserRole.isManageLine()) {//公交
+				//加载线路和站点信息
+				loadLineStationManage(json.lineInfos, json.stationInfos, json.lineRelations);
+				//加载司机信息
+				loadDriverManage(json.drivers);
+			}else if(myUserRole.isSanitationTruck()) {//环卫
+				//加载线路和站点信息
+				loadLineStationManage(json.lineInfos, json.stationInfos, json.lineRelations, json.groupInfos);
+			}
+			//公司信息
+			var permitVehiGroupList = json.infos;
+			permitVehiGroupLst = json.infos;
+			for(var i = 0; i < permitVehiGroupList.length; i++) {
+				var team = new vehicleTeam(permitVehiGroupList[i].id, permitVehiGroupList[i].name);
+				team.setVehicleTeam(permitVehiGroupList[i]);
+				vehicleManager.addTeam(permitVehiGroupList[i].id, team);
+				//加入到所有列表
+				var allTeam = new vehicleTeam(permitVehiGroupList[i].id, permitVehiGroupList[i].name);
+				allTeam.setVehicleTeam(permitVehiGroupList[i]);
+				vehicleManager.addToAllTeam(permitVehiGroupList[i].id, allTeam);
+			}
+			for(var i = 0; i < permitVehiGroupList.length; i++) {
+				//如果存在父公司，则添加父公司或者子公司
+				if(permitVehiGroupList[i].parentId) {
+					//环卫不添加线路
+					if(!myUserRole.isSanitationTruck() || (myUserRole.isSanitationTruck() && permitVehiGroupList[i].level != 3)) {
+						var parentTeam = vehicleManager.getTeam(permitVehiGroupList[i].parentId.toString());
+						if(parentTeam) {
+							parentTeam.addChildTeam(permitVehiGroupList[i].id);
+							var team_ = vehicleManager.getTeam(permitVehiGroupList[i].id);
+							if(team_) {
+								team_.addParentTeam(parentTeam.id);
+							}
+						}
+					}
+				}
+			}
+			//车辆信息
+			vehicleListEx = json.vehicles;//vtp = 5 调度员  4 警员
+			loadVehiToMap(json.vehicles);
+			//线路车辆状态信息
+			if(myUserRole.isSanitationTruck()) {//环卫
+				//主要用于画线
+				if(json.vehicleStatus != null && json.vehicleStatus.length > 0) {
+					updateLineVehicleStatus(json.vehicleStatus); //更新环卫车辆状态
+				}
+			}else if(myUserRole.isZSYRoadList()){//中石油
+				if(json.zsyVehicleStatus != null && json.zsyVehicleStatus.length > 0) {
+					updatezsyVehicleStatus(json.zsyVehicleStatus); //更新环卫车辆状态
+				}
+				if(json.zsyVehicleTask && json.zsyVehicleTask.length > 0){
+					updatezsyVehicleTask(json.zsyVehicleTask); //更新环卫车辆状态
+				}
+			}
+			isLoadVehiList = true;
+			isLoadPermitVehiGroupList = true;
+		}
+	}, null);
+}
+
+/**
+ * 获取协同小组 用于生产树
+ */
+var cooperateGroup = [];//协同小组信息
+var cooperateMember = [];//协同小组成员信息
+var cooperateMemberTree = [];//协同小组成员信息树结构
+var isLoadUserDispatchGroupList = false;
+function getUserDispatchGroup(func) {
+	$.myajax.jsonGet('StandardCooperateAction_getUserDispatch.action', function(json,action,success){
+		if(success) {
+			if(json.lstGroup){
+				vehicleManager.mapDispatchGroup =  new Hashtable(); //清空数据
+				cooperateGroup = json.lstGroup;
+				for(var i = 0; i < cooperateGroup.length; i++){
+					var group = new Dispatch(cooperateGroup[i]);
+					vehicleManager.addDispatch(group);
+				}
+			}
+			//公司信息
+			if(json.lstMember){
+				getMemberTree(json.lstMember);
+				vehicleManager.addMember(cooperateMemberTree);//协同小组追加成员
+				vehicleManager.inintMemberInGroup();//初始化成员当前所处的协同小组 在线
+				vehicleManager.inintMemberInAllGroup();//初始化成员当前所处的协同小组 所有
+			}
+			//加载协同小组信息
+			isLoadUserDispatchGroupList = true;
+			if(func){//协同小组刷新操作
+				func(true);
+			}
+		}
+	}, null);
+}
+
+function getMemberTree(member){
+	cooperateMemberTree = [];//清空
+	if(member && member.length > 0){
+		for(var i = 0; i < member.length ; i++){
+			var data = {};
+//			data.id = member[i].disId+'-'+member[i].name;//车牌号 重复插入通道有问题
+			data.id = member[i].name;//车牌号
+			data.name = member[i].name;//设备号
+//			data.level = com[i].level;
+			data.parentId = member[i].disId;//所在小组
+			data.status = member[i].status;//是否处于当前小组
+			cooperateMemberTree.push(data);
+		}
+	}
+}
+
+
+function directLogin() {
+	var session = getUrlParameter("userSession");
+	var account_ = getUrlParameter("account");
+	var password_ = getUrlParameter("password");
+	var ctype = getUrlParameter("ctype");
+	var clientLogin = getUrlParameter("clientLogin");
+	var _toMap = getUrlParameter("toMap");
+
+	// // console.log(session);
+//	SetCookie("clientLogin", clientLogin);
+//	SetCookie("clientCtype", ctype);
+	if (session != "" || (account_ != '' && password_ != '')) {
+		var action = "StandardLoginAction_sessionLogin.action";
+		if(session != '') {
+			action += '?userSession='+session;
+		}else {
+			if(account_ != '' && password_ != '') {
+				action += '?account='+account_+'&password='+password_;
+			}
+		}
+		if(ctype != null && ctype != '') {
+			action += "&ctype="+ ctype;
+		}
+		doLogin(action, false, "", "", "", ctype, clientLogin,_toMap);
+	}
+}
+
+function doLogin(action, sysLogin, userAccount, password, verificationCode, ctype, clientLogin,_clientMapType) {
+	var logintipdlg = $.dialog({id:'logintip',title:false,content:lang.login_logining});
+	$.ajax({
+		url:action,
+		data:{account:decodeURI(userAccount),password:password,language:langCurLocal(),verificationCode:verificationCode},
+		cache:false,/*禁用浏览器缓存*/
+		dataType:"json",
+		success:function(json){
+			if(json){
+				var flag = json.result;
+				if(flag!=null){
+					if(flag == 0){
+						SetCookie("userId", json.accountId);
+						SetCookie("account", json.account);
+						SetCookie("isAdmin", json.isAdmin);
+						SetCookie("isMaster", json.isMaster);
+						SetCookie("isSTY", json.isSTY);
+						SetCookie("isFirstCompany", json.isFirstCompany);
+						SetCookie("isSecondCompany", json.isSecondCompany);
+						SetCookie("isThreeCompany", json.isThreeCompany);
+						SetCookie("hasAddArea", json.hasAddArea);
+						SetCookie("hasLine", json.hasLine);
+						SetCookie("hasRoadRule", json.hasRoadRule);
+						SetCookie("privilege", json.privilege);
+						SetCookie("companyId", json.companyId);
+						SetCookie("isAllowManage", json.isAllowManage);
+						SetCookie("isManageLine", json.isManageLine);
+						SetCookie("isSanitationTruck", json.isSanitationTruck);
+						SetCookie("isChemicals", json.isChemicals);
+						SetCookie("level", json.level);
+						SetCookie("verify", json.verify);
+						SetCookie("isPolice", json.isPolice);
+						SetCookie("baiDuWebAPIKey", json.baiDuWebAPIKey);
+						SetCookie("googleWebAPIKey", json.googleWebAPIKey);
+						SetCookie("gaoDeWebAPIKey", json.gaoDeWebAPIKey);
+						SetCookie("siWeiWebAPIKey", json.siWeiWebAPIKey);
+						SetCookie("geocoderMapType", json.geocoderMapType);
+						SetCookie("defaultGeocoderMapType", json.defaultGeocoderMapType);
+						SetCookie("isXinTianDi", json.isXinTianDi);
+						SetCookie("isFangHao", json.isFangHao);
+						SetCookie("isAllowPassword", json.allowPassword);
+						SetCookie("isYunNanTransport", json.isYunNanTransport);
+						SetCookie("isZSYRoadList", json.isZSYRoadList);
+						SetCookie("mainTitle", json.mainTitle);
+						SetCookie("image", json.image);
+						SetCookie("policeOperation", json.policeOperation);
+						SetCookie("policeOrPeople", json.policeOrPeople);
+						SetCookie("isGeoAddress", json.isGeoAddress);
+						SetCookie("loginName", json.name);
+						SetCookie("velocityType", json.velocityType);
+						SetCookie("isDispatcher", json.isDispatcher);
+						SetCookie("isMuck", json.isMuck);
+						SetCookie("isXinJiang", json.isXinJiang);
+						SetCookie("isHaiJu", json.isHaiJu);
+						SetCookie("loginAccount", json.account);
+						//自动关闭监听和视频时长
+						SetCookie('VideoSet', json.closeVedio);
+						SetCookie('Speak', json.closeListen);
+						SetCookie('loginOut', json.loginOut);
+						SetCookie("shieldReport", json.shieldReport);
+                        SetCookie("enableSubiao", json.enableSubiao); //苏标
+                        SetCookie("enableStrongPassword", json.enableStrongPassword); //强口令
+						if(json.loadMapFence){
+							SetCookie("loadMapFence", json.loadMapFence);
+						}else{
+							SetCookie("loadMapFence", 0);
+						}
+						if(json.alarmParam){
+							SetCookie("alarmParam", json.alarmParam);
+						}else{
+							SetCookie("alarmParam", 0);
+						}
+						SetCookie("realVideo", json.realVideo);
+						SetCookie("backVideo", json.backVideo);
+						if(json.isAdmin == 0 && json.notValidServer) {
+							alert(lang.errorValidServerEx);
+						}
+						var urlOpen = "index.html?ctype="+ctype+"&lang="+langCurLocal()+"&toMap=" + _clientMapType;
+						if(clientLogin != 2){//只能2才有
+							urlOpen += "&clientLogin=1";
+						}
+						window.location = urlOpen;
+					} /*else if (flag == 1) {
+						alert(lang.incorrect_login_information);
+						window.location = "login.html?lang="+langCurLocal();
+					} else if(flag == 2){
+						alert(lang.incorrect_login_information);	
+						window.location = "login.html?lang="+langCurLocal();
+					} else if(flag == 3){
+						alert(lang.incorrect_login_information);
+						window.location = "login.html?lang="+langCurLocal();
+					} else if(flag == 5){
+						alert(lang.errException);
+						window.location = "login.html?lang="+langCurLocal();
+					} else if(flag == 7){
+						alert(lang.incorrect_login_information);
+						window.location = "login.html?lang="+langCurLocal();
+					} else if(flag == 8){
+						alert(lang.errLogin_Storage);
+						window.location = "login.html?lang="+langCurLocal();
+					} else if(flag == 46) {
+						alert(lang.errUserDeactivated);
+						window.location = "login.html?lang="+langCurLocal();
+					}else if(flag == 9) {
+						alert(lang.errorValidServer);
+					}*/else if(flag ==10) {//用户启用了单点登录，并已经在其他地方登录
+						alert(lang.errorUserAlreadyLogin);
+					}else {
+						alert(lang.incorrect_login_information);
+						window.location = "login.html?lang="+langCurLocal();
+					}
+				}else{
+					alert(lang.errUnkown+":  null");
+					window.location = "login.html?lang="+langCurLocal();
+				}				
+			}
+			logintipdlg.close();
+		},error:function(XMLHttpRequest, textStatus, errorThrown){
+			alert(lang.errSendRequired);
+			logintipdlg.close();
+			window.location = "login.html?lang="+langCurLocal();
+		}
+	});
+}
+
+var chineseMainTitle = null;
+var englishMainTitle = null;
+var twMainTitle = null;
+var chineseCopyright = null;
+var englishCopyright = null;
+var twCopyright = null;
+function ajaxLoadInformation() {
+	//向服务器发送ajax请求
+	$.myajax.jsonGet("StandardLoginAction_information.action", function(json,action,success){
+		if (success) {
+			chineseMainTitle = json.ChineseMainTitle;
+			englishMainTitle = json.EnglishMainTitle;
+			twMainTitle = json.TwMainTitle;
+			chineseCopyright = json.ChineseCopyright;
+			englishCopyright = json.EnglishCopyright;
+			twCopyright = json.TwCopyright;
+			showTitleAndCopyRight();
+		}
+		//如果login没有加载出来， 这个ajax每次都正常 就会进入循环状态
+		//setTimeout(ajaxLoadInformation, 100000);
+	}, null);
+	
+}
+
+function showTitleAndCopyRight() {
+	var title_now = '';
+	if (langIsChinese()) {
+		if (chineseMainTitle != null)  {
+			SetCookie("maintitle", chineseMainTitle);
+			title_now = chineseMainTitle;
+		}
+		if (chineseCopyright != null) {
+			$("#spanCopyright").html(chineseCopyright);
+		}
+	} else if (langIsTW()){
+		if (twMainTitle != null)  {
+			SetCookie("maintitle", twMainTitle);
+			title_now = twMainTitle;
+		}
+		if (twCopyright != null) {
+			$("#spanCopyright").html(twCopyright);
+		}
+	} else {
+		if (englishMainTitle != null)  {
+			SetCookie("maintitle", englishMainTitle);
+			title_now = englishMainTitle;
+		}
+		if (englishCopyright != null) {
+			$("#spanCopyright").html(englishCopyright);
+		}
+	}
+	if(title_now && title_now != ''){
+		var mainTitle = title_now.split('&')[0];
+		var mainTitleSub = '';
+		if(title_now.split('&').length > 1){
+			mainTitleSub = title_now.split('&')[1];
+		}
+		var html_ = '<span id="mainTitle">'+mainTitle+'</span><span id="mainTitleSub" style="display: block;font-size: 11px;">'+mainTitleSub+'</span>';
+		$('#spanTitle').empty();
+		$('#spanTitle').append(html_);
+	}
+}
+
+//判断是否已审核通过
+function loadCompanyVerify() {
+	if(myUserRole.getCompanyVerify() == 3) { //审核不通过
+		alert('审核没有通过，查看失败原因！');
+	}else if(myUserRole.getCompanyVerify() == 0) {//待提交
+		alert('请尽快前往信息完善界面，完善企业信息！');
+	}
+}
+
+//更新审核状态
+function updateCompanyVerify(verify) {
+	SetCookie("verify", verify);
+}
+
+//获取信息完善界面大小
+function getPerfectPageSize(index) {
+	var page = {};
+	page.width = '975px';
+	switch (index) {
+	case 1:
+	case 2:
+		page.height = '600px';
+		break;
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+		page.height = '425px';
+		break;
+	case 8:
+		page.height = '600px';
+		break;
+	default:
+		page.height = '600px';
+		break;
+	}
+	return page;
+}
+
+//获取信息完善界面(完善公司信息)
+function loadInfoPerfectPage() {
+	//向服务器发送ajax请求
+	$.myajax.jsonGet("whBaseAction_getInfoPerfectPage.action", function(json,action,success){
+		if (success) {
+			if(json.url) {
+				var page_ = getPerfectPageSize(json.index);
+				//信息完善
+				$('.login-mess .perfectInfo').on('click', function() {
+					$.dialog({id:'info', title: '信息完善',content: 'url:'+json.url +'&type=edit',
+						width: page_.width,height: page_.height, min:false, max:false, lock:true});
+					$('.quick-menu').hide();
+				});
+			}
+		}
+	}, null);
+}
+
+//关闭完善界面
+function doSaveCompanySuc(){
+	parent.isChangedVehiGroup = true;
+	$.dialog({id:'info'}).close();
+	$.dialog.tips("保存成功！", 1);
+}
+
+//显示公告信息
+function showBulletinMsg(index) {
+	bulletin.showBulletinMsg(index);
+}
+
+//加载当前公司信息
+var currentCompanyInfo = null;
+function loadCurrentCompanyInfo() {
+	//向服务器发送ajax请求
+	$.myajax.jsonGet("WHCompanyAction_getCurrentWHCompanyInfo.action", function(json,action,success){
+		if (success) {
+			currentCompanyInfo = json.company;
+			
+			myUserRole.setChemicalPrivileges(currentCompanyInfo.privilege);
+		}
+	}, null);
+}
+
+function disableForm() {}
+
+// 在ttx窗口返回mapConfig
+function getMapConfig() {
+	if(!mapConfig) {
+		loadMapConfig();
+	}
+	return mapConfig;
+}
+
+//通过设备id获取车牌信息  调度员
+function getVehIdnoByDevId(devId){
+	var vehicle = null;
+	if(devId){
+		//得到设备号
+		var devIdno = allDevMap.get(parseInt(devId));
+		if(devIdno){
+			vehicle = vehicleManager.getDispatchMemByDevIdno(devIdno);
+		}
+	}
+	return vehicle;
+}
+
+//消息订阅-发布 中介者
+var Event = (function() {
+    var clientList = {},
+        listen,
+        trigger,
+        remove;
+
+    /**
+     * 订阅者订阅事件
+     */
+    listen = function(key, fn) {
+        if (!clientList[key]) {
+            clientList[key] = [];
+        }
+        clientList[key].push(fn);
+    };
+
+    /**
+     * 发布者发布事件
+     */
+    trigger = function() {
+        var key = Array.prototype.shift.call(arguments),
+            fns = clientList[key];
+        if (!fns || fns.length === 0) {
+            return false;
+        }
+        for (var i = 0,
+                 fn; fn = fns[i++];) {
+            fn.apply(this, arguments);
+        }
+    };
+
+    /**
+     * 订阅者取消订阅
+     */
+    remove = function(key, fn) {
+        var fns = clientList[key];
+        if (!fns) {
+            return false;
+        }
+        if (!fn) {
+            fns && (fns.length = 0);
+        } else {
+            for (var l = fns.length - 1; l >= 0; l--) {
+                var _fn = fns[l];
+                if (_fn === fn) {
+                    fns.splice(l, 1);
+                }
+            }
+        }
+    };
+
+    /**
+     * 返回中介
+     */
+    var _event = {
+        listen: listen,
+        trigger: trigger,
+        remove: remove
+    };
+
+    return _event;
+
+})();
+// 添加中介至全局变量
+window.Event = Event;
+
+listenLocationMapType();
+
+/**
+ * 监听位置定位的mapType改变
+ */
+function listenLocationMapType() {
+	var _this = this;
+
+    Event.listen("loactionMapTypeChange",function(type) {
+       mapType = type;
+        if(type == 3){//百度
+           	toMap = 2;
+        }else if(type == 4) {
+            toMap = 3;
+        }  else if (type == 9) {//必应
+            toMap = 9;
+        } else {//0 谷歌  4  高德
+            toMap = 1;
+        }
+    });
+}
+
+// 客户key list配置
+function loadMapConfig(clientMapType) {
+    if(langIsChinese()) {
+        mapConfig = new MapConfig();
+	} else {
+        mapConfig = new MapConfig(true);
+        mapConfig.isOutSea = 1;
+        mapConfig.init();
+    }
+
+    // 是客户端环境
+    if(clientMapType != null && mapConfig != '') {
+        mapConfig.isClient = 1;
+        mapConfig.clientMapType = clientMapType;
+        if(clientMapType == 3){//百度
+            toMap = 2;
+            window.toMap = 2;
+        }else if(clientMapType == 4) {
+            toMap = 3;
+            window.toMap = 3;
+        } else if (clientMapType == 9) {
+            toMap = 9;
+            window.toMap = 9;
+        } else {//0 谷歌  4  高德
+            toMap = 1;
+            window.toMap = 1;
+        }
+	}
+
+	window.mapConfig = mapConfig;
+}
+
+function loadUserData() {
+    var userData = new UserData();
+    userData.init(userId);
+// 添加userData至全局缓存
+    window.userData = userData;
+}
+
+

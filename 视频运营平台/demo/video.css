@@ -1,0 +1,33 @@
+@charset "UTF-8";
+#flashExample {
+	height: 500px;
+    overflow: auto;
+    padding: 20px;
+    position: fixed;
+    width: 400px;
+}
+#operateExample {
+	margin-left: 420px;
+    padding: 0 20px 20px;
+}
+.player-params{
+	padding: 0 0 10px 20px;
+}
+.player-params .player-param{
+	padding: 0 0 10px;
+	white-space:normal; 
+	word-break:break-all;
+	overflow:hidden;
+}
+.player-params .player-param a.title {
+	color: #333;
+}
+.player-params .player-param a.title:focus, .player-params .player-param a.title:hover{
+	color: #333;
+	text-decoration: none;
+}div#eventTip {
+    margin-top: 10px;
+    margin-left: 18px;
+}a#isPlay {
+    margin-top: 5px;
+}

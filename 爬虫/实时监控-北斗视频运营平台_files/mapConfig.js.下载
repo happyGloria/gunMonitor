@@ -1,0 +1,829 @@
+function MapKey(key) {
+    this.key = key;
+    this.valid = true;
+    this.date = new Date();
+}
+
+MapKey.prototype.isValid = function () {
+    if (!this.valid) {
+        var tmCur = new Date();
+        //换天后，继续有效
+        if (tmCur.getDate() != this.date.getDate()) {
+            this.date = tmCur;
+            this.valid = true;
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return true;
+    }
+}
+
+function MapConfig(initLater) {
+	this.isHttps = 0; //0 http  1 https
+	this.mapConfigStatus = 1; // 0 离线 1 在线
+	this.offlineServer = getRootPath() + "/";  // 离线地图服务器ip 跟端口号
+    this.isOutSea = 0; // 是否海外 0 否 1 是
+
+    this.isClient = 0; // 是否客户端环境
+    this.clientMapType = 3; // 客户端环境地图类型 默认百度
+
+    // 实际使用的地图url
+	this.baiduMapUrl = null;
+	this.googleMapUrl = null; // 谷歌，国内
+	this.googleMapUrlOutSea = null; // 谷歌，海外
+	this.gaodeMapUrl = null;
+	this.bingMapUrl = null;
+	
+	// 地理位置解析用
+	this.baiduMapGeocoderUrl = null;
+	this.googleMapGeocoderUrl = null;
+	this.gaodeMapGeocoderUrl = null;
+	
+
+	// 离线地图各种路径
+	this.baiduOfflineHome = this.offlineServer +"offlinemap/js/baidu/";
+	this.googleOfflineHome = this.offlineServer + "offlinemap/js/google/google/";
+	this.googleOfflineTileHome = this.offlineServer + "offlinemap/tiles_google/"; // 谷歌roadMap离线瓦片地址
+	this.googleOfflineSateTileHome = this.offlineServer + "offlinemap/tiles_google_sate/"; // 谷歌卫星地图瓦片地址
+	this.googleOfflineOSMHome = this.offlineServer + "offlinemap/tiles_google_osm/"; // 谷歌osm瓦片地址
+
+    // 离线地图url
+	this.baiduOfflineMapUrl = this.baiduOfflineHome + "js/apiv.2.0.js";
+	this.googleOfflineMapUrl = this.googleOfflineHome + "js/main.js";
+	// 在线地图url api
+	this.baiduApiMapUrl = "http://api.map.baidu.com/api?v=2.0&services=false&ak=BCa2d508d2c567acd009eb09765f5797&callback=map_init"; // 百度
+	
+	this.googleMapUrlCn = "http://ditu.google.cn/maps/api/js?key=AIzaSyA_Iu-hDvzx-KTDNrGaN3LccFaiujVmgog&&libraries=drawing&callback=map_init"; // 谷歌 国内
+	this.googleMapUrlEn = "http://maps.googleapis.com/maps/api/js?key=AIzaSyA_Iu-hDvzx-KTDNrGaN3LccFaiujVmgog&&libraries=drawing&callback=map_init"; // 谷歌 海外
+	this.googleOutSeaEn = "https://mts1.google.com/vt/lyrs=m&hl=x-local&src=app"; // https 谷歌 海外
+	this.gaoDeApiMapUrl = "http://webapi.amap.com/maps?v=1.3&callback=map_init&key=18c93171e34ea9baed59359a076bde33&plugin=AMap.MouseTool,AMap.Geocoder,AMap.AdvancedInfoWindow"; // 高德
+	// 可配置key 地图url 仅用于前端加载地图
+	this.baiduConfigKeyUrl = "http://api.map.baidu.com/api?v=2.0&services=false&ak="; // 百度
+
+	this.googleConfigKeyUrl = "http://ditu.google.cn/maps/api/js?libraries=drawing&key="; // 谷歌 国内
+    this.googleConfigKeyUrlOutSea = "http://maps.google.com/maps/api/js?libraries=drawing&key="; // 谷歌 海外
+    this.gaoDeConfigKeyUrl = "http://webapi.amap.com/maps?v=1.3&&plugin=AMap.MouseTool,AMap.Geocoder,AMap.MarkerClusterer,AMap.AdvancedInfoWindow&key=";
+    // 可配置key 可用于前端js跨域解析
+    this.baiduConfigKeyGeocodeUrl = "http://api.map.baidu.com/geocoder/v2/?output=json&pois=0&ak="; // 百度
+
+    this.googleConfigKeyGeocodeUrl = "http://ditu.google.cn/maps/api/geocode/json?language=zh_CN&key="; // 谷歌 国内
+    this.googleConfigKeyGeocodeUrlEn = "http://maps.google.com/maps/api/geocode/json?key="; // 谷歌 海外
+    // this.gaodeConfigKeyGeoCodeUrl = "http://api.map.baidu.com/geocoder/v2/?location=&output=json&pois=0&ak=";
+
+	//http必应地图
+	this.bingMapApiUrl = "http://www.bing.com/api/maps/mapcontrol?key=";
+	//https必应地图
+//	this.bingMapConfigKeyUrl = "https://www.bing.com/api/maps/mapcontrol?key=";
+	
+	
+    
+    // 离线地图 - 谷歌 js 加载
+	this.googleDrawingJs = this.googleOfflineHome + "js/drawing.js";
+	this.googleGeometryJs = this.googleOfflineHome + "js/geometry.js";
+	this.googleMaplabelJs = this.googleOfflineHome + "js/maplabel-compiled.js";
+	this.googlePlacesJs = this.googleOfflineHome + "js/places.js";
+	this.googleVisualizationJs = this.googleOfflineHome + "js/visualization.js";
+
+	// 配置key
+    /***********************  用户key配置  **********************/
+    // 用户自己配置的百度key，会从mapUserKeyConfig.js对象传递过来（浏览器端）
+    this.baiduUserMapKey = [];
+    // 用户自己配置的谷歌key（浏览器端）
+    this.googleUserMapKey = [];
+    // 用户自己配置的高德key（浏览器端）
+    this.gaoDeUserMapKey = [];
+    // 用户自己配置的必应key（浏览器端）
+    this.bingUserMapKey = [];
+    
+    // 用户配置key，百度服务器端
+    this.baiduUserServerMapKey = [];
+    /***********************  用户key配置  **********************/
+
+    /***********************  默认key配置  **********************/
+    // 百度默认key数组（浏览器端）
+    // this.baiduDefaultKeys = ["H6eH8p0cmWstBj9kveOkejEiz0eIP6hD"];
+    this.baiduDefaultKeys = ["H6eH8p0cmWstBj9kveOkejEiz0eIP6hD"];
+    // 谷歌默认key数组（浏览器端）
+    // this.googleDefaultKeys = ["AIzaSyClfAVY3fvA_G7FskiuQOGMmijWi09omOA","AIzaSyBLRHpnylVRWcF361ePgvnIU-l6ADqPOqs","AIzaSyCbr8JFsfY-I_Ii82kszK_Ymbk9S-Rb7mo"];
+    this.googleDefaultKeys = [
+        "AIzaSyClfAVY3fvA_G7FskiuQOGMmijWi09omOA",
+        "AIzaSyBLRHpnylVRWcF361ePgvnIU-l6ADqPOqs",
+        "AIzaSyCbr8JFsfY-I_Ii82kszK_Ymbk9S-Rb7mo",
+        "AIzaSyC9H9l_3QRkeM6pFiJnlCsb7mgPAcEDQT0",
+        "AIzaSyD-0RCzDvhSLU8nGp9-ESQ1V7OG3Q-qMhQ",
+        "AIzaSyBqHzNQSKdx2WkUbVLpfwTgRdtgEgiGlL8",
+        "AIzaSyAVe5EMniZnP67zXNc7tcp_PL71OiVcIKw",
+        "AIzaSyCd-GAylS3-aA4gn_rBAIdDMyqY8czf-HE",
+        "AIzaSyALNbm4xn2iub4w7L8SF26PV9dJCOcPo6o",
+        "AIzaSyATGk0pNBr7zQKbVthfRtLBJ88N4oCUnQg",
+        "AIzaSyDgaop60lzGm-01ebePy5RWuwd5jvSlCRA",
+        "AIzaSyA3h4FaHH5QdoXdaDUjGOCjxzZisVA_XrA",
+        "AIzaSyCuHLfANHztaboVxc1L8OV9MIKG8sMjDDc"
+    ];
+
+    // 高德默认key数组（浏览器端）
+    this.gaoDeDefaultKeys = ["18c93171e34ea9baed59359a076bde33"];
+    //必应地图
+    this.bingMapDefaultKeys = [
+        "AoJd_oyiKhjOGXBbwY7Mxakc2poTECgaj0qlEMO2uD4C_dNLIa99-cAJBCvHhkoA",
+        "ArdFkTNgueOaJxS73r0QNbBIi1AJO8LbuH92oX_7Q62Jn5-Lr0QP_SwX-7dAdbGx",
+        "ArTOZgdHXK_17BXA1wXVNL7ezPuSh7z8CKa2YMDFxqVhqibXd8YXWyYuKCcF9MEy",
+        "ApnIWMzCpFyZxqyiHckGzntmLUyKxrmmloYoc0uP73ZKxcC0mcnCJmuKsuLisbMF",
+        "AkjTq4rRGnCw9Y-8OXrlo7fOe9YoYs9OsLkhATNDA3c2Ff_LZgKbs5ZedUd8WII4",
+        "Aul8g_U5zjvwetHSUNYnDQiufvb4tV12v84Zea_dmtZtgsDJgV-7EDnT1NfElYe9",
+        "ArRmEuY64FYf_z1DjhUILoZPntzXf-7FQInn_dZhK7vWG9pMFm-DQVrazrv2SYei",
+        "AqGGRfdGAD8PJsgP7TOAhdnO2wg27MD86SIDc1VzkVeqVGbyQCCxjeaEmF1peYCa",
+        "AnAFRBMKS3wXzXPq9hMk7HSPQLJlnOXPsfUOy-WPY9pCRDAFcjXN38g9pjUDbRbk",
+        "AqvPDCzdx7aOLcgcviIuM8SOzt2_bzji_f4DRkOM5IA-LEnnelsMVaqFgdQ8I633",
+        "AtVZ8qLxpRcQfYe8FeH9X4gzAlhBaUlWCpmpDgMHpV2LgQhrCVr72nJOe59txkAG",
+        "Ao01QJoqYYDbTQNOS9tpdTYMb9uerLFkaz7NT_RIP2IE2Cg5_DU2fwglcKegZ0Lr",
+        "AhkvsWt0VwaYxWsPzgI4MyAuhUc8AT9XixAAUcv3kjFnYkNS7lqbImULjNIf7rmS",
+        "Al9dKtIC9pRiA367Ab4nqSMWrZ1umg2sWUrUPcEyczqxZlk1JISVyVdXWdZGQvmP",
+        "AseYO1KCnSy0krOEqy9gCdTtiu1jAmLckRi0-BRdj2azGLQySkVPTSIORdnKNyil",
+        "Au4CP_MSc9Z-OoQ9nv3TO8nZWdPkSotk8iFtIYMQrN-WTfheW8h3I-awpWI2GuX4",
+        "AorGP3A_jOuL26INzwUTNPanZvPvy8hah7HvhC9-h3Bre6AoyvSwLwUOZLqU8zL0",
+        "AnubDrffWCKV9eiHDmKASzcYyLiDHCsQ2a22W52WAvp_auZqHlpO2OoF1rZe_7aH",
+        "AnxprB-MvUD_B3JOucoxSg8BfvczA1qBcUmin_XoyOCNbfheTaWxtFcaMCO_PbIS",
+        "AumJrQRsZdfA1gsUFGBaYd5dq1Xg3JWVAQCcJgH7xFVcavijiUpsrrCRN7r04L5a",
+        "AhxkY39tGfqapUNaX8D2KCLj-iZNSUEQt9jL_omv0caq7s-8qE8ekJHxxxUwX1qE"
+     ];
+    
+    
+    // 服务器端默认key，在前端暂时没有用到
+    // 百度默认key数组（服务器端）
+    this.baiduServerDefaultKeys = []
+    // 谷歌默认key数组（服务器端）
+    this.googleServerDefaultKeys = [];
+    // 高德默认key数组（服务器端）
+    this.gaoDeServerDefaultKeys = ["18c93171e34ea9baed59359a076bde33"];
+    /***********************  默认key配置  **********************/
+
+
+    this.baiduGeoKeyList = [];
+    this.baiduGeoKeyCount = this.baiduServerDefaultKeys.length;
+    // 初始化百度服务器解析key链表
+    this.initBaiduGeoKeyList();
+    this.baiduGeoKeyIndex = 0;
+
+    // 当前地图类型 默认百度 //	1 GOOGLE  2 BAIDU   3 GAODE
+    this.currentMapType = 2;
+
+    // 是否延迟初始化（默认马上初始化）
+    if(initLater && initLater == true) {
+        // // console.log('init later.');
+    } else {
+        this.init();
+    }
+}
+
+/**
+ * 初始化
+ */
+MapConfig.prototype.init = function () {
+    var keyConfig = new MapUserKeyConfig();
+
+    // 升级为key可配置
+    if(keyConfig && keyConfig.browserBaiduKey && keyConfig.browserBaiduKey != "") {
+        this.baiduUserMapKey = keyConfig.browserBaiduKey.split(",");
+    }
+    if(keyConfig && keyConfig.browserGoogleKey && keyConfig.browserGoogleKey != "") {
+        this.googleUserMapKey = keyConfig.browserGoogleKey.split(",");
+    }
+    if(keyConfig && keyConfig.browserGaodeKey && keyConfig.browserGaodeKey != "") {
+        this.gaoDeUserMapKey = keyConfig.browserGaodeKey.split(",");
+    }
+    if(keyConfig && keyConfig.serverBingKey && keyConfig.serverBingKey != "") {
+        this.bingUserMapKey = keyConfig.serverBingKey.split(",");
+    }
+    
+    
+    // 给当前使用的url赋值
+    this.baiduMapUrl =  this.getBaiduMapUrl();
+    this.googleMapUrl =  this.getGoogleMapUrl();  // 默认中文
+    this.gaodeMapUrl = this.getGaodeMapUrl();
+    this.bingMapUrl = this.getBingMapUrl();
+    
+}
+
+
+
+
+
+/**
+ * 初始化百度地图数组
+ */
+MapConfig.prototype.initBaiduGeoKeyList = function () {
+    //暂时只使用默认1个key
+    for (var i = 0; i < this.baiduDefaultKeys.length; ++ i) {
+        var baiKey = new MapKey(this.baiduDefaultKeys[i]);
+        this.baiduGeoKeyList.push(baiKey);
+    }
+    this.baiduGeoKeyCount = this.baiduGeoKeyList.length;
+}
+
+/**
+ * 得到百度地图url
+ * 仅用于渲染地图
+ * 注意：
+ * 1、每次取得该url key值可能不一样
+ * 2、如果是离线地图，则返回离线地图url
+ * 3、如果是https地图，则替换连接为https
+ */
+MapConfig.prototype.getBaiduMapUrl = function (callbackFunName) {
+    var _this = this;
+    var _callBackFun = "map_init";
+    if(callbackFunName) {
+        _callBackFun = callbackFunName;
+    }
+    // 如果是离线地图
+    if(this.isOffLineMap()) {
+        return this.baiduOfflineMapUrl;
+    }
+    var _baiduUrl = null; // 这个为最后返回的url
+    var _baiduKeys = [];  // baidu key 数组，可以是客户的也可以是默认的
+    // 判断是客户传入的还是默认的list
+    if(_this.baiduUserMapKey != null && _this.baiduUserMapKey.length > 0) {
+        _baiduKeys = _this.baiduUserMapKey;
+    } else {
+        _baiduKeys = _this.baiduDefaultKeys;
+    }
+    // 如果只有一个，直接返回
+    if(_baiduKeys.length == 1) {
+        _baiduUrl = _this.baiduConfigKeyUrl + _baiduKeys[0] + "&callback=" + _callBackFun;
+        _this.baiduMapUrl = _baiduUrl; // 本类对象也存一个
+    } else {
+        var randomNum = Math.floor(Math.random() * Number(_baiduKeys.length));
+        _baiduUrl = _this.baiduConfigKeyUrl + _baiduKeys[randomNum] + "&callback=" + _callBackFun;
+    }
+    // 如果是https
+    if(this.isHTTPS()) {
+        _baiduUrl = _this.replaceHttps(_baiduUrl);
+    }
+    _this.baiduMapUrl = _baiduUrl; // 本类对象也存一个
+    return _baiduUrl;
+}
+
+
+/**
+ * 得到谷歌地图url
+ * 仅用于渲染地图
+ * 注意：
+ * 1、每次取得该url key值可能不一样
+ * 2、如果是离线地图，则返回离线地图url
+ * 3、如果是https地图，则替换连接为https
+ */
+MapConfig.prototype.getGoogleMapUrl = function () {
+    var _this = this;
+    var _callBackFun = "map_init"; // 默认map_init
+    // 如果是离线地图
+    if(this.isOffLineMap()) {
+    	_this.googleMapUrlOutSea = this.googleOfflineMapUrl;
+        return this.googleOfflineMapUrl;
+    }
+    var _googleUrl = null; // 这个为最后返回的url
+    var _googleKeys = null; // google key 数组，可以是客户的也可以是默认的
+    // 判断是客户传入的还是默认的list
+    if(_this.googleUserMapKey != null && _this.googleUserMapKey.length > 0) {
+        _googleKeys = _this.googleUserMapKey;
+    } else {
+        _googleKeys = _this.googleDefaultKeys;
+    }
+    // 如果只有一个，直接返回
+    if(_googleKeys.length == 1) {
+        _googleUrl = _this.googleConfigKeyUrl + _googleKeys[0] + "&callback=" + _callBackFun;
+        _this.googleMapUrlOutSea = _this.googleConfigKeyUrlOutSea + _googleKeys[0] + "&callback=" + _callBackFun; // 海外使用
+        _this.googleMapUrl = _googleUrl; // 国内使用
+    } else {
+        // 拼接key至url
+        var randomNum = Math.floor(Math.random() * Number(_googleKeys.length));
+        _googleUrl = _this.googleConfigKeyUrl + _googleKeys[randomNum] + "&callback=" + _callBackFun;
+		_this.googleMapUrlOutSea = _this.googleConfigKeyUrlOutSea + _googleKeys[randomNum] + "&callback=" + _callBackFun; // 海外使用
+	}
+
+    // 如果是https
+    if(this.isHTTPS()) {
+        _googleUrl = _this.replaceHttps(_googleUrl);
+		_this.googleMapUrlOutSea  = _this.replaceHttps(_this.googleMapUrlOutSea );
+    }
+    _this.googleMapUrl = _googleUrl; // 国内使用
+    return _googleUrl;
+}
+
+/**
+ * 得到高德地图url
+ * 仅用于渲染地图
+ * 注意：
+ * 1、每次取得该url key值可能不一样
+ * 2、如果是离线地图，则返回离线地图url
+ * 3、如果是https地图，则替换连接为https
+ */
+MapConfig.prototype.getGaodeMapUrl = function () {
+    var _this = this;
+    var _callBackFun = "map_init"; // 默认map_init
+    // 如果是离线地图，高德用百度的
+    if(this.isOffLineMap()) {
+        return this.baiduOfflineMapUrl;
+    }
+    var _gaoDeUrl = null; // 这个为最后返回的url
+    var _gaoDeKeys = null; // google key 数组，可以是客户的也可以是默认的
+    // 判断是客户传入的还是默认的list
+    if(_this.gaoDeUserMapKey != null && _this.gaoDeUserMapKey.length > 0) {
+        _gaoDeKeys = _this.gaoDeUserMapKey;
+    } else {
+        _gaoDeKeys = _this.gaoDeDefaultKeys;
+    }
+    // 如果只有一个，直接返回
+    if(_gaoDeKeys.length == 1) {
+        _gaoDeUrl = _this.gaoDeConfigKeyUrl + _gaoDeKeys[0] + "&callback=" + _callBackFun;
+        _this.gaodeMapUrl = _gaoDeUrl;
+    } else {
+        // 拼接key至url
+        var randomNum = Math.floor(Math.random() * Number(_gaoDeKeys.length));
+        _gaoDeUrl = _this.gaoDeConfigKeyUrl + _gaoDeKeys[randomNum] + "&callback=" + _callBackFun;
+    }
+
+    // 如果是https
+    if(this.isHTTPS()) {
+        _gaoDeUrl = _this.replaceHttps(_gaoDeUrl);
+    }
+    _this.gaodeMapUrl = _gaoDeUrl;
+    return _gaoDeUrl;
+}
+
+/**
+ * 得到必应地图url
+ * 仅用于渲染地图
+ * 注意：
+ * 1、每次取得该url key值可能不一样
+ * 2、如果是离线地图，则返回离线地图url
+ * 3、如果是https地图，则替换连接为https
+ */
+MapConfig.prototype.getBingMapUrl = function () {
+    var _this = this;
+    var _callBackFun = "map_init"; // 默认map_init
+    // 如果是离线地图
+    if(this.isOffLineMap()) {
+    	_this.googleMapUrlOutSea = this.googleOfflineMapUrl;
+        return this.googleOfflineMapUrl;
+    }
+    var _googleUrl = null; // 这个为最后返回的url
+    var _googleKeys = null; // google key 数组，可以是客户的也可以是默认的
+    // 判断是客户传入的还是默认的list
+    if(_this.bingUserMapKey != null && _this.bingUserMapKey.length > 0) {
+        _googleKeys = _this.bingUserMapKey;
+    } else {
+        _googleKeys = _this.bingMapDefaultKeys;
+    }
+    // 如果只有一个，直接返回
+    if(_googleKeys.length == 1) {
+        _googleUrl = _this.bingMapApiUrl + _googleKeys[0] + "&callback=" + _callBackFun;
+    } else {
+        // 拼接key至url
+        var randomNum = Math.floor(Math.random() * Number(_googleKeys.length));
+        _googleUrl = _this.bingMapApiUrl + _googleKeys[randomNum] + "&callback=" + _callBackFun;
+	}
+    // 如果是https
+    if(this.isHTTPS()) {
+        _googleUrl = _this.replaceHttps(_googleUrl);
+    }
+    _this.bingMapUrl = _googleUrl; // 国内使用
+    return _googleUrl;
+}
+/**
+ * 得到地理位置解析的url
+ * 仅用于前端地理位置跨域解析
+ * @param type
+ */
+MapConfig.prototype.getGeocodeUrl = function (type) {
+    var _this = this;
+    if(type == 'baidu') {
+        return _this.getBaiduGeocoderUrl();
+    } else if(type == 'google') {
+        return _this.getGoogleGeocoderUrl();
+    }
+}
+// 得到谷歌地理位置解析地址
+MapConfig.prototype.getGoogleGeocoderUrl = function () {
+    var _this = this;
+    if(this.isOffLineMap()) { // 离线地图不解析位置
+        return "";
+    }
+    var resultUrl = null; // 这个为最后返回的url
+    if(_this.isOutSea == 1) {
+        resultUrl = _this.googleConfigKeyGeocodeUrlEn; // 谷歌 海外
+    } else {
+        resultUrl = _this.googleConfigKeyGeocodeUrl; // 谷歌 国内
+    }
+
+    var _googleKeys = null; // google key 数组，可以是客户的也可以是默认的
+    // 判断是客户传入的还是默认的list
+    if(_this.googleUserMapKey != null && _this.googleUserMapKey.length > 0) {
+        _googleKeys = _this.googleUserMapKey;
+    } else {
+        _googleKeys = _this.googleDefaultKeys;
+    }
+    // 如果只有一个，直接返回
+    if(_googleKeys.length == 1) {
+        resultUrl = resultUrl + _googleKeys[0];
+    } else {
+        var randomNum = Math.floor(Math.random() * Number(_googleKeys.length));
+        resultUrl = resultUrl + _googleKeys[randomNum];
+    }
+    // 如果是https
+    if(this.isHTTPS()) {
+        resultUrl = _this.replaceHttps(resultUrl);
+    }
+    return resultUrl;
+}
+// 得到百度前端地理位置解析地址
+MapConfig.prototype.getBaiduGeocoderUrl = function () {
+    var ret = {};
+    ret.geoUrl = null;
+    ret.mapKey = null;
+
+
+    var _this = this;
+    if(this.isOffLineMap()) { // 离线地图不解析位置
+        return "";
+    }
+    // var resultUrl = null; // 这个为最后返回的url
+    // 判断是客户传入的还是默认的list
+    if(_this.baiduUserServerMapKey != null && _this.baiduUserServerMapKey.length > 0) {
+        ret.geoUrl = _this.baiduConfigKeyGeocodeUrl + _this.baiduUserServerMapKey[0];
+    } else {
+        ret.mapKey = _this.getBaiduGeoKey();
+        if (ret.mapKey != null) {
+            ret.geoUrl = _this.baiduConfigKeyGeocodeUrl + ret.mapKey.key;
+        }
+    }
+    // 如果是https
+    if(ret.geoUrl != null && this.isHTTPS()) {
+        ret.geoUrl = _this.replaceHttps(ret.geoUrl);
+    }
+    return ret;
+}
+
+/**
+ * 得到百度geo key
+ * @returns {*}
+ */
+MapConfig.prototype.getBaiduGeoKey = function () {
+    var find = false;
+    var ak = null;
+    for (var i = 0; i < this.baiduGeoKeyCount; ++ i) {
+        var index = this.baiduGeoKeyIndex % this.baiduGeoKeyCount;
+        this.baiduGeoKeyIndex ++;
+        ak = this.baiduGeoKeyList[index];
+        if (ak.isValid()) {
+            find = true;
+            break;
+        }
+    }
+    if (this.baiduGeoKeyIndex >= this.baiduGeoKeyCount) {
+        this.baiduGeoKeyIndex = this.baiduGeoKeyIndex % this.baiduGeoKeyCount;
+    }
+    if (!find) {
+        return null;
+    } else {
+        return ak;
+    }
+}
+
+
+
+
+/**
+ * 初始化Web端地图
+ * @param doc  保留Web地图页面引用
+ * @param loadScriptSucFn   加载脚本成功后的回调函数
+ * @param loadMapSucFn  加载地图成功后的回调函数
+ */
+MapConfig.prototype.initWebMap = function (doc,loadScriptSucFn,loadMapSucFn){
+    var _this = this;
+    var mapType =  _getRootFrameElement().toMap; // 地图解析类型
+    var isHttps = _this.isHTTPS(); // 是否https
+    var mapScript = null;
+    var scriptList = [];
+    if(mapType == 1) { // 谷歌 http  必应
+		mapScript = _this.googleMapUrl;
+		if(_this.isOutSeaVersion()) {
+			mapScript = _this.googleMapUrlOutSea;
+		}
+		scriptList.push(getRootPath() + "/js/map/google/js/mapframe.js");
+		scriptList.push(getRootPath() + "/js/map/google/js/function.js");
+		scriptList.push(getRootPath() + "/js/map/google/js/public.js");
+		scriptList.push(getRootPath() + "/js/map/google/js/map-google.js");
+		scriptList.push(getRootPath() + "/js/map/google/js/popupmarker.js");
+		scriptList.push(getRootPath() + "/js/map/google/js/namemarker.js");
+		scriptList.push(getRootPath() + "/js/map/google/js/mapmarker.js");
+    } else if(mapType == 2) { // 百度http
+        mapScript = _this.baiduMapUrl;
+    	scriptList.push(getRootPath() + "/js/map/baidu/mapframe.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/DistanceTool.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/function.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/map-baidu.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/namemarker.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/mapmarker.js");
+        //scriptList.push("../js/map/baidu/ev-baidu.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/popupmarker.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/rectangle.js");
+        scriptList.push(getRootPath() + "/js/map/baidu/MarkerTool.js");
+    } else if(mapType == 3) { // 高德http
+        mapScript = _this.gaodeMapUrl;
+        scriptList.push(getRootPath() + "/js/map/gaode/js/main.js");
+    	scriptList.push(getRootPath() + "/js/map/gaode/js/mapframe.js");
+        scriptList.push(getRootPath() + "/js/map/gaode/js/function.js");
+        scriptList.push(getRootPath() + "/js/map/gaode/js/map-gaode.js");
+        scriptList.push(getRootPath() + "/js/map/gaode/js/mapmarker.js");
+        scriptList.push(getRootPath() + "/js/map/gaode/js/popupmarker.js");
+        scriptList.push(getRootPath() + "/js/map/gaode/js/namemarker.js");
+    }else if(mapType == 9) { // 必应http
+	   	 mapScript = _this.bingMapUrl;
+		 scriptList.push(getRootPath() +"/808gps/ttxmap/mapv.js");
+		 scriptList.push(getRootPath() +"/808gps/ttxmap/bingMap/js/mapframe.js");
+		 scriptList.push(getRootPath() +"/808gps/ttxmap/bingMap/js/function.js");
+		 scriptList.push(getRootPath() +"/808gps/ttxmap/bingMap/js/popupmarker.js");
+		 scriptList.push(getRootPath() +"/808gps/ttxmap/bingMap/js/mapmarker.js");
+		 scriptList.push(getRootPath() +"/808gps/ttxmap/bingMap/js/namemarker.js");
+    }
+    if(isHttps) {
+        mapScript = _this.replaceHttps(mapScript);
+    }
+    // 初始化map
+    _this.createMap(doc,mapScript,scriptList,loadScriptSucFn,loadMapSucFn);
+}
+
+/**
+ * 初始化客户端地图
+ * @param doc  保留客户端地图页面引用
+ * @param loadScriptSucFn   加载脚本成功后的回调函数
+ * @param loadMapSucFn  加载地图成功后的回调函数
+ */
+MapConfig.prototype.initClientMap = function (doc,loadScriptSucFn,loadMapSucFn){
+    var _this = this;
+    var mapType =  $("#mapType").text();
+    var isHttps = $("#isHttps").text();
+    var mapScript = null;
+    var scriptList = [];
+    if(mapType == 1) { // 谷歌 http
+        mapScript = _this.googleMapUrl;
+        if(_this.isOutSeaVersion()) {
+            mapScript = _this.googleMapUrlOutSea;
+        }
+        scriptList.push("js/mapframe.js");
+        scriptList.push("js/function.js");
+        scriptList.push("js/map-google.js");
+        scriptList.push("js/popupmarker.js?");
+        scriptList.push("js/namemarker.js");
+        scriptList.push("js/mapmarker.js");
+        scriptList.push("js/ev-google.js");
+    } else if(mapType == 2) { // 百度http
+        mapScript = _this.baiduMapUrl;
+        scriptList.push("js/mapframe.js");
+        scriptList.push("js/DistanceTool.js");
+        scriptList.push("js/DrawingManager.js");
+        scriptList.push("js/RectangleZoom.js");
+        scriptList.push("js/function.js");
+        scriptList.push("js/map-baidu.js");
+        scriptList.push("js/popupmarker.js");
+        scriptList.push("js/groupmarker.js");
+        scriptList.push("js/namemarker.js");
+        scriptList.push("js/groupnamemarker.js");
+        scriptList.push("js/mapmarker.js");
+        scriptList.push("js/ev-baidu.js");
+        scriptList.push("js/TextIconOverlay.js");
+        scriptList.push("js/TrafficControl_min.js");
+    } else if(mapType == 9) { // 必应
+        mapScript = _this.bingMapUrl;
+        scriptList.push("js/mapv.js");
+        scriptList.push("js/mapframe.js");
+        scriptList.push("js/function.js");
+        scriptList.push("js/popupmarker.js");
+        scriptList.push("js/namemarker.js");
+        scriptList.push("js/mapmarker.js");
+    }
+
+    if(isHttps == 1) {
+        mapScript = _this.replaceHttps(mapScript);
+    }
+    // 初始化map
+    _this.createMap(doc,mapScript,scriptList,loadScriptSucFn,loadMapSucFn);
+}
+
+/**
+ * 初始化安卓端地图
+ * @param doc  保留安卓端地图页面引用
+ * @param loadScriptSucFn   加载脚本成功后的回调函数
+ * @param loadMapSucFn  加载地图成功后的回调函数
+ */
+MapConfig.prototype.initMobileMap = function (doc,loadScriptSucFn,loadMapSucFn){
+    var _this = this;
+    var mapType =  $("#mapType").text();
+    var isHttps = $("#isHttps").text();
+    var mapScript = null;
+    var scriptList = [];
+    if(mapType == 1) { // 谷歌 http
+        mapScript = _this.googleMapUrl;
+        if(_this.isOutSeaVersion()) {
+            mapScript = _this.googleMapUrlOutSea;
+        }
+        scriptList.push("js/mapframe.js");
+        scriptList.push("js/function.js");
+        scriptList.push("js/map-google.js");
+        scriptList.push("js/popupmarker.js?");
+        scriptList.push("js/namemarker.js");
+        scriptList.push("js/mapmarker.js");
+        scriptList.push("js/ev-google.js");
+    } else if(mapType == 2) { // 百度http
+        mapScript = _this.baiduMapUrl;
+        scriptList.push("js/mapframe.js");
+        scriptList.push("js/DistanceTool.js");
+        scriptList.push("js/MarkerTool.js");
+        scriptList.push("js/function.js");
+        scriptList.push("js/map-baidu.js");
+        scriptList.push("js/popupmarker.js");
+        scriptList.push("js/namemarker.js");
+        scriptList.push("js/mapmarker.js");
+        scriptList.push("js/ev-baidu.js");
+        scriptList.push("js/rectangle.js");
+    }else if(mapType == 9) { // 必应
+        mapScript = _this.bingMapUrl;
+        scriptList.push("js/mapv.js");
+        scriptList.push("js/mapframe.js");
+        scriptList.push("js/function.js");
+        scriptList.push("js/popupmarker.js");
+        scriptList.push("js/namemarker.js");
+        scriptList.push("js/mapmarker.js");
+    }
+
+    if(isHttps == 1) {
+        mapScript = _this.replaceHttps(mapScript);
+    }
+    // 初始化map
+    _this.createMap(doc,mapScript,scriptList,loadScriptSucFn,loadMapSucFn);
+}
+
+/**
+ * 得到弹框frame url
+ */
+MapConfig.prototype.getModalUrl = function() {
+    var _toMap = _getRootFrameElement().toMap;
+    if(_toMap == 1){ // 谷歌
+    	//0 GOOGLE	1 MAPINFO, 2 HTTPS GOOGLE, 3 BAIDU,4 Gaode 地图类型 9 必应
+		if (_getRootFrameElement().langIsChinese()) { // 谷歌国内
+			url = 'url:'+getRootPath()+'/map/map_position.html?mapType=0&toMap=1&isSystem=808gps&name=';
+		} else {//谷歌 海外
+			url = 'url:'+getRootPath()+'/map/map_position.html?mapType=0&toMap=1&isSystem=808gps&name=';
+		}
+    } else if(_toMap == 2) { // 百度
+    	url = 'url:'+getRootPath()+'/map/map_position_baidu.html?mapType=3&toMap=2&isSystem=808gps&name=';
+    } else if(_toMap == 3) { // 高德
+        url = 'url:'+getRootPath()+'/map/map_position_gaode.html?mapType=4&toMap=1&isSystem=808gps&name=';
+    } else if(_toMap == 9) {// 9 必应
+       	url = 'url:'+getRootPath()+'/map/map_position_bing.html?mapType=9&toMap=9&isSystem=808gps&name=';
+	}
+    return url;
+}
+
+
+
+
+/**
+ * 根据url跟脚本生成地图
+ * mapScriptUrl: 地图api url
+ * scriptList: 需要地图加载完成后才加载的脚本路径list
+ * loadScripSucFun: 加载全部脚本完成后的回调函数
+ * loadMapSucFn: 加载地图成功后的回调函数
+ *
+ */
+MapConfig.prototype.createMap = function (doc,mapScriptUrl,scriptList,loadScripSucFun,loadMapSucFn) {
+    var _this = this;
+    var readyScriptCount = 0; // 初始化为0
+
+    // 加载所有脚本后的回调事件
+    var initScriptSuc = function () {
+        ++ readyScriptCount;
+        if (readyScriptCount == scriptList.length) { // 全部脚本加载完成后执行代码
+            loadScripSucFun();
+        }
+    }
+
+    // 默认 地图加载完成后的回调函数
+    var map_init = function() {
+        for (var i = 0; i < scriptList.length; ++ i) {
+            _this.loadScript(doc, scriptList[i], initScriptSuc);
+        }
+    }
+
+    // 地图加载完成后的回调函数，使用用户传入的回调函数
+    if(loadMapSucFn && typeof loadMapSucFn == 'function') {
+        map_init = loadMapSucFn;
+    }
+
+    var win = 'defaultView' in doc? doc.defaultView : doc.parentWindow;
+    // 加入窗口回调函数引用
+    if (win != null) {
+    	win.map_init = map_init;
+    }
+    
+    _this.loadScript(doc,mapScriptUrl, function () {
+        // 如果是离线地图，则需要手动在地图加载完成后加载回调函数
+        if (_this.isOffLineMap()) {
+            map_init();
+        }
+    });
+}
+
+/**
+ * 加载脚本
+ * @param doc document对象 保留另一个页面doc的引用
+ * @param src
+ * @param callback
+ */
+MapConfig.prototype.loadScript = function(doc,src, callback) {
+    var otherJScipt = null;
+    if(src.endWith && src.endWith(".css")) {
+        otherJScipt = doc.createElement("link");
+        otherJScipt.setAttribute("type", "text/css");
+        otherJScipt.setAttribute("rel", "stylesheet");
+        otherJScipt.setAttribute("href", src);
+    }else {
+        otherJScipt = doc.createElement("script");
+        otherJScipt.setAttribute("type", "text/javascript");
+        otherJScipt.setAttribute("src", src);
+    }
+    var heads = doc.getElementsByTagName("head");
+    if(heads.length) {
+        heads[0].appendChild(otherJScipt);
+    }else {
+        doc.documentElement.appendChild(otherJScipt);
+    }
+    //判断服务器
+    if(typeof otherJScipt.onreadystatechange != 'undefined') {
+        otherJScipt.onreadystatechange = function () {
+            //IE下的判断，判断是否加载完成
+            if (otherJScipt && (otherJScipt.readyState == "loaded" || otherJScipt.readyState == "complete")) {
+                otherJScipt.onreadystatechange = null;
+                if (callback != null) {
+                    callback();
+                }
+            }
+        };
+    }else if(typeof otherJScipt.onload != 'undefined') {
+        otherJScipt.onload = function () {
+            otherJScipt.onload = null;
+            if (callback != null) {
+                callback();
+            }
+        };
+    }else {
+        if (callback != null) {
+            callback();
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+/**
+ * 是否离线地图
+ */
+MapConfig.prototype.isOffLineMap = function () {
+    return this.mapConfigStatus == 0? true : false;
+}
+
+/**
+ * 是否https
+ * @returns {boolean}
+ */
+MapConfig.prototype.isHTTPS = function() {
+	return this.isHttps == 0 ? false : true;
+}
+
+/**
+ * 是否海外
+ * @returns {boolean}
+ */
+MapConfig.prototype.isOutSeaVersion = function() {
+    return this.isOutSea == 0 ? false : true;
+}
+
+/**
+ * 将http替换为https
+ * @param url
+ * @returns {*}
+ */
+MapConfig.prototype.replaceHttps = function (url){
+    if(!/^https/.test(url)){
+        url = url.replace('http:','https:');
+    }
+    return url;
+}

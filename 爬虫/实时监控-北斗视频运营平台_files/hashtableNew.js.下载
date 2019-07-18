@@ -1,0 +1,77 @@
+(function(){
+    "use strict"
+    function HashtableNew(){
+        this._initial();
+    }
+    HashtableNew.prototype = {
+        _initial: function() {
+            this.count = 0;
+            this.entry = new Object();
+        },
+        put : function (key, value) {
+            if (!this.containsKey(key)) {
+                this.count++;
+            }
+            this.entry[key] = value;
+        },
+        get : function (key) {
+            return this.containsKey(key) ? this.entry[key] : null;
+        },
+        remove : function (key) {
+            if (this.containsKey(key) && (delete this.entry[key])) {
+                this.count--;
+            }
+        },
+        removeArr : function (arr) {
+            for (var i = 0; i < arr.length; i++) {
+                this.remove(arr[i])
+            }
+        },
+        containsKey : function (key) {
+            return (key in this.entry);
+        },
+        containsValue : function (value) {
+            for (var prop in this.entry) {
+                if (this.entry[prop] == value) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        getValues : function () {
+            var values = new Array();
+            for (var prop in this.entry) {
+                values.push(this.entry[prop]);
+            }
+            return values;
+        },
+        getKeys : function () {
+            var keys = new Array();
+            for (var prop in this.entry) {
+                keys.push(prop);
+            }
+            return keys;
+        },
+        size : function () {
+            return this.count;
+        },
+        clear : function () {
+            this.count = 0;
+            this.entry = new Object();
+        },
+        each : function(callback) {
+            for(var key in this.entry){
+                var value = this.entry[key];
+                callback(key, value);
+            }
+        }
+    }
+    var _global = (function(){ return this || (0, eval)('this'); }());
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = HashtableNew;
+    } else if (typeof define === "function" && define.amd) {
+        define(function(){return HashtableNew;});
+    } else {
+        !('HashtableNew' in _global) && (_global.HashtableNew = HashtableNew);
+    }
+})();

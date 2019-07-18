@@ -1,0 +1,140 @@
+/**
+ * 位置实时跟踪功能，对某个终端发起实时视频监控时，会一直跟踪该终端的位置，把两点连线，构成一个动态的轨迹图
+ */
+function RealtimeTrack() {
+	this.mapVehicleTrack = new Hashtable(); //保存车牌号和轨迹号
+	this.mapTrack = 0;		//地图上轨迹对象
+}
+
+/**
+ * 开始位置跟踪，添加轨迹
+ */
+RealtimeTrack.prototype.startTrack = function(vehiIdno) {
+	this.mapTrack++;
+	var track_ = {};
+	track_.trackId = this.mapTrack;
+	track_.index = 0;
+	
+	this.mapVehicleTrack.put(vehiIdno.toString(), track_);
+	
+	//添加轨迹到地图
+	this.trackInsertTrack(track_.trackId);
+}
+
+/**
+ * 添加一个轨迹点
+ */
+RealtimeTrack.prototype.addVehiclePoint = function(vehiIdno) {
+	var track_ = this.mapVehicleTrack.get(vehiIdno.toString());
+	if(track_) {
+		var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+		if(vehicle) {
+			var data = vehicle.gpsParseTrackStatus();
+			if(data.isGpsValid) {
+				track_.index++;
+				//压入一个点
+				this.trackPushPoint(track_.trackId, data.mapJingDu, data.mapWeiDu);
+				//画轨迹点
+				this.trackDrawPoint(track_.trackId);
+				//终端都更新结点到地图上，只是这个结点GPS信息可以是无效的
+//				var track = this.findTracker(track_.trackId);
+//				if (track != null){
+					//判断是否可以找到轨迹点信息
+//					var trackVehicle = this.trackFindVehicle(track, track_.index);
+					//插入1个轨迹点
+//					if (trackVehicle == null) {
+//						this.trackInsertVehicle(track_.trackId, track_.index, vehicle.getIcon());
+//					}
+//				}
+				//更新轨迹点的信息
+//				this.trackUpdateVehicle(track_.trackId, track_.index, vehiIdno, data.mapJingDu, data.mapWeiDu
+//						, data.huangXiang, /*data.image*/-1, vehiIdno, data.statusString, true);
+			}
+		}
+	}
+}
+
+/**
+ * 停止位置跟踪，删除轨迹
+ */
+RealtimeTrack.prototype.stopTrack = function(vehiIdno) {
+	var track_ = this.mapVehicleTrack.get(vehiIdno.toString());
+	if(track_) {
+		this.trackDeleteTrack(track_.trackId);
+	}
+	this.mapVehicleTrack.remove(vehiIdno.toString());
+}
+
+/**
+ * 查找所有轨迹点
+ */
+RealtimeTrack.prototype.findTracker = function(trackId) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.findTracker(trackId);
+	}
+};
+
+/**
+ * 添加轨迹到地图
+ */
+RealtimeTrack.prototype.trackInsertTrack = function(trackId) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackInsertTrack(trackId);
+	}
+}
+
+/**
+ * 压入一个点，用于画轨迹线
+ */
+RealtimeTrack.prototype.trackPushPoint = function(trackId, jindu, weidu) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackPushPoint(trackId, jindu, weidu);
+	}
+};
+
+/**
+ * 画轨迹点
+ */
+RealtimeTrack.prototype.trackDrawPoint = function(trackId) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackDrawPoint(trackId);
+	}
+};
+
+/**
+ * 查找轨迹点
+ */
+RealtimeTrack.prototype.trackFindVehicle = function(track, vehiId) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackFindVehicle(trackId, vehiId);
+	}
+};
+
+/**
+ * 插入1个轨迹点
+ */
+RealtimeTrack.prototype.trackInsertVehicle = function(trackId, vehiId, vehiIcon) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackInsertVehicle(trackId, vehiId, vehiIcon);
+	}
+};
+
+/**
+ * 更新轨迹点的信息
+ */
+RealtimeTrack.prototype.trackUpdateVehicle = function(trackId, vehiId, name, jindu, weidu, 
+		huangXiangId, statusImage, label, statusStr, show,linesOperation) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackInsertVehicle(trackId, vehiId, name, jindu, weidu, huangXiangId, 
+				statusImage, label, statusStr, show,linesOperation);
+	}
+};
+
+/**
+ * 删除地图上的轨迹
+ */
+RealtimeTrack.prototype.trackDeleteTrack = function(trackId) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		ttxMap.trackDeleteTrack(trackId);
+	}
+};

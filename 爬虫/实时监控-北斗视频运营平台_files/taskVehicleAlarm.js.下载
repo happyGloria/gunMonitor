@@ -1,0 +1,431 @@
+
+/**
+ */
+function TaskVehicleAlarm(){
+	this.alarmTableObj = null; //报警信息表格对象
+	this.addAlarmToEventList = new Array();  //向报警信息列表添加报警信息的集合
+	this.mapAlarmAddToEventList = new Hashtable(); //向报警信息列表添加报警信息的Map集合(车牌号关联)
+	this.mapAlarmUpdateToEventList = new Hashtable(); //向报警信息列表更新报警信息的Map集合(车牌号关联)
+	this.alarmUpdateToEventList = new Array(); //向报警信息列表更新报警信息的集合
+	
+	this.flashPositionInterval = 10; //10毫秒刷新
+	this.isFlashPosition = true;//是否刷新地理位置
+	this.flashPositionAlarmList = []; //刷新的报警列表
+}
+
+TaskVehicleAlarm.prototype.initialize = function(){
+	//任务汇报
+	if(parent.myUserRole.isZSYRoadList()){
+		this.initTaskAlarmTable();
+	}
+};
+
+//初始化任务汇报状态列表
+TaskVehicleAlarm.prototype.initTaskAlarmTable = function() {
+	var myMonitorAlarm = this;
+	var buttons = [
+	       	    {separator: false, hidename: "", name: parent.lang.clear, bclass: "flexDelete",
+	       	    	bimage: "", tooltip: parent.lang.clear, id: "zsyAlarmClear",
+	       	    	onpress: function() {
+	       	    		myMonitorAlarm.clearAlarmTableEvent();
+	       	    	}
+	       	    }
+	       	];
+	
+	this.alarmTableObj = $("#taskReportEventTable").flexigrid({
+		url: "",	//StandardTrackAction_query.action
+		dataType: 'json',
+		colModel : [
+			{display: parent.lang.plate_number, name : 'idno', width : 100, sortable : true, align: 'center'},
+	    	{display: "任务类型", name : 'taskType',width : 150, align: 'center'},
+			{display: "任务出发地", name : 'sPosition',  width : 200,  align: 'center'},
+			{display: "任务目的地", name : 'ePosition',width : 100, align: 'center'},
+			{display: "当前司机", name : 'curDriver',  width : 100,  align: 'center'},
+			{display: "预计时间", name : 'expectedTime',width : 100, align: 'center'},
+			{display: "乘客信息", name : 'peopleInfo',  width : 100,  align: 'center'},
+			{display: "当前任务进度", name : 'schedule', width : 200, align: 'center'},
+			{display: "最后一次打卡地点", name : 'lPosition', width : 200,  align: 'center'},
+			{display: "其他", name : 'other', width : 100,  align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		onChangeSort: true,
+		buttons: buttons,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	//本类对象
+	var myMonitorStatus = this;
+	this.alarmTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorStatus.fillAlarmTable(p, row, idx, index);	
+	});
+	this.alarmTableObj.flexSelectRowPropFun(function(obj, selRow) {
+			myMonitorStatus.selectAlarmRowProp(obj, selRow);
+	});
+}
+
+//清空报警列表
+TaskVehicleAlarm.prototype.clearAlarmTableEvent = function(){
+	if(this.alarmTableObj != null) {
+		this.alarmTableObj.flexClear();
+	}
+	//刷新地理位置状态
+	this.flashPositionAlarmList = [];
+};
+
+//向报警列表添加数据
+//耗时 200ms -  500ms  600ms+ 500辆车 9画面视频
+TaskVehicleAlarm.prototype.flashAddAlarmToEvent = function(){
+	if(this.addAlarmToEventList != null && this.addAlarmToEventList.length > 0) {
+		////提示报警有新的报警信息
+		this.showAlarmMessage();
+		//处理报警，同一车辆的报警，向上叠加，只显示最新的报警信息
+		//如果报警列表中不存在车辆的报警信息，则添加，否则更新
+		var armInfo = this.addAlarmToEventList[0];
+		this.addAlarmToEventList.splice(0, 1);
+		var rowObj = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(armInfo.id));
+		if(rowObj && rowObj.length > 0) {//列表存在
+			var oldArmInfo = this.mapAlarmUpdateToEventList.get(armInfo.id);
+			if(oldArmInfo != null) {
+				armInfo.armSum =  Number(oldArmInfo.armSum);
+			}else {
+				armInfo.armSum = 0;
+			}
+			//如果有开始时间和结束时间，表示报警结束，则报警数目不增加
+			if(!armInfo.startTime || !armInfo.endTime) {
+				armInfo.armSum += 1;
+			}
+			this.mapAlarmUpdateToEventList.put(armInfo.id, armInfo);
+			if(this.addAlarmToEventList.length == 0 || (new Date()).getTime() - this.startAddAlarmToEventTime >= 500) {
+				var that = this;
+				this.mapAlarmUpdateToEventList.each(function(vehiIdno, armInfo_) {
+					that.alarmUpdateToEventList.push(armInfo_);
+				});
+				this.mapAlarmUpdateToEventList.clear();
+				this.flashUpdateAlarmToEvent();
+			}
+		}else {//列表不存在
+			//表示已加入，但未放入列表，修改报警数目
+			var oldArmInfo = this.mapAlarmAddToEventList.get(armInfo.id);
+			if(oldArmInfo != null) {
+				armInfo.armSum =  Number(oldArmInfo.armSum);
+				if(!armInfo.startTime || !armInfo.endTime) {
+					armInfo.armSum += 1;
+				}
+			}else {
+				armInfo.armSum = 1;
+			}
+			this.mapAlarmAddToEventList.put(armInfo.id, armInfo);
+			//刷新地理位置状态
+			this.flashPositionAlarmList.push(armInfo);
+			
+			if(this.mapAlarmAddToEventList.size() >= 50 || this.addAlarmToEventList.length == 0) {
+				var rows = [];
+				this.mapAlarmAddToEventList.each(function(vehiIdno, armInfo_) {
+					rows.push(armInfo_);
+				});
+//				this.orderList.push({vehiName:"", company:});
+				this.mapAlarmAddToEventList.clear();
+				//耗时比较多(添加500条需要3-4s)
+//				loadConsoleTime(true, 'flexAppendRowJson');
+				this.alarmTableObj.flexAppendRowJson(rows, true);
+				
+				//刷新地理位置信息
+				this.flashAlarmPosition();
+			}
+		}
+	}else {
+		//刷新地理位置信息
+		this.flashAlarmPosition();
+	}
+};
+
+//向报警列表更新数据
+TaskVehicleAlarm.prototype.flashUpdateAlarmToEvent = function(){
+	if(this.alarmUpdateToEventList != null && this.alarmUpdateToEventList.length > 0) {
+		var armInfo = this.alarmUpdateToEventList[0];
+		this.alarmUpdateToEventList.splice(0, 1);
+		this.updateAlarmEvent(armInfo);
+		//刷新地理位置状态
+		this.flashPositionAlarmList.push(armInfo);
+		
+		if((new Date()).getTime() - this.startUpdateAlarmToEventTime < 500) {
+			this.flashUpdateAlarmToEvent();
+		}else {
+			//刷新地理位置信息
+			this.flashAlarmPosition();
+		}
+	}else {
+		//刷新地理位置信息
+		this.flashAlarmPosition();
+	}
+}
+
+/**
+ * 更新报警信息列表  打卡次数 和 最后一次打卡地点
+ */
+TaskVehicleAlarm.prototype.updateAlarmEvent = function(armInfo) {
+	var rowObj = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(armInfo.id));
+	if(rowObj && rowObj.length > 0) {//列表存在
+		this.modifyColumnTitle(rowObj.find('.schedule div span'), armInfo.clockInt);
+		
+		this.modifyColumnTitle(rowObj.find('.other div span'), armInfo.remark);
+		if(armInfo.startAddress) {
+			this.modifyColumnTitle(rowObj.find('.lPosition div span'), armInfo.startPos, true, armInfo.startMapLngLat, armInfo.startAddress);
+		}else {
+			this.modifyColumnTitle(rowObj.find('.lPosition div span'), armInfo.startPos, true, armInfo.startMapLngLat);
+		}
+	}
+}
+
+//修改具体报警信息
+//object 要修改的对象
+//position 是否是坐标
+TaskVehicleAlarm.prototype.modifyColumnTitle = function(object, value, position, mapLngLat, address) {
+	if(object) {
+		if(position) {
+			if(value && value != parent.lang.monitor_gpsUnvalid) {
+				var point = mapLngLat.split(',');
+				if(!object.hasClass('maplngLat')) {
+					object.addClass('maplngLat');
+				}
+				var onclick = 'changeMapAddress(this,'+point[1]+','+point[0]+');';
+				object.attr('onclick', onclick);
+			}else {
+				if(object.hasClass('maplngLat')) {
+					object.removeClass('maplngLat');
+				}
+				if(object.attr('onclick')) {
+					object.removeAttr('onclick');
+				}
+			}
+		}
+		if(value) {
+			if(address) {
+				object.attr('title', address);
+				object.text(address);
+			}else {
+				object.attr('title', value);
+				object.text(value);
+			}
+		}else {
+			object.attr('title', '');
+			object.text('');
+		}
+	}
+}
+
+//选中事件列表
+TaskVehicleAlarm.prototype.selectAlarmRowProp = function(obj, selRow) {
+	//如果不执行，则跳过
+	if(selRow && selRow == 'selAll') {
+		return;
+	}
+	var vehiIdno = $.trim($(obj).find('.idno').find('div span').text());
+	var vehicle = parent.vehicleManager.getVehicle(vehiIdno);
+	if (vehicle != null && vehicle.isInSystemVehicle()) {//系统内车辆
+		if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+			if(!monitorStatus.findMonitorVehicle(vehiIdno)) {//如果没有监控
+				if(typeof vehiTree != 'undefined' && vehiTree != null) {
+					if(typeof loadTeamTree == 'function') {
+						//如果没有添加到树列表则添加
+						loadTeamTree(vehicle.getParentId(), function() {
+							vehiTree.setCheck(vehiIdno, true);
+							monitorStatus.addMonitorVehicle(vehiIdno);
+						});
+					}else {
+						vehiTree.setCheck(vehiIdno, true);
+						monitorStatus.addMonitorVehicle(vehiIdno);
+					}
+				}else {
+					monitorStatus.addMonitorVehicle(vehiIdno);
+				}
+			}else {
+				monitorStatus.selectVehicle(vehiIdno, true, true, true);
+			}
+		}
+	}else {
+		//加载危化系统外车辆到地图
+		if(vehiIdno) {
+			var alarm = this.mapChemicalAreaAlarmInfo.get(vehiIdno);
+			if(typeof monitorChemical != 'undefined' && monitorChemical != null && alarm != null) {
+				monitorChemical.loadAreaAlarmVehicle(alarm);
+			}
+		}
+	}
+}
+
+TaskVehicleAlarm.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充报警信息列表
+TaskVehicleAlarm.prototype.fillAlarmTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var ret = "";
+	if(name == 'idno') {
+		if(row.vehiIdno) {
+			ret = row.vehiIdno;
+		}
+	} else if(name == 'taskType') {
+		ret = row['type'];
+	}else if(name == 'sPosition') {
+		ret = row['start'];
+	} else if(name == 'ePosition') {
+		ret = row['end'];
+	}else if(name == 'schedule') {
+		if(row['clockInt']){
+			ret = row['clockInt'];
+		}
+	}else if(name == 'expectedTime'){
+		ret = dateTime2TimeString(row['startTime'])+'-'+dateTime2TimeString(row['endTime']);
+	}else if(name == 'lPosition') {
+		if(row.startPos) {
+			if(row.startPos != parent.lang.monitor_gpsUnvalid && row.startPos != '') {
+//				var point = row.startMapLngLat.split(',');
+				var point = row.startPos.split(',');
+//				if(row.startAddress) {
+//					ret = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ row.startAddress +'">'+ row.startAddress +'</span>';
+//				}else {
+					ret = '<span class="maplngLat" onclick="changeMapAddress(this,'+point[1]+','+point[0]+');" title="'+ row.startPos +'">'+ row.startPos +'</span>';
+//				}
+			}else {
+				ret = '<span title="'+ row.startPos +'">'+ row.startPos +'</span>';
+			}
+		//	ret = row.startPos;
+			return ret;
+		}
+	}else if(name == 'other') {
+		ret = row['remark'];
+	}else{
+		if(row[name]){
+			ret = row[name];
+		}
+	}
+	return this.getColumnTitle(ret);
+};
+
+//提示报警有新的报警信息
+TaskVehicleAlarm.prototype.showAlarmMessage = function() {
+	//如果当前选择的是  GPS监控  或者 系统事件列表，当接收到报警时，需要将  报警信息字体变红，
+	//展现已经接收到了报警，及时提示用户
+	if(!$('#gps-taskReport').hasClass('active') || !isMinSize) {//未选中  并且非 最小化化
+		$('#gps-taskReport_title').css('background-color','#FF0000');
+	}
+}
+
+/**
+ * 获取地图缓存地理位置信息
+ * @param jingDu
+ * @param weiDu
+ */
+TaskVehicleAlarm.prototype.getGeoAddress = function(jingDu, weiDu) {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		var position = ttxMap.getGeoAddress(jingDu, weiDu);
+		if(position != null && position.address != null) {
+			return position.address;
+		}
+	}
+	return "";
+}
+
+//是否百度地图
+TaskVehicleAlarm.prototype.isBaiduMap = function() {
+	//地图类型
+	var  mapType = 	parent.mapType;
+	if(parent.mapTypeLoaction  != null){
+		mapType = parent.mapTypeLoaction;
+	}
+	if (mapType != null && mapType == 3) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//启动自动刷新地理位置的定时器
+TaskVehicleAlarm.prototype.runPositionTimer = function(){
+	var that = this;
+	this.flashPositionTimer = setTimeout(function () {
+		that.flashAlarmPosition();
+	}, that.flashPositionInterval);
+};
+
+//自动刷新地理位置
+//百度地图才刷新
+TaskVehicleAlarm.prototype.flashAlarmPosition = function() {
+	if(this.isFlashPosition && this.isBaiduMap()) {
+		var that = this;
+		if(this.flashPositionAlarmList.length > 0 ) {
+			this.flashPositionInterval = 50;
+			var alarm = this.flashPositionAlarmList[this.flashPositionAlarmList.length - 1];
+			this.flashPositionAlarmList.splice(this.flashPositionAlarmList.length - 1,1);
+			var object = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(alarm.id));
+			if(object.length > 0) {
+				if(typeof ttxMap != 'undefined' && ttxMap != null) {
+					//开始位置
+					if(alarm.isStartGpsValid) {//位置有效
+						var position = $.trim(object.find('.lPosition div .maplngLat').html());
+						var point = alarm.startPos.split(",");
+						var jingDu = point[1];
+						var weiDu = point[0];
+						var userData = {};
+						var  toMapType =  parent.toMap;
+						if(parent.toMapLoaction != null){
+							toMapType =  parent.toMapLoaction;
+						}
+						userData.mapType = toMapType;
+						userData.obj = object;
+						userData.alarm = alarm;
+						ttxMap.geocoderAddress(weiDu+','+jingDu, jingDu, weiDu, function(key, jingDu, weiDu, address, city, obj) {
+							if(address != '' && address != position) {
+								var object = obj.obj;
+								var alarm = obj.alarm;
+								object.find('.lPosition div .maplngLat').attr('data-position', point);
+								object.find('.lPosition div .maplngLat').html(address);
+								object.find('.lPosition div .maplngLat').attr('title', address);
+								var vehicle = parent.vehicleManager.getVehicle(alarm.vehiIdno);
+								if(vehicle != null) {
+									vehicle.zsyPostion = address;
+								}
+							}
+						}, userData);
+					}
+				}
+			}
+			that.runPositionTimer();
+		}else {
+			this.flashPositionInterval = 120000;
+			this.runPositionTimer();
+		}
+	}
+}
+
+//刷新所有中石油车辆的打卡位置
+TaskVehicleAlarm.prototype.flashAllVehicleZSYPosition = function() {
+	if(typeof ttxMap != 'undefined' && ttxMap != null) {
+		parent.vehicleManager.mapVehiList.each(function(key,vehiObj){
+			var jingDu = vehiObj.zsyJingdu;
+			var weiDu = vehiObj.zsyWeidu;
+			var  toMapType =  parent.toMap;
+			if(parent.toMapLoaction != null){
+				toMapType =  parent.toMapLoaction;
+			}
+			vehiObj.mapType = toMapType;
+			if(jingDu != null && jingDu != ""
+				&& weiDu != null && weiDu != "") {
+				ttxMap.geocoderAddress(weiDu+','+jingDu, jingDu, weiDu, function(key, jingDu, weiDu, address, city, vehi) {
+					if(address != '') {
+						vehi.zsyPostion = address;
+					}
+				}, vehiObj);
+			}
+		});
+	}
+}

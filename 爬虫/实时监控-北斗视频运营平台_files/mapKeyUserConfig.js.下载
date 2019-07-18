@@ -1,0 +1,25 @@
+/**
+ * 地图key配置
+ * 如果有多个key，请用英文符号逗号隔开
+ *
+ * ps: 目前谷歌地图key 前端渲染地图跟后端地理位置解析用的是同一个key
+ *     即  browserGoogleKey === serverGoogleKey
+ *
+ */
+function MapUserKeyConfig() {
+    // 浏览器端Key
+    // baidu key
+    this.browserBaiduKey = "";
+    // google key
+    this.browserGoogleKey = "AIzaSyCPrAnBCHxva4mGOQu7ABkoOKSRMX0jqLU";
+    // gaode key
+    this.browserGaodeKey = "";
+
+    // 服务器端Key
+    // 百度
+    this.serverBaiduKey = "";
+    // 谷歌
+    this.serverGoogleKey = "AIzaSyCPrAnBCHxva4mGOQu7ABkoOKSRMX0jqLU";
+    // 高德
+    this.serverGaodeKey = "";
+}

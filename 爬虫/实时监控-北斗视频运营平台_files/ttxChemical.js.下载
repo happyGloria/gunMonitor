@@ -1,0 +1,2803 @@
+/**
+ * 危化地图处理类
+ */
+function monitorTtxChemical(){
+	this.roleCls = null;  //权限类对象
+	this.isLoadRescueSuc = false; //初次加载应急救援点信息是否加载完成
+	this.isLoadSourceSuc = false;//初次加载消防水源信息是否加载完成
+	this.isLoadProduceSuc = false; //初次加载生产仓储企业信息是否加载完成
+	this.isLoadLogisticsSuc = false; //初次加载物流企业信息是否加载完成
+	this.mapRescuePoint = new Hashtable();  //获取到的应急救援点信息列表
+	this.mapSourcePoint = new Hashtable();  //获取到的消防水源点信息列表
+	this.mapProducePoint = new Hashtable();  //获取到的生产仓储企业信息列表
+	this.mapLogisticsPoint = new Hashtable();  //获取到的物流企业信息列表
+	this.mapRescuePointAdded = new Hashtable();  //已添加到地图的应急救援点信息列表
+	this.mapSourcePointAdded = new Hashtable();  //已添加到地图的消防水源点信息列表
+	this.mapProducePointAdded = new Hashtable();  //已添加到地图的生产仓储企业信息列表
+	this.mapLogisticsPointAdded = new Hashtable();  //已添加到地图的物流企业信息列表
+	this.addRescueMarkerExpId = 940000000; //画应急救援点区域时的区域Id，画区域结束后删除
+	this.addSourceMarkerExpId = 990000000; //画消防水源点区域时的区域Id，画区域结束后删除
+	this.addProduceMarkerExpId = 950000000; //画生产仓储企业区域时的区域Id，画区域结束后删除
+	this.addLogisticsMarkerExpId = 980000000; //画物流企业区域时的区域Id，画区域结束后删除
+	this.initSuc = false;
+	this.isShowing = false; //界面是否打开了
+	this.lstAdministrativeArea = []; //行政区域列表
+	this.loadAreaSuc = false; //行政区域是否加载成功
+	
+	this.defaultAddNavMarkerExpId = 960000000; //默认添加导航点的区域ID，添加成功后删除
+	this.mapLineNavPoint = new Hashtable(); //添加到地图的导航点
+	this.addNavMarkerIndex = 0; //导航点  起点 终点 途经点x
+	this.addNavMarkerExpId = 0; //添加导航点的区域ID，添加成功后删除
+	this.arrDriverLineObject = []; //导航的线路对象数组
+	this.arrDriverLineDesc = []; //导航的规划方案
+	this.arrDriverLineLngLat = []; //导航线路的经纬度点集合
+	this.driverLineDescObject = null; //线路导航方案对象
+	
+	this.loadHeatMapSuc = false; //加载热点图成功
+	this.mapCompanyProduct = new Hashtable(); //公司产品储量列表 公司id
+	this.mapProductCapacity = new Hashtable(); //产品容量列表 产品id
+	this.heatmapOverlay = null; //热力图对象
+	this.isShowHeatmap = false; //热力图是否显示的
+	this.arrHeatmapColor = null; //热力图的颜色区间
+	this.heatmapType = 1; //按公司显示，  2按危化品显示
+	this.heatmapChemical = null; //危化品
+	this.isHeatmapChanged = true; //热力图是否改变
+	
+	this.viewProduceCompanyId = 0; //正在查看的生产仓储企业id
+	this.isLoadForbidAreaSuc = false; //初次加载禁行区域信息是否加载完成
+	this.addMarkerExpId = 910000000; //画区域时的区域Id，画区域结束后删除
+	this.mapAreaInfo = new Hashtable(); //禁行区域信息列表
+	this.mapLineInfo = new Hashtable(); //禁行线路信息列表
+	this.lstAreaType = []; // 区域类型列表
+}
+
+//赋值权限类对象
+monitorTtxChemical.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+
+//界面是否打开了
+monitorTtxChemical.prototype.setShow = function(show_) {
+	this.isShowing = show_;
+	if(show_) {
+		$('#chemical-rescue .chemical-box').addClass('active');
+		$('#chemical-source .chemical-box').addClass('active');
+		$('#chemical-produce .chemical-box').addClass('active');
+		$('#chemical-logistics .chemical-box').addClass('active');
+		$('#chemical-forbidArea .forbidArea-pane').addClass('active');
+		$('#chemical-forbidArea .chemical-box').addClass('active');
+		$('#chemicalShow').addClass('active');
+	}else {
+		$('#chemical-rescue .chemical-box').removeClass('active');
+		$('#chemical-source .chemical-box').removeClass('active');
+		$('#chemical-produce .chemical-box').removeClass('active');
+		$('#chemical-logistics .chemical-box').removeClass('active');
+		$('#chemical-forbidArea .forbidArea-pane').removeClass('active');
+		$('#chemical-forbidArea .chemical-box').removeClass('active');
+		$('#chemicalShow').removeClass('active');
+	}
+}
+
+//初始化
+monitorTtxChemical.prototype.initialize = function() {
+	//如果没有初始化，才进行初始化
+	if(!this.initSuc) {
+		//初始化危化地图
+		this.initChemicalMap();
+		//初始化表格
+		this.initMapTable();
+	}
+}
+
+//初始化危化地图
+monitorTtxChemical.prototype.initChemicalMap = function() {
+	//初始化应急救援点
+	this.initRescuePointMap();
+	//初始化消防水源
+	this.initSourcePointMap();
+	
+	if(this.roleCls.isAdmin() || this.roleCls.isLogisticCompany() || this.roleCls.isSafetyCompany()
+			|| this.roleCls.isEnvironmentallyCompany() || this.roleCls.isRescueCompany() ||
+			this.roleCls.isPublicPoliceCompany()) {
+		//初始化生产仓储企业
+		this.initProduceCompanyMap();
+	}
+	//交通交警部门
+	if(this.roleCls.isAdmin() || this.roleCls.isTrafficCompany() || this.roleCls.isTrafficPoliceCompany()) {
+		//初始化物流企业
+		this.initLogisticsCompanyMap();
+	}
+	if(this.roleCls.isAdmin() || this.roleCls.isTrafficPoliceCompany()) {
+		//初始化禁行区域
+		this.initForbidArea();
+	}
+	if(this.roleCls.isLogisticCompany() || this.roleCls.isTrafficCompany()) {
+		//初始化禁行区域
+		this.initForbidSearchArea();
+	}
+	
+	
+	$('body').append('<div id="chemicalShow">'+ parent.lang.myMap_hide +'</div>');
+	var that = this;
+	$('#chemicalShow').on('click', function() {
+		$(this).removeClass('active');
+		that.setShow(false);
+		if(myMap) {
+			myMap.setShow(false);
+		}
+	});
+	if(myMap) {
+		myMap.setExistOtherPage(true);
+	}
+	
+	this.initSuc = true;
+}
+
+//初始化应急救援点
+monitorTtxChemical.prototype.initRescuePointMap = function() {
+	var content = '<div id="chemical-rescue">';
+	content += '	<div class="spantitle">应急救援点</div>';
+	content += '	<div class="chemical-box">';
+	content += '		<div style="display: inline-block;height: 26px;margin-top: 2px;">';
+	content += '			<div class="chemical-rescue-search" style="float: left;"></div>';
+	content += '			<div class="chemical-rescue-button" style="float: left;margin-left: 10px;"></div>';
+	content += '		</div>';
+	content += '		<div class="chemical-table">';
+	content += '			<table id="rescuePointTable"></table>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	$('#chemical-rescue .spantitle').css('top', '28px');
+	
+	
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息
+	$('#chemical-rescue .spantitle').on('click', function() {
+			$('#chemical-rescue .spantitle').css({'background-color':'#0071c6','color':'white'});
+			$('#chemical-source .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-produce .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-logistics .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-forbidArea .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#myMap_ .spantitle').css({'background-color':'#dddddd','color':'black'});
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadRescueSuc) {
+				that.isLoadRescueSuc = true;
+				//加载行政区域
+				that.loadAdministrativeArea();
+				that.searchRescuePointTable();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(2);
+			}
+		}else {
+
+			if($('#chemical-rescue .chemical-box').hasClass('active')) {
+				$('#chemical-rescue .chemical-box').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadRescueSuc) {
+					that.isLoadRescueSuc = true;
+					that.searchRescuePointTable();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(2);
+				}
+				that.setShow(true);
+				if(myMap) {
+					myMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	//搜索框
+	$('.chemical-rescue-search').flexPanel({
+		SerachBarModel :
+			{display: '名称', name : 'rescueName', pfloat : 'left'}
+	});
+	$('.chemical-rescue-search .y-btn').on('click',function(){
+		that.searchRescuePointTable();
+	});
+	$('.chemical-rescue-search .search-input').on('keydown',function(e){
+		if(e.keyCode == 13) {
+			that.searchRescuePointTable();
+		}
+	});
+	
+	//点击拉框查找
+	$('.chemical-rescue-button').flexPanel({
+		ButtonsModel : [[
+		     {
+				display: '找应急救援点', 
+				name : '', 
+				pclass : 'rect_search_rescue',
+				bgcolor : 'gray', 
+				hide : false
+		   }], [{
+				display: '清除',
+				name : '', 
+				pclass : 'rect_clear_rescue',
+				bgcolor : 'gray', 
+				hide : false
+		   }]] 
+	});
+	$('.chemical-rescue-button .rect_search_rescue').on('click', function() {
+		rectSearchType = 4;
+		if (4 != GFRAME.addMarkerType) {
+			searchVehi();
+		}
+	});
+	//清除地图上的应急救援点
+	$('.chemical-rescue-button .rect_clear_rescue').on('click', function() {
+		that.clearRescuePoint();
+	});
+	
+	$('#chemical-rescue').show();
+}
+
+/**************************** 新增消防水源 ************************************************************************/
+
+//初始化消防水源
+monitorTtxChemical.prototype.initSourcePointMap = function() {
+	var content = '<div id="chemical-source">';
+	content += '	<div class="spantitle">消防水源点</div>';
+	content += '	<div class="chemical-box">';
+	content += '		<div style="display: inline-block;height: 26px;margin-top: 2px;">';
+	content += '			<div class="chemical-source-search" style="float: left;"></div>';
+	content += '			<div class="chemical-source-button" style="float: left;margin-left: 10px;"></div>';
+	content += '		</div>';
+	content += '		<div class="chemical-table">';
+	content += '			<table id="sourcePointTable"></table>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	$('#chemical-source .spantitle').css('top', '56px');
+	
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息//消防水源
+	$('#chemical-source .spantitle').on('click', function() {
+			$('#chemical-source .spantitle').css({'background-color':'#0071c6','color':'white'});
+			$('#chemical-rescue .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-produce .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-logistics .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-forbidArea .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#myMap_ .spantitle').css({'background-color':'#dddddd','color':'black'});
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadSourceSuc) {
+				that.isLoadSourceSuc = true;
+				//加载行政区域
+				that.loadAdministrativeArea();
+				that.searchSourcePointTable();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(7);
+			}
+		}else {
+
+			if($('#chemical-source .chemical-box').hasClass('active')) {
+				$('#chemical-source .chemical-box').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadSourceSuc) {
+					that.isLoadSourceSuc = true;
+					that.searchSourcePointTable();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(7);
+				}
+				that.setShow(true);
+				if(myMap) {
+					myMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	//搜索框
+	$('.chemical-source-search').flexPanel({
+		SerachBarModel :
+			{display: '名称', name : 'sourceName', pfloat : 'left'}
+	});
+	$('.chemical-source-search .y-btn').on('click',function(){
+		that.searchSourcePointTable();
+	});
+	$('.chemical-source-search .search-input').on('keydown',function(e){
+		if(e.keyCode == 13) {
+			that.searchSourcePointTable();
+		}
+	});
+	
+	//点击拉框查找
+	$('.chemical-source-button').flexPanel({
+		ButtonsModel : [[
+		     {
+				display: '找消防水源点', 
+				name : '', 
+				pclass : 'rect_search_source',
+				bgcolor : 'gray', 
+				hide : false
+		   }], [{
+				display: '清除',
+				name : '', 
+				pclass : 'rect_clear_source',
+				bgcolor : 'gray', 
+				hide : false
+		   }]] 
+	});
+	$('.chemical-source-button .rect_search_source').on('click', function() {
+		rectSearchType = 6;
+		if (4 != GFRAME.addMarkerType) {
+			searchVehi();
+		}
+	});
+	//清除地图上的应急救援点
+	$('.chemical-source-button .rect_clear_source').on('click', function() {
+		that.clearSourcePoint();
+	});
+	
+	$('#chemical-source').show();
+}
+
+
+
+//初始化生产仓储企业
+monitorTtxChemical.prototype.initProduceCompanyMap = function() {
+	var content = '<div id="chemical-produce">';
+	content += '	<div class="spantitle">生产仓储企业</div>';
+	content += '	<div class="chemical-box">';
+	content += '		<div style="display: inline-block;height: 26px;margin-top: 2px;">';
+	content += '			<div class="chemical-produce-search" style="float: left;"></div>';
+	content += '			<div class="chemical-produce-button" style="float: left;margin-left: 10px;"></div>';
+	content += '		</div>';
+	content += '		<div class="chemical-table">';
+	content += '			<table id="producePointTable"></table>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	$('#chemical-produce .spantitle').css('top', '84px');
+	
+	
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息
+	$('#chemical-produce .spantitle').on('click', function() {
+			$('#chemical-produce .spantitle').css({'background-color':'#0071c6','color':'white'});
+			$('#chemical-rescue .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-source .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-logistics .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#chemical-forbidArea .spantitle').css({'background-color':'#dddddd','color':'black'});
+			$('#myMap_ .spantitle').css({'background-color':'#dddddd','color':'black'});
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadProduceSuc) {
+				that.isLoadProduceSuc = true;
+				//加载行政区域
+				that.loadAdministrativeArea();
+				that.searchProducePointTable();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(3);
+			}
+		}else {
+			if($('#chemical-produce .chemical-box').hasClass('active')) {
+				$('#chemical-produce .chemical-box').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadProduceSuc) {
+					that.isLoadProduceSuc = true;
+					that.searchProducePointTable();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(3);
+				}
+				that.setShow(true);
+				if(myMap) {
+					myMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	//搜索生产仓储企业
+	$('.chemical-produce-search').flexPanel({
+		SerachBarModel :
+			{display: '名称', name : 'produceName', pfloat : 'left'}
+	});
+	$('.chemical-produce-search .y-btn').on('click',function(){
+		that.searchProducePointTable();
+	});
+	$('.chemical-produce-search .search-input').on('keydown',function(e){
+		if(e.keyCode == 13) {
+			that.searchProducePointTable();
+		}
+	});
+	
+	//点击拉框查找
+	var models = [];
+	models.push([{
+		display: '找生产仓储企业', 
+		name : '', 
+		pclass : 'rect_search_produce',
+		bgcolor : 'gray', 
+		hide : false
+	}]);
+	models.push([{
+		display: '清除',
+		name : '', 
+		pclass : 'rect_clear_produce',
+		bgcolor : 'gray', 
+		hide : false
+	}]);
+	if(this.roleCls.isAdmin() || this.roleCls.isSafetyCompany()
+			|| this.roleCls.isEnvironmentallyCompany()||
+			this.roleCls.isPublicPoliceCompany()) {
+		models.push([{
+			display: '热力图',
+			name : '', 
+			pclass : 'chemicalHeatMap',
+			bgcolor : 'gray',
+			hide : false
+		}]);
+	}
+	
+	$('.chemical-produce-button').flexPanel({
+		ButtonsModel : models
+	});
+	$('.chemical-produce-button .rect_search_produce').on('click', function() {
+		rectSearchType = 3;
+		if (4 != GFRAME.addMarkerType) {
+			searchVehi();
+		}
+	});
+	//清除地图上的生产仓储企业
+	$('.chemical-produce-button .rect_clear_produce').on('click', function() {
+		that.clearProducePoint();
+	});
+	//企业危化品储量热点分布图
+	$('.chemical-produce-button .chemicalHeatMap').on('click', function() {
+		that.loadChemicalHeatMap();
+	});
+	$('#chemical-produce').show();
+}
+
+//初始化物流企业
+monitorTtxChemical.prototype.initLogisticsCompanyMap = function() {
+	var content = '<div id="chemical-logistics">';
+	content += '	<div class="spantitle">物流企业</div>';
+	content += '	<div class="chemical-box">';
+	content += '		<div style="display: inline-block;height: 26px;margin-top: 2px;">';
+	content += '			<div class="chemical-logistics-search" style="float: left;"></div>';
+	content += '			<div class="chemical-logistics-button" style="float: left;margin-left: 10px;"></div>';
+	content += '		</div>';
+	content += '		<div class="chemical-table">';
+	content += '			<table id="logisticsPointTable"></table>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	if(this.roleCls.isAdmin()) {
+		$('#chemical-logistics .spantitle').css('top', '112px');
+	}else {
+		$('#chemical-logistics .spantitle').css('top', '84px');
+	}
+	
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息
+	$('#chemical-logistics .spantitle').on('click', function() {
+		$('#chemical-logistics .spantitle').css({'background-color':'#0071c6','color':'white'});
+		$('#chemical-rescue .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-source .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-produce .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-forbidArea .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#myMap_ .spantitle').css({'background-color':'#dddddd','color':'black'});
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadLogisticsSuc) {
+				that.isLoadLogisticsSuc = true;
+				//加载行政区域
+				that.loadAdministrativeArea();
+				that.searchLogisticsPointTable();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(6);
+			}
+		}else {
+			if($('#chemical-logistics .chemical-box').hasClass('active')) {
+				$('#chemical-logistics .chemical-box').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadLogisticsSuc) {
+					that.isLoadLogisticsSuc = true;
+					that.searchLogisticsPointTable();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(6);
+				}
+				that.setShow(true);
+				if(myMap) {
+					myMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	//搜索物流企业
+	$('.chemical-logistics-search').flexPanel({
+		SerachBarModel :
+			{display: '名称', name : 'logisticsName', pfloat : 'left'}
+	});
+	$('.chemical-logistics-search .y-btn').on('click',function(){
+		that.searchLogisticsPointTable();
+	});
+	$('.chemical-logistics-search .search-input').on('keydown',function(e){
+		if(e.keyCode == 13) {
+			that.searchLogisticsPointTable();
+		}
+	});
+	
+	//点击拉框查找
+	var models = [];
+	models.push([{
+		display: '找物流企业', 
+		name : '', 
+		pclass : 'rect_search_logistics',
+		bgcolor : 'gray', 
+		hide : false
+	}]);
+	models.push([{
+		display: '清除',
+		name : '', 
+		pclass : 'rect_clear_logistics',
+		bgcolor : 'gray', 
+		hide : false
+	}]);
+	if(this.roleCls.isAdmin() || this.roleCls.isTrafficCompany()
+			|| this.roleCls.isTrafficPoliceCompany() ) {
+		/*models.push([{
+			display: '热力图',
+			name : '', 
+			pclass : 'chemicalHeatMap',
+			bgcolor : 'gray',
+			hide : false
+		}]);*/
+	}
+	
+	$('.chemical-logistics-button').flexPanel({
+		ButtonsModel : models
+	});
+	$('.chemical-logistics-button .rect_search_logistics').on('click', function() {
+		rectSearchType = 5;
+		if (4 != GFRAME.addMarkerType) {
+			searchVehi();
+		}
+	});
+	//清除地图上的物流企业
+	$('.chemical-logistics-button .rect_clear_logistics').on('click', function() {
+		that.clearLogisticsPoint();
+	});
+	//企业数目热点分布图
+	$('.chemical-logistics-button .chemicalHeatMap').on('click', function() {
+		that.loadChemicalLogisticsHeatMap();
+	});
+	$('#chemical-logistics').show();
+}
+
+//初始化禁行区域列表
+monitorTtxChemical.prototype.initForbidArea = function() {
+	var content = '<div id="chemical-forbidArea">';
+	content += '<div class="spantitle">禁行区域</div>';
+	content += '	<div class="forbidArea-pane">';
+	content += '		<ul class="forbidArea-tab">';
+	content += '			<li class="area active"><span id="forbidAreaTitle">面</span><span id="forbidAreaSum"></span></li>';
+	content += '			<li class="line"><span id="forbidLineTitle">线</span><span id="forbidLineSum"></span></li>';
+	content += '			<li style="margin-left: 10px;padding: 5px 5px 5px 5px;">';
+	content += '				<div id="forbidArea_draw_box" class="left dh">';
+	content += '					<span class="icon_xu">';
+	content += '						<i id="forbidArea_drawCircle" class="icon icon_circle" style="display:none;"></i>';
+	content += '						<i id="forbidArea_drawRectangle" class="icon icon_squer" style="display:none;"></i>';
+	content += '						<i id="forbidArea_drawPolygon" class="icon icon_polygon" style="display:none;"></i>';
+	content += '						<i id="forbidArea_drawLine" class="icon icon_curve" style="display:none;"></i>';
+	content += '					</span>';
+	content += '				</div>';
+	content += '			</li>';
+	content += '		</ul>';
+	content += '		<div class="forbidArea-box">';
+	content += '			<ul>';
+	content += '				<li class="area active">';
+	content += '					<table id="forbidAreaTable" style="display:none;"></table>';
+	content += '				</li>';
+	content += '				<li class="line">';
+	content += '					<table id="forbidLineTable" style="display:none;"></table>';
+	content += '				</li>';
+	content += '			</ul>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	if(this.roleCls.isTrafficPoliceCompany()) {
+		$('#chemical-forbidArea .spantitle').css('top', '112px');
+	}else if(this.roleCls.isAdmin()){
+		$('#chemical-forbidArea .spantitle').css('top', '138px');
+	}else {
+		$('#chemical-forbidArea .spantitle').css('top', '112px');
+	}
+	
+	$("#forbidArea_drawCircle").click(function() {
+		addMapAreaType = 2;
+		addMarkerCircle();
+	});
+	$("#forbidArea_drawRectangle").click(function() {
+		addMapAreaType = 2;
+		addMarkerRectangle();
+	});
+	$("#forbidArea_drawPolygon").click(function() {
+		addMapAreaType = 2;
+		addMarkerPolygon();
+	});
+	$("#forbidArea_drawLine").click(function() {
+		addMapAreaType = 2;
+		addMarkerLine();
+	});
+	
+	setTooltip("#forbidArea_drawCircle", lang.tipAddCircle);
+	setTooltip("#forbidArea_drawRectangle", lang.addRectangle);
+	setTooltip("#forbidArea_drawPolygon", lang.addPolygon);
+	setTooltip("#forbidArea_drawLine", lang.addLine);
+	
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息
+	$('#chemical-forbidArea .spantitle').on('click', function() {
+		$('#chemical-forbidArea .spantitle').css({'background-color':'#0071c6','color':'white'});
+		$('#chemical-logistics .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-rescue .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-source .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-produce .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#myMap_ .spantitle').css({'background-color':'#dddddd','color':'black'});
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadForbidAreaSuc) {
+				that.isLoadForbidAreaSuc = true;
+				//加载行政区域
+				that.loadAdministrativeArea();
+				//加载数据
+				that.loadForbidAreaParam();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(4);
+			}
+		}else {
+			if($('#chemical-forbidArea .forbidArea-pane').hasClass('active')) {
+				$('#chemical-forbidArea .forbidArea-pane').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadForbidAreaSuc) {
+					that.isLoadForbidAreaSuc = true;
+					//加载数据
+					that.loadForbidAreaParam();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(4);
+				}
+				that.setShow(true);
+				if(myMap) {
+					myMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	$('#chemical-forbidArea .forbidArea-tab li').on('click', function() {
+		var _index = $(this).index();
+		if(_index <= 1) {
+			$(this).addClass("active").siblings().removeClass("active");
+			$("#chemical-forbidArea .forbidArea-box li").eq(_index).addClass("active").siblings().removeClass("active");
+			that.showDrawTool(_index);
+		}
+	});
+	
+	$("#forbidArea_drawCircle").show();
+	$("#forbidArea_drawRectangle").show();
+	$("#forbidArea_drawPolygon").show();
+}
+
+//显示或者隐藏画区域操作
+monitorTtxChemical.prototype.showDrawTool = function(index_) {
+	if(index_ == 0) {
+		$("#forbidArea_drawCircle").show();
+		$("#forbidArea_drawRectangle").show();
+		$("#forbidArea_drawPolygon").show();
+	}else {
+		$("#forbidArea_drawCircle").hide();
+		$("#forbidArea_drawRectangle").hide();
+		$("#forbidArea_drawPolygon").hide();
+	}
+	if(index_ == 1) {
+		$("#forbidArea_drawLine").show();
+	}else {
+		$("#forbidArea_drawLine").hide();
+	}
+}
+
+//加载禁行区域列表(搜索使用)
+monitorTtxChemical.prototype.initForbidSearchArea = function() {
+	var content = '<div id="chemical-forbidArea">';
+	content += '	<div class="spantitle">禁行区域</div>';
+	content += '	<div class="chemical-box">';
+	content += '		<div style="display: inline-block;height: 26px;margin-top: 2px;">';
+	content += '			<div class="chemical-forbidArea-search" style="float: left;"></div>';
+	content += '		</div>';
+	content += '		<div class="chemical-table">';
+	content += '			<table id="forbidAreaTable"></table>';
+	content += '		</div>';
+	content += '	</div>';
+	content += '</div>';
+	
+	$('body').append(content);
+	
+	if(this.roleCls.isTrafficCompany()) {
+		$('#chemical-forbidArea .spantitle').css('top', '112px');
+	}else if(this.roleCls.isAdmin()){
+		$('#chemical-forbidArea .spantitle').css('top', '138px');
+	}else {
+		$('#chemical-forbidArea .spantitle').css('top', '112px');
+	}
+	var that = this;
+	//点击危化地图，显示或者隐藏标记信息
+	$('#chemical-forbidArea .spantitle').on('click', function() {
+		$('#chemical-forbidArea .spantitle').css({'background-color':'#0071c6','color':'white'});
+		$('#chemical-logistics .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-rescue .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-source .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-produce .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#myMap_ .spantitle').css({'background-color':'#dddddd','color':'black'});
+		if(that.isShowing) {
+			//点击才加载地图信息
+			if(!that.isLoadForbidAreaSuc) {
+				that.isLoadForbidAreaSuc = true;
+				//加载行政区域
+				that.loadAdministrativeArea();
+				//加载数据
+				that.searchForbidAreaTable();
+			}
+			if(typeof switchMapTableType == 'function') {
+				switchMapTableType(4);
+			}
+		}else {
+			if($('#chemical-forbidArea .chemical-box').hasClass('active')) {
+				$('#chemical-forbidArea .chemical-box').removeClass('active');
+			}else {
+				//点击才加载地图信息
+				if(!that.isLoadForbidAreaSuc) {
+					that.isLoadForbidAreaSuc = true;
+					//加载数据
+					that.searchForbidAreaTable();
+				}
+				if(typeof switchMapTableType == 'function') {
+					switchMapTableType(4);
+				}
+				that.setShow(true);
+				if(myMap) {
+					myMap.setShow(true);
+				}
+			}
+		}
+	});
+	
+	//搜索生产仓储企业
+	$('.chemical-forbidArea-search').flexPanel({
+		SerachBarModel :
+			{display: '名称', name : 'forbidAreaName', pfloat : 'left'}
+	});
+	$('.chemical-forbidArea-search .y-btn').on('click',function(){
+		that.searchForbidAreaTable();
+	});
+	$('.chemical-forbidArea-search .search-input').on('keydown',function(e){
+		if(e.keyCode == 13) {
+			that.searchForbidAreaTable();
+		}
+	});
+	
+	$('#chemical-forbidArea').show();
+}
+
+//加载禁行区域信息
+monitorTtxChemical.prototype.loadForbidAreaParam = function() {
+	this.addForbidAreaTableList();
+	this.addForbidLineTableList();
+}
+
+//加载行政区域列表
+monitorTtxChemical.prototype.loadAdministrativeArea = function() {
+/*	var that = this;
+	$.myajax.showLoading(true, parent.lang.loading);
+	$.myajax.jsonGet('WHAreaAction_loadAllAdministrativeArea.action', function(json,action,success){
+		if(success) {
+			if(json.infos && json.infos.length > 0) {
+				that.lstAdministrativeArea = json.infos;
+				that.loadAreaSuc = true;
+				
+//				$('body').append('<div>');
+			}
+		};
+		$.myajax.showLoading(false);
+	}, null);
+	*/
+}
+
+//初始化表格
+monitorTtxChemical.prototype.initMapTable = function() {
+	//初始化地图上应急救援点的列表
+	this.initRescuePointTable();
+	//初始化地图上消防水源点的列表
+	this.initSourcePointTable();
+	
+	if(this.roleCls.isAdmin() || this.roleCls.isLogisticCompany() || this.roleCls.isSafetyCompany()
+			|| this.roleCls.isEnvironmentallyCompany() || this.roleCls.isRescueCompany() ||
+			this.roleCls.isPublicPoliceCompany()) {
+		//初始化地图上生产仓储企业列表
+		this.initProducePointTable();
+	}
+	//交通交警部门
+	if(this.roleCls.isAdmin() || this.roleCls.isTrafficCompany() || this.roleCls.isTrafficPoliceCompany()) {
+		//初始化地图上物流企业列表
+		this.initLogisticsPointTable();
+	}
+	if(this.roleCls.isAdmin() || this.roleCls.isTrafficPoliceCompany()) {
+		//初始化禁行区域表格
+		this.initForbidAreaTable();
+	}
+	if(this.roleCls.isLogisticCompany() || this.roleCls.isTrafficCompany()) {
+		//初始化搜索禁行区域表格
+		this.initForbidAreaSearchTable();
+	}
+}
+
+/**
+ * 初始化列表
+ * @param tableName 列表id
+ * @param tableColModel 列表列
+ * @param action 请求地址
+ * @param loadSuccessCallBack 加载成功后回调函数
+ * @param fillValueToTable 添加数据到表格的函数
+ * @param selectRowProp 选择列表的事件
+ * @param clickRowCheckbox 点击选择框的事件
+ * @return tableObject 列表对象
+ */
+monitorTtxChemical.prototype.initCommonTable = function(_tableName, _tableColModel, _action, 
+		_loadSuccessCallBack, _onSubmitCallBack, _fillValueToTable, _selectRowProp, _clickRowCheckbox) {
+	var onSuccess_ = false;
+	if(typeof _loadSuccessCallBack == 'function') {
+		onSuccess_ = _loadSuccessCallBack;
+	}
+	var onSubmit_ = false;
+	if(typeof _onSubmitCallBack == 'function') {
+		onSubmit_ = _onSubmitCallBack;
+	}
+	//本类对象
+	var tableObject = $(_tableName).flexigrid({
+		url: _action,
+		dataType: 'json',
+		colModel : _tableColModel,
+		pernumber: lang.pernumber,
+		pagestat: lang.pagestatInfo,
+		pagefrom: lang.pagefrom,
+		pagetext: lang.page,
+		pagetotal: lang.pagetotal,
+		findtext: lang.find,
+		procmsg: lang.procmsg,
+		nomsg : lang.nomsg,
+		usepager: true,
+		autoload: false,
+		useRp: true,
+		checkbox: true,
+		clickRowDefault: false,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 210,
+		onSubmit: onSubmit_,
+		onSuccess: onSuccess_,
+		resizable: false
+	});
+	tableObject.flexSetFillCellFun(function(p, row, idx, index) {
+		return _fillValueToTable(p, row, idx, index);	
+	});
+	tableObject.flexSelectRowPropFun(function(obj, selRow) {
+		_selectRowProp(obj, selRow);
+	});
+	tableObject.flexClickCheckBoxFun(function(obj) {
+		_clickRowCheckbox(obj);
+	});
+	return tableObject;
+}
+
+//初始化地图上应急救援点信息的列表
+monitorTtxChemical.prototype.initRescuePointTable = function() {
+	var tableName = "#rescuePointTable"; 
+	var tableColModel = [
+	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'}
+	    ];
+	var action = "WHLocationAction_queryRescueCompany.action?toMap="+ rootParent.toMap;
+	var that = this;
+	var loadSuccessCallBack = function() {
+		that.loadTableValueSuccess(1, that.addRescueMarkerExpId, 1);
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapRescuePoint.get(that.addRescueMarkerExpId + Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.rescuePointTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapRescuePoint.get(that.addRescueMarkerExpId + Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.rescuePointTable = this.initCommonTable(tableName, 
+			tableColModel, action, loadSuccessCallBack, false, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+
+
+//初始化地图上消防水源点信息的列表
+  monitorTtxChemical.prototype.initSourcePointTable = function() {
+	var tableName = "#sourcePointTable";
+	var tableColModel = [
+	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'}
+	    ];
+	var action = "WHLocationAction_querySourceCompany.action?toMap="+ rootParent.toMap;
+	var that = this;
+	var loadSuccessCallBack = function() {
+		that.loadTableValueSuccess(6, that.addSourceMarkerExpId, 1);
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapSourcePoint.get(that.addSourceMarkerExpId + Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.sourcePointTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapSourcePoint.get(that.addSourceMarkerExpId + Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.sourcePointTable = this.initCommonTable(tableName, 
+			tableColModel, action, loadSuccessCallBack, false, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+  
+
+//初始化地图上生产仓储企业信息的列表
+monitorTtxChemical.prototype.initProducePointTable = function() {
+	var tableName = "#producePointTable"; 
+	var tableColModel = [
+	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+	     	{display: lang.mark_administrative, name : 'areaName', width : 130, sortable : false, align: 'center'}
+	    ];
+	var action = "WHLocationAction_queryProduceCompany.action?level=5&toMap="+ rootParent.toMap;
+	var that = this;
+	var loadSuccessCallBack = function() {
+		that.loadTableValueSuccess(2, that.addProduceMarkerExpId, 1);
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapProducePoint.get(that.addProduceMarkerExpId + Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.producePointTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapProducePoint.get(that.addProduceMarkerExpId + Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.producePointTable = this.initCommonTable(tableName, 
+			tableColModel, action, loadSuccessCallBack, false, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+//初始化地图上物流企业信息的列表
+monitorTtxChemical.prototype.initLogisticsPointTable = function() {
+	var tableName = "#logisticsPointTable"; 
+	var tableColModel = [
+	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'}
+	    ];
+	var action = "WHLocationAction_queryProduceCompany.action?level=1&toMap="+ rootParent.toMap;
+	var that = this;
+	var loadSuccessCallBack = function() {
+		that.loadTableValueSuccess(5, that.addLogisticsMarkerExpId, 1);
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapLogisticsPoint.get(that.addLogisticsMarkerExpId + Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.logisticsPointTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapLogisticsPoint.get(that.addLogisticsMarkerExpId + Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.logisticsPointTable = this.initCommonTable(tableName, 
+			tableColModel, action, loadSuccessCallBack, false, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+//初始化禁行区域表格
+monitorTtxChemical.prototype.initForbidAreaTable = function() {
+	//初始化禁行区域区域表格
+	this.initForbidAreaAreaTable(1);
+	//初始化禁行区域线路表格
+	this.initForbidAreaLineTable();
+	//初始化区域类型
+	this.initAreaTypeList();
+	//初始化区域信息
+	this.initMapAreaInfo();
+}
+
+//初始化搜索禁行区域表格
+monitorTtxChemical.prototype.initForbidAreaSearchTable = function() {
+	//初始化搜索禁行区域表格
+	this.initForbidAreaAreaTable();
+	//初始化区域类型
+	this.initAreaTypeList();
+	//初始化区域信息
+	this.initMapAreaSearchInfo();
+}
+
+//初始化区域类型
+monitorTtxChemical.prototype.initAreaTypeList = function() {
+	this.lstAreaType.push({id: 11, name: lang.alarm_rect_area});
+	this.lstAreaType.push({id: 12, name: lang.alarm_poligon_area});
+	this.lstAreaType.push({id: 13, name: lang.alarm_line});
+	this.lstAreaType.push({id: 14, name: lang.alarm_circle_area});
+}
+
+//初始化禁行区域信息
+monitorTtxChemical.prototype.initMapForbidAreaInfo = function() {
+	this.mapAreaInfo.clear();
+	var mapAreaList = rootParent.mapMarkManager.getViewForbidAreaList();
+	for (var i = 0; i < mapAreaList.length; i++) {
+		this.mapAreaInfo.put(Number(mapAreaList[i].id), mapAreaList[i]);
+	}
+}
+
+//初始化禁行线路信息
+monitorTtxChemical.prototype.initMapForbidLineInfo = function() {
+	this.mapLineInfo.clear();
+	var mapLineList = rootParent.mapMarkManager.getViewForbidLineList();
+	for (var i = 0; i < mapLineList.length; i++) {
+		this.mapLineInfo.put(Number(mapLineList[i].id), mapLineList[i]);
+	}
+}
+
+//初始化区域信息
+monitorTtxChemical.prototype.initMapAreaInfo = function() {
+	//取index的区域信息
+	if(rootParent.mapMarkManager) {
+		//初始化禁行区域信息
+		this.initMapForbidAreaInfo();
+		//初始化禁行线路信息
+		this.initMapForbidLineInfo();
+	}else {
+		var that = this;
+		setTimeout(function() {
+			that.initMapAreaInfo();
+		}, 50);
+	}
+}
+
+//初始化区域信息(搜索使用)
+monitorTtxChemical.prototype.initMapAreaSearchInfo = function() {
+	//取index的区域信息
+	if(rootParent.mapMarkManager) {
+		var mapAreaList = rootParent.mapMarkManager.getViewForbidAreaList();
+		for (var i = 0; i < mapAreaList.length; i++) {
+			this.mapAreaInfo.put(Number(mapAreaList[i].id), mapAreaList[i]);
+		}
+		
+		var mapLineList = rootParent.mapMarkManager.getViewForbidLineList();
+		for (var i = 0; i < mapLineList.length; i++) {
+			this.mapAreaInfo.put(Number(mapLineList[i].id), mapLineList[i]);
+		}
+	}else {
+		var that = this;
+		setTimeout(function() {
+			that.initMapAreaSearchInfo();
+		}, 50);
+	}
+}
+
+//初始化禁行区域区域表格
+monitorTtxChemical.prototype.initForbidAreaAreaTable = function(type) {
+	var tableName = "#forbidAreaTable";
+	var tableColModel = [];
+	if(type) {
+		tableColModel = [
+     	        {display: lang.operator, name : 'operator', width : 80, sortable : false, align: 'center'},
+     	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+     	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+     	    	{display: lang.monitor_myMapType, name : 'markerType', width : 80, sortable : false, align: 'center'}
+		   ];
+	}else {
+		tableColModel = [
+      	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+      	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+      	    	{display: lang.monitor_myMapType, name : 'markerType', width : 80, sortable : false, align: 'center'}
+ 		   ];
+	}
+	
+	var action = "WHLocationAction";
+	var that = this;
+	var onSubmitCallBack = function() {
+		that.addForbidAreaTableList();
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapAreaInfo.get(Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.forbidAreaTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapAreaInfo.get(Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.forbidAreaTable = this.initCommonTable(tableName, 
+			tableColModel, action, false, onSubmitCallBack, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+//初始化禁行区域线路表格
+monitorTtxChemical.prototype.initForbidAreaLineTable = function() {
+	var tableName = "#forbidLineTable";
+	var tableColModel = [
+	        {display: lang.operator, name : 'operator', width : 80, sortable : false, align: 'center'},
+	     	{display: lang.index, name : 'index', width : 30, sortable : false, align: 'center'},
+	    	{display: lang.monitor_myMapName, name : 'name', width : 130, sortable : false, align: 'center'},
+	     	{display: lang.monitor_myMapType, name : 'markerType', width : 80, sortable : false, align: 'center'}
+	     ];
+	var action = "WHLocationAction";
+	var that = this;
+	var onSubmitCallBack = function() {
+		that.addForbidLineTableList();
+	};
+	var fillValueToTable = function(p, row, idx, index) {
+		return that.fillUserMapTable(p, row, idx, index);
+	}
+	var selectRowProp = function(obj, selRow) {
+		var info = that.mapLineInfo.get(Number($(obj).attr('data-id')));
+		that.selectTableRowProp(obj, selRow, that.forbidLineTable, info);
+	};
+	var clickRowCheckbox = function(obj) {
+		var info = that.mapLineInfo.get(Number($(obj).val()));
+		that.clickTableRowCheckbox(obj, info);
+	}
+	
+	this.forbidLineTable = this.initCommonTable(tableName, 
+			tableColModel, action, false, onSubmitCallBack, fillValueToTable, 
+			selectRowProp, clickRowCheckbox);
+}
+
+/**
+ * 加载数据到列表中
+ * @param mapValueInfo 缓存数据
+ * @param tableObject 列表对象
+ * @param sumId 修改数目的标签 id
+ */
+monitorTtxChemical.prototype.addValueToTable = function(mapValueInfo, tableObject, sumId) {
+	if(mapValueInfo) {
+		var param = tableObject.flexGetParams();
+		var start = (param.newp - 1) * param.rp;
+		if(start >= mapValueInfo.size()) {
+			param.newp = 1;
+			start = 0;
+		}
+		var end = param.newp * param.rp;
+		var infos = [];
+		var index = 0;
+		mapValueInfo.each(function(id, value) {
+			if(index >= start && index < end) {
+				infos.push(value);
+			}
+			index++;
+		});
+		var pagination={currentPage: param.newp, pageRecords: param.rp, totalRecords: mapValueInfo.size()};
+		var json = {};
+		json.infos = infos;
+		json.pagination = pagination;
+		
+		tableObject.flexAddData(json, false);
+		
+		if(sumId) {
+			//修改数目
+			$(sumId).text("("+ mapValueInfo.size() +")");
+		}
+		//如果已在地图显示，则勾选
+		for(var i = 0; i < infos.length; i++) {
+			if(infos[i].isExistMark) {
+				$('#row'+infos[i].id, tableObject).click();
+			}
+		}
+	}else {
+		if(sumId) {
+			//修改数目
+			$(sumId).text("(0)");
+		}
+	}
+}
+
+/**
+ * 调用自定义加载数据加载禁行区域的信息
+ */
+monitorTtxChemical.prototype.addForbidAreaTableList = function() {
+	if(this.roleCls.isLogisticCompany() || this.roleCls.isTrafficCompany()) {
+		this.initMapAreaSearchInfo();
+	}else {
+		//初始化禁行区域信息
+		this.initMapForbidAreaInfo();
+	}
+	this.addValueToTable(this.mapAreaInfo, this.forbidAreaTable, '#chemical-forbidArea #forbidAreaSum');
+}
+
+/**
+ * 调用自定义加载数据加载禁行线路信息
+ */
+monitorTtxChemical.prototype.addForbidLineTableList = function() {
+	//初始化禁行线路信息
+	this.initMapForbidLineInfo();
+	this.addValueToTable(this.mapLineInfo, this.forbidLineTable, '#chemical-forbidArea #forbidLineSum');
+}
+
+/**
+ * 获取列表中数据
+ * @param tableType 表格类型  1应急救援点 2生产仓储企业 3禁行区域面 4禁行区域线 5物流企业 6消防水源点
+ */
+monitorTtxChemical.prototype.getTableData = function(tableType) {
+	if(tableType == 1) {
+		return this.rescuePointTable.flexGetData();
+	}else if(tableType == 2) {
+		return this.producePointTable.flexGetData();
+	}else if(tableType == 3) {
+		return this.forbidAreaTable.flexGetData();
+	}else if(tableType == 4) {
+		return this.forbidLineTable.flexGetData();
+	}else if(tableType == 5) {
+		return this.logisticsPointTable.flexGetData();
+	}else if(tableType == 6){
+		return this.sourcePointTable.flexGetData();
+	}
+	return null;
+}
+
+/**
+ * 先清除地图上已存在的点
+ * @param tableType 表格类型  1应急救援点 2生产仓储企业 3禁行区域面 4禁行区域线 5物流企业 6消防水源
+ */
+monitorTtxChemical.prototype.clearExistMapPoint = function(tableType) {
+	if(tableType == 1) {
+		this.clearRescuePoint();
+	}else if(tableType == 2) {
+		this.clearProducePoint();
+	}else if(tableType == 3) {
+		
+	}else if(tableType == 4) {
+		
+	}else if(tableType == 5) {
+		this.clearLogisticsPoint();
+	}else if(tableType == 6){
+		this.clearSourcePoint();
+	}
+}
+
+/**
+ * 添加数据到Map集合中
+ * @param tableType 表格类型  1应急救援点 2生产仓储企业 3禁行区域面 4禁行区域线 5物流企业 6消防水源点
+ */
+monitorTtxChemical.prototype.addValueToMap = function(tableType, info) {
+	if(tableType == 1) {
+		this.mapRescuePoint.put(Number(info.id), info);
+	}else if(tableType == 2) {
+		this.mapProducePoint.put(Number(info.id), info);
+	}else if(tableType == 3) {
+		this.mapAreaInfo.put(Number(info.id), info);
+	}else if(tableType == 4) {
+		this.mapLineInfo.put(Number(info.id), info);
+	}else if(tableType == 5) {
+		this.mapLogisticsPoint.put(Number(info.id), info);
+	}else if(tableType == 6){
+		this.mapSourcePoint.put(Number(info.id), info);
+	}
+}
+
+/**
+ * 加载数据成功后调用
+ * @param tableType 表格类型  1应急救援点 2生产仓储企业 3禁行区域面 4禁行区域线 5物流企业 6消防水源
+ * @param markerExpId 添加区域的固定id
+ * @param markerType 区域类型
+ */
+monitorTtxChemical.prototype.loadTableValueSuccess = function(tableType, markerExpId, markerType) {
+	//获取列表中数据
+	var data = this.getTableData(tableType);
+	if(data && data.rows && data.rows.length > 0) {
+		//先清除地图上已存在的点
+		this.clearExistMapPoint(tableType);
+		//再添加新的点
+		var infos = data.rows;
+		for (var i = 0; i < infos.length; i++) {
+			if(markerType) {
+				infos[i].markerType = markerType; //点
+			}
+			if(markerExpId) {
+				infos[i].id = markerExpId + infos[i].id;
+			}
+			infos[i].tableType = tableType;
+			infos[i].isExistMark = true;
+			//添加数据到Map集合中
+			this.addValueToMap(tableType, infos[i]);
+			//添加到地图
+			this.addMarkOnMap(infos[i]);
+			//如果已加载到地图
+			/*if(this.mapRescuePointAdded.get(infos[i].id)) {
+				$('#row'+ parseInt(infos[i].id - this.addRescueMarkerExpId), this.rescuePointTable).click();
+			}*/
+		}
+	}
+}
+
+/**
+ * 选择列表行事件
+ * @param obj 行对象
+ * @param selRow 事件类型
+ * @param chemicalTable 列表对象
+ * @param info 信息
+ */
+monitorTtxChemical.prototype.selectTableRowProp = function(obj, selRow, chemicalTable, info) {
+	if(selRow && selRow == 'delAll') {
+		if(info) {
+			info.isExistMark = false;
+			this.delMarkOnMap(info.id);
+			if(info.tableType == 1) {//应急救援中心
+				this.mapRescuePointAdded.remove(info.id);
+			}else if(info.tableType == 2) {//生产仓储企业
+				this.mapProducePointAdded.remove(info.id);
+			}else if(info.tableType == 5) {//物流企业
+				this.mapLogisticsPointAdded.remove(info.id);
+			}else if(info.tableType == 6){//消防水源点
+				this.mapSourcePointAdded.remove(info.id);
+			}
+		}
+	}else {
+		$(obj).addClass('trSelected');
+		$(obj).find("td .selectItem")[0].checked = true;
+		var checkAll = true;
+		$('tbody tr .selectItem', chemicalTable.parent().parent()).each(function(){
+			if($(this).val() != "" && !this.checked)	{
+				checkAll = false;
+			}
+		});
+		if (checkAll) {
+			$('table tr .selectAllItem', chemicalTable.parent().parent())[0].checked = true;
+		}
+		if(info) {
+			info.isExistMark = true;
+//			this.addMarkOnMap(info);
+			this.loadMarkInfos(info);
+			if(typeof selectMarker == 'function') {
+				selectMarker(info.id);
+			}
+		}
+	}
+}
+
+/**
+ * 选中列表行单选框事件
+ * @param obj 行对象
+ * @param info 信息
+ */
+monitorTtxChemical.prototype.clickTableRowCheckbox = function(obj, info) {
+	if(info) {
+		info.isExistMark = obj.checked;
+		if(obj.checked) {
+			this.loadMarkInfos(info);
+//			this.addMarkOnMap(info);
+		}else {
+			this.delMarkOnMap(info.id);
+			if(info.tableType == 1) {//应急救援中心
+				this.mapRescuePointAdded.remove(info.id);
+			}else if(info.tableType == 2) {//生产仓储企业
+				this.mapProducePointAdded.remove(info.id);
+			}else if(info.tableType == 5) {//物流企业
+				this.mapLogisticsPointAdded.remove(info.id);
+			}else if(info.tableType == 6){//消防水源点
+				this.mapSourcePointAdded.remove(info.id);
+			}
+		}
+	}
+}
+
+monitorTtxChemical.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充地图信息列表
+monitorTtxChemical.prototype.fillUserMapTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var pos = "";
+	if(name == 'operator'){
+		pos += '<a class="edit" href="javascript:editMarkerAreaInfo('+row['id']+','+ row['markerType'] +',2);" title="'+lang.edit+'"></a>';
+		pos += '<a class="delete" href="javascript:delMarkerAreaInfo('+row['id']+','+ row['markerType'] +',2);" title="'+lang.del+'"></a>';
+		return pos;
+	}else if(name == 'markerType') {
+		pos = getArrayName(this.lstAreaType, row[name]); 
+	}else {
+		pos = row[name];
+	}
+	return this.getColumnTitle(pos);
+};
+
+/**
+ * 条件查找数据
+ * @param chemicalTable 列表对象
+ * @param jingDu 经度
+ * @param weiDu 纬度
+ * @param condition 条件
+ */
+monitorTtxChemical.prototype.searchValueChemicalTable = function(chemicalTable, jingDu, weiDu, condition) {
+	var params = [];
+	params.push({
+		name: 'condition',
+		value: condition
+	});
+	if(jingDu && weiDu) {
+		params.push({
+			name: 'jingDu',
+			value: jingDu
+		});
+		params.push({
+			name: 'weiDu',
+			value: weiDu
+		});
+	}
+	//重新查找
+	chemicalTable.flexOptions(
+			{newp: 1,sortname: '', sortorder: '', query: '', qtype: '', params: params}).flexReload();
+}
+
+/**
+ * 按条件搜索应急救援点
+ */
+monitorTtxChemical.prototype.searchRescuePointTable = function(jingDu, weiDu) {
+	var condition = $.trim($('.chemical-rescue-search .search-input').val());
+	this.searchValueChemicalTable(this.rescuePointTable, jingDu, weiDu, condition);
+}
+
+/**
+ * 按条件搜索消防水源点
+ */
+  monitorTtxChemical.prototype.searchSourcePointTable = function(jingDu, weiDu) {
+	var condition = $.trim($('.chemical-source-search .search-input').val());
+	this.searchValueChemicalTable(this.sourcePointTable, jingDu, weiDu, condition);
+}
+
+/**
+ * 按条件搜索生产仓储企业
+ */
+monitorTtxChemical.prototype.searchProducePointTable = function(jingDu, weiDu) {
+	var condition = $.trim( $('.chemical-produce-search .search-input').val() );
+	this.searchValueChemicalTable(this.producePointTable, jingDu, weiDu, condition);
+}
+
+/**
+ * 按条件搜索物流企业
+ */
+monitorTtxChemical.prototype.searchLogisticsPointTable = function(jingDu, weiDu) {
+	var condition = $.trim($('.chemical-logistics-search .search-input').val());
+	this.searchValueChemicalTable(this.logisticsPointTable, jingDu, weiDu, condition);
+}
+
+/**
+ * 按条件查询禁行区域
+ */
+monitorTtxChemical.prototype.searchForbidAreaTable = function() {
+	var condition = $.trim($('.chemical-forbidArea-search .search-input').val());
+	
+	var newMapAreaInfo = new Hashtable();
+	if(condition) {
+		this.mapAreaInfo.each(function(key, value) {
+			if(value.name.toString().indexOfNotCase(condition) >= 0) {
+				newMapAreaInfo.put(key, value);
+			}
+		});
+		this.addValueToTable(newMapAreaInfo, this.forbidAreaTable);
+	}else {
+		this.addValueToTable(this.mapAreaInfo, this.forbidAreaTable);
+	}
+	
+}
+
+//删除地图上标记信息
+monitorTtxChemical.prototype.delMarkOnMap = function(markerId) {
+	if(typeof deleteMarker == 'function') {
+		deleteMarker(markerId);
+	}
+}
+
+//转换秒 如  0 = 0:0
+monitorTtxChemical.prototype.second2ShortHourEx = function(second) {
+	var hour = parseInt(second / 3600, 10);
+	var hourStr = hour;
+	if (hour < 10) {
+		hourStr = "0" + hour;
+	}
+	var minute = parseInt((second % 3600) / 60, 10);
+	var minStr = minute;
+	if (minute < 10) {
+		minStr = "0" + minute;
+	}
+	var second = parseInt(second %  60, 10);
+	var secStr = second;
+	if (second < 10) {
+		secStr = "0" + second;
+	}
+	return hourStr + ":" + minStr + ":" + secStr;
+}
+
+//获取禁行区域详细状态
+monitorTtxChemical.prototype.getForbidAreaStatus = function(info) {
+	var html = [];
+	var params = info.param;
+	if(params) {
+		var arrParams = params.split(",");
+		var maxSpeed = 0;
+		if(arrParams.length > 0 && arrParams[0]) {
+			maxSpeed = arrParams[0];
+		}
+		var minSpeed = 0;
+		if(arrParams.length > 1 && arrParams[1]) {
+			minSpeed = arrParams[1];
+		}
+		var beginTime1 = "00:00:00";
+		if(arrParams.length > 2 && arrParams[2]) {
+			beginTime1 = this.second2ShortHourEx(arrParams[2]);
+		}
+		var endTime1 = "23:59:59";
+		if(arrParams.length > 3 && arrParams[3]) {
+			endTime1 = this.second2ShortHourEx(arrParams[3]);
+		}
+		var beginTime2 = "00:00:00";
+		if(arrParams.length > 4 && arrParams[4]) {
+			beginTime2 = this.second2ShortHourEx(arrParams[4]);
+		}
+		var endTime2 = "00:00:00";
+		if(arrParams.length > 5 && arrParams[5]) {
+			endTime2 = this.second2ShortHourEx(arrParams[5]);
+		}
+		//最高限速
+		html.push('<span class="b">最高限速：</span>&nbsp;<span>' + maxSpeed + '公里/时</span>');
+		//最低限速
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">最低限速：</span>&nbsp;<span>' + minSpeed + '公里/时</span><br/>');
+		//开始时间1
+		html.push('<span class="b">开始时间1：</span>&nbsp;<span>' + beginTime1 + '</span>');
+		//结束时间1
+		html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">结束时间1：</span>&nbsp;<span>' + endTime1 + '</span><br/>');
+		if(beginTime2 != "00:00:00" && endTime2 != "00:00:00") {
+			//开始时间2
+			html.push('<span class="b">开始时间2：</span>&nbsp;<span>' + beginTime2 + '</span>');
+			//结束时间2
+			html.push('&nbsp;&nbsp;&nbsp;&nbsp;<span class="b">结束时间2：</span>&nbsp;<span>' + endTime2 + '</span><br/>');
+		}
+	}
+	if(info.remark) {
+		//备注
+		html.push('<span class="b">备注：</span>&nbsp;<span>' + info.remark + '</span><br/>');
+	}
+	return html.join("");
+}
+
+//获取标记图标名称
+monitorTtxChemical.prototype.getImageName = function(tableType) {
+	if(tableType != null) {
+		if(tableType == 1) {
+			return "rescue";
+		}else if(tableType == 2) {
+			return "produce";
+		}else if(tableType == 5) {
+			return "logistics";
+		}else if(tableType == 6) {
+			return "source";
+		}
+	}
+	return null;
+}
+
+/**
+ * 
+ * 加载完整标记信息
+ * @param info  mark 信息
+ */
+monitorTtxChemical.prototype.loadMarkInfos = function(info) {
+	if(info.jingDu == null || info.weiDu == null || info.mapType == null){//加载标记信息
+    	//发送请求获取经纬度半径  信息
+    	var action = 'StandardLoginAction_findArea.action?id='+info.id;
+       	var objMyMap = this;
+    	$.myajax.jsonGetEx(action, function(json,action,success){
+    		if(success) {
+    			var mapMark = rootParent.mapMarkManager.getMapMark(info.id);
+    			var mapMarkerInfo = json.marker;
+    			mapMark.setStandardMarkJingWei(mapMarkerInfo);
+    			objMyMap.addMarkOnMap(mapMark);
+    		};
+    	});
+	}else{
+		this.addMarkOnMap(info);
+	}
+}
+
+//向地图添加标记
+monitorTtxChemical.prototype.addMarkOnMap = function(info) {
+	var gps = this.getConvertBaiduGoogle(info.jingDu, info.weiDu, info.mapType);
+	if(!info.color) {
+		info.color = "FF0000";
+	}
+	var isExistMark = false;
+	if(typeof findMarker == 'function') {
+		if(findMarker(info.id) != null) {
+			isExistMark = true;
+		}
+	}
+	if(typeof insertMarker == 'function' && !isExistMark) {
+		insertMarker(info.id);
+	}
+	if(typeof updateMarker == 'function' && !isExistMark) {
+		var statusStr = "";
+		if(info.tableType == 1) {//应急救援中心
+//			statusStr = this.getMarkerStatus(info);
+		}else if(info.tableType == 5) {//物流企业
+			statusStr = this.getLogisticsStatus(info);
+		}else if(info.tableType == 6){
+			statusStr = this.getSourceInfo(info);
+		}
+		var markerType = info.markerType;
+		if(markerType > 10) {
+			statusStr = this.getForbidAreaStatus(info);
+			if(markerType == 13 || markerType == 14) {
+				markerType -= 4;
+			}else {
+				markerType -= 9;
+			}
+		}
+		if(info && markerType == 4) {//添加线路
+			updateMarker(info.id, 9, info.name, gps.lng, gps.lat
+					, 0, info.color, statusStr, info.radius);
+		}else {
+			updateMarker(info.id, markerType, info.name, gps.lng, gps.lat
+					, 0, info.color, statusStr, info.radius, this.getImageName(info.tableType));
+		}
+	}
+	if(typeof selectMarker == 'function') {
+		selectMarker(info.id);
+	}
+	if(info.tableType == 1) {//应急救援中心
+		
+		this.mapRescuePointAdded.put(info.id, info);
+		//添加点击事件
+		if(typeof addMarkerEventListener != 'undefined' && typeof addMarkerEventListener == 'function') {
+			var that = this;
+			addMarkerEventListener(info.id, 'click', function() {
+				that.addRescuePointEventListener(info.id - that.addRescueMarkerExpId, info);
+				
+//				//如果是安监部门或者环保部门 弹框显示
+				/*if(that.roleCls.isAdmin() || that.roleCls.isSafetyCompany()
+						|| that.roleCls.isEnvironmentallyCompany() ||
+						that.roleCls.isPublicPoliceCompany() || that.roleCls.isRescueCompany()) {
+					that.addRescuePointEventListener(info.id - that.addRescueMarkerExpId, info);
+				}*/
+			
+			});
+		}
+	}else if(info.tableType == 2) {//生产仓储企业
+		this.mapProducePointAdded.put(info.id, info);
+		//添加点击事件
+		if(typeof addMarkerEventListener != 'undefined' && typeof addMarkerEventListener == 'function') {
+			var that = this;
+			addMarkerEventListener(info.id, 'click', function() {
+				//如果是安监部门或者环保部门 弹框显示
+				if(that.roleCls.isAdmin() || that.roleCls.isSafetyCompany()
+						|| that.roleCls.isEnvironmentallyCompany() ||
+						that.roleCls.isPublicPoliceCompany() || that.roleCls.isRescueCompany()) {
+					that.addProducePointEventListener(info.id - that.addProduceMarkerExpId);
+				}
+			});
+		}
+	}else if(info.tableType == 5) {//物流企业
+		this.mapLogisticsPointAdded.put(info.id, info);
+	}else if(info.tableType == 6){//消防水源点
+		
+		this.mapSourcePointAdded.put(info.id, info);
+		//添加点击事件
+		if(typeof addMarkerEventListener != 'undefined' && typeof addMarkerEventListener == 'function') {
+			var that = this;
+			addMarkerEventListener(info.id, 'click', function() {
+//				//如果是安监部门或者环保部门 弹框显示
+				if(that.roleCls.isAdmin() || that.roleCls.isSafetyCompany()
+						|| that.roleCls.isEnvironmentallyCompany() ||
+						that.roleCls.isPublicPoliceCompany() || that.roleCls.isSourceCompany()) {
+					that.addSourcePointEventListener(info.id - that.addSourceMarkerExpId, info);
+				}
+			
+			});
+		}
+	}
+}
+
+//生产仓储企业添加点击事件
+//显示：公司名称、法定代表人、联系电话、公司地址
+//列表（按单个危废进行汇总）：危废名称、类项、储量
+//@param companyId 公司id
+
+monitorTtxChemical.prototype.addProducePointEventListener = function(companyId) {
+	var that = this;
+	if(this.whCompanyInfoObj == null) {
+		var height = '425px';
+		if(this.roleCls.isRescueCompany()) {//应急救援中心
+			height = '200px';
+		}
+		this.whCompanyInfoObj = $.dialog({id:'whCompanyInfo', title: '企业信息',content: 'url:whManagement/WHCompanyInfo.html?id='+companyId,
+			width:'500px',height: height, min:false, max:false, lock:false, close:function() {
+				that.whCompanyInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('whCompanyInfo');
+				}
+			}});
+	}else {
+		//如果打开的是另外一个公司，则需要重新生成界面数据
+		if(this.viewProduceCompanyId != companyId) {
+			if(this.whCompanyInfoObj.content && (typeof this.whCompanyInfoObj.content.initPageInfo == 'function')) {
+				this.whCompanyInfoObj.content.initPageInfo(companyId);
+			}
+		}
+		this.whCompanyInfoObj.show();
+	}
+	this.viewProduceCompanyId = companyId;
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('whCompanyInfo', this.whCompanyInfoObj);
+	}
+	if(typeof parent.hidePopTips == 'function'){
+		parent.hidePopTips('whCompanyInfo');
+	}
+}
+
+//应急救援中心添加点击事件
+//显示：公司名称、法定代表人、联系电话、公司地址、救援能力、救援等级、中心简介
+//@param companyId 公司id
+monitorTtxChemical.prototype.addRescuePointEventListener = function(companyId, info) {
+//	alert(companyId);
+	var that = this;
+	if(this.whCompanyInfoObj == null){
+//		var height = '200px';
+		var height = '425px';
+		/*if(this.roleCls.isRescueCompany() || this.roleCls.isAdmin()){//应急救援中心
+			height = '425px';
+		}*/
+		this.whCompanyInfoObj = $.dialog({id:'whCompanyInfo', title: '应急救援信息',content: 'url:whManagement/WHRescueCompanyInfo.html?id='+companyId,
+			width:'600px',height: '400px', min:false, max:false, lock:false, data: info,  close:function() {
+				that.whCompanyInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('whCompanyInfo');
+				}
+			}});
+	}else {
+		//如果打开的是另外一个公司，则需要重新生成界面数据
+		if(this.viewProduceCompanyId != companyId) {
+			if(this.whCompanyInfoObj.content && (typeof this.whCompanyInfoObj.content.initPageInfo == 'function')) {
+				this.whCompanyInfoObj.content.initPageInfo(companyId, info);
+			}
+		}
+		this.whCompanyInfoObj.show();
+	}
+	this.viewProduceCompanyId = companyId;
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('whCompanyInfo', this.whCompanyInfoObj);
+	}
+	if(typeof parent.hidePopTips == 'function'){
+		parent.hidePopTips('whCompanyInfo');
+	}
+}
+
+
+/**
+ * 获取标记状态
+ * @param info
+ * @returns
+ */
+//monitorTtxChemical.prototype.getMarkerStatus = function(info) {
+//	var html = [];
+//	//负责人
+//	html.push('<span class="b">负责人：</span>&nbsp;<span>' + $.trim(info.legal) + '</span><br/>');
+//	//联系电话
+//	html.push('<span class="b">联系电话：</span>&nbsp;<span>' + $.trim(info.linkPhone) + '</span><br/>');
+//	//地址
+//	html.push('<span class="b">地址：</span>&nbsp;<span>' + $.trim(info.address) + '</span><br/>');
+//	//救援能力
+//	html.push('<span class="b">救援能力：</span>&nbsp;<span>' + $.trim(info.capability) + '</span><br/>');
+//	//救援等级
+//	html.push('<span class="b">救援等级：</span>&nbsp;<span>' + $.trim(info.rescueLevel) + '</span><br/>');
+//	//救援设备
+//	html.push('<span class="b">救援设备：</span>&nbsp;<span>' + $.trim(info.rescueDevice) + '</span><br/>');
+//	//中心简介
+//	html.push('<span class="b">中心简介：</span>&nbsp;<span>' + $.trim(info.introduction) + '</span><br/>');
+//	return html.join("");
+//}
+
+/**
+ * 获取消防水源的信息
+ * @param info
+ * @returns
+ */
+monitorTtxChemical.prototype.getSourceInfo = function(info) {
+	var html = [];
+	//水源名称
+	html.push('<span class="b">水源名称：</span>&nbsp;<span>' + $.trim(info.name) + '</span><br/>');
+	//蓄水量
+	html.push('<span class="b">蓄水量：</span>&nbsp;<span>' + $.trim(info.waterCapacity) + '</span><br/>');
+	//行政区域
+	html.push('<span class="b">行政区域：</span>&nbsp;<span>' + $.trim(info.parentName) + '</span><br/>');
+	//地址
+	html.push('<span class="b">地址：</span>&nbsp;<span>' + $.trim(info.address) + '</span><br/>');
+	//备注
+	html.push('<span class="b">备注：</span>&nbsp;<span>' + $.trim(info.remark) + '</span><br/>');
+
+	return html.join("");
+}
+
+
+/**
+ * 获取物流企业状态
+ */
+monitorTtxChemical.prototype.getLogisticsStatus = function(info) {
+	var html = [];
+	//负责人
+	html.push('<span class="b">法人：</span>&nbsp;<span>' + $.trim(info.legal) + '</span><br/>');
+	//联系电话
+	html.push('<span class="b">联系电话：</span>&nbsp;<span>' + $.trim(info.linkPhone) + '</span><br/>');
+	//邮箱
+	html.push('<span class="b">邮箱：</span>&nbsp;<span>' + $.trim(info.email) + '</span><br/>');
+	//地址
+	html.push('<span class="b">地址：</span>&nbsp;<span>' + $.trim(info.address) + '</span><br/>');
+	//经营范围
+	html.push('<span class="b">经营范围：</span>&nbsp;<span>' + $.trim(info.businessScope) + '</span><br/>');
+	//简介
+	html.push('<span class="b">简介：</span>&nbsp;<span>' + $.trim(info.introduction) + '</span><br/>');
+	return html.join("");
+}
+
+//经纬度转换，mapType_标记的地图类型
+monitorTtxChemical.prototype.getConvertBaiduGoogle = function(jingDu, weiDu, mapType_) {
+	var ret = {};
+	ret.lng = '';
+	ret.lat = '';
+	var jingDus = jingDu.split(',');
+	var weiDus = weiDu.split(',');
+	if(typeof convertBaiduGoogle == 'function') {
+		if(mapType_ == 3 && !this.isBaiduMap()) {//百度转谷歌
+			for (var i = 0; i < jingDus.length; i++) {
+				var gps = convertBaiduGoogle(weiDus[i], jingDus[i], 1);
+				if(i != 0) {
+					ret.lng += ',';
+					ret.lat += ',';
+				}
+				ret.lng += gps.lng;
+				ret.lat += gps.lat;
+			}
+		}else if(mapType_ != 3 && this.isBaiduMap()){//谷歌经纬度转为百度经纬度
+			for (var i = 0; i < jingDus.length; i++) {
+				var gps = convertBaiduGoogle(weiDus[i], jingDus[i], 2);
+				if(i != 0) {
+					ret.lng += ',';
+					ret.lat += ',';
+				}
+				ret.lng += gps.lng;
+				ret.lat += gps.lat;
+			}
+		}else {
+			ret.lng = jingDu;
+			ret.lat = weiDu;
+		}
+	}else {
+		ret.lng = jingDu;
+		ret.lat = weiDu;
+	}
+	return ret;	
+}
+
+//是否百度地图
+monitorTtxChemical.prototype.isBaiduMap = function() {
+	var mapType = rootParent.getMapType();
+	if (mapType == 3) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//显示或者隐藏危化地图
+monitorTtxChemical.prototype.hideChemicalMap = function(hide) {
+	if(hide) {
+		$('#chemical-rescue').hide();
+		$('#chemical-source').hide();
+		$('#chemical-produce').hide();
+		$('#chemical-logistics').hide();
+		$('#chemical-forbidArea').hide();
+	}else {
+		$('#chemical-rescue').show();
+		$('#chemical-source').show();
+		$('#chemical-produce').show();
+		$('#chemical-logistics').show();
+		$('#chemical-forbidArea').show();
+	}
+}
+
+monitorTtxChemical.prototype.switchToChemicalMapEx = function(rescue, source , produce, forbid, logistics) {
+	$('#chemical-rescue').css('z-index', rescue);
+	$('#chemical-source').css('z-index', source);
+	$('#chemical-produce').css('z-index', produce);
+	$('#chemical-forbidArea').css('z-index', forbid);
+	$('#chemical-logistics').css('z-index', logistics);
+}
+
+//切换到我的地图
+//@param type 1我的地图 2应急救援点 3生产仓储企业 4禁行区域 6物流企业 7消防水源
+monitorTtxChemical.prototype.switchToChemicalMap = function(type) {
+	if(type == 2) {
+		this.switchToChemicalMapEx(200, 199, 199, 199, 199);
+	}else if(type == 7){//new source
+		this.switchToChemicalMapEx(199, 200, 199, 199, 199);
+	}else if(type == 3) {
+		this.switchToChemicalMapEx(199, 199, 200, 199, 199);
+	}else if(type == 4) {
+		this.switchToChemicalMapEx(199, 199, 199, 200, 199);
+	}else if(type == 6) {
+		this.switchToChemicalMapEx(199, 199, 199, 199, 200);
+	}
+	else {
+		this.switchToChemicalMapEx(199, 199, 199, 199, 199);
+		$('#myMap_ .spantitle').css({'background-color':'#0071c6','color':'white'});
+		$('#chemical-rescue .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-source .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-produce .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-logistics .spantitle').css({'background-color':'#dddddd','color':'black'});
+		$('#chemical-forbidArea .spantitle').css({'background-color':'#dddddd','color':'black'});
+	}
+}
+
+/**
+ * 拉框查找应急救援点或者生产仓储企业
+ * @param param 3表示查询生产仓储企业 4表示应急救援点 5表示查询物流企业 6消防水源
+ */
+monitorTtxChemical.prototype.searchChemicalByRectangle = function(type, jingDu, weiDu, param) {
+	if(param == 3) {
+		this.searchProduceByRectangle(jingDu, weiDu);
+	}else if(param == 4) {
+		this.searchRescueByRectangle(jingDu, weiDu);
+	}else if(param == 5) {
+		this.searchLogisticsByRectangle(jingDu, weiDu);
+	}else if(param == 6) {
+		this.searchSourceByRectangle(jingDu, weiDu);
+	}
+}
+
+//拉框查找生产仓储企业
+monitorTtxChemical.prototype.searchProduceByRectangle = function(jingDu, weiDu) {
+	//添加拉框区域标记
+	this.addChemicalRectangleMarker(this.addProduceMarkerExpId, '找生产仓储企业', jingDu, weiDu, 2, '00FF00');
+	var that = this;
+	$.myajax.showLoading(true, parent.lang.loading);
+	$.myajax.jsonGet('WHLocationAction_queryExistProduceCompany.action?level=5&jingDu='+jingDu+'&weiDu='+weiDu+'&toMap='+ rootParent.toMap, function(json,action,success){
+		//删除拉框标记
+		that.delMarkOnMap(that.addProduceMarkerExpId);
+		if(success) {
+			if(json.exist && json.exist == 1) {
+				//有记录，就刷新列表
+				that.searchProducePointTable(jingDu, weiDu);
+			}else {
+				$.dialog.tips('区域内不存在生产仓储企业！', 2);
+				//清空表格
+				that.producePointTable.flexClear();
+			}
+		};
+		$.myajax.showLoading(false);
+	}, null);
+}
+
+//拉框查找物流企业
+monitorTtxChemical.prototype.searchLogisticsByRectangle = function(jingDu, weiDu) {
+	//添加拉框区域标记
+	this.addChemicalRectangleMarker(this.addLogisticsMarkerExpId, '找物流企业', jingDu, weiDu, 2, '00FF00');
+	var that = this;
+	$.myajax.showLoading(true, parent.lang.loading);
+	$.myajax.jsonGet('WHLocationAction_queryExistProduceCompany.action?level=1&jingDu='+jingDu+'&weiDu='+weiDu+'&toMap='+ rootParent.toMap, function(json,action,success){
+		//删除拉框标记
+		that.delMarkOnMap(that.addLogisticsMarkerExpId);
+		if(success) {
+			if(json.exist && json.exist == 1) {
+				//有记录，就刷新列表
+				that.searchLogisticsPointTable(jingDu, weiDu);
+			}else {
+				$.dialog.tips('区域内不存在物流企业！', 2);
+				//清空表格
+				that.logisticsPointTable.flexClear();
+			}
+		};
+		$.myajax.showLoading(false);
+	}, null);
+}
+
+//拉框查找应急救援点
+monitorTtxChemical.prototype.searchRescueByRectangle = function(jingDu, weiDu) {
+	//添加拉框区域标记
+	this.addChemicalRectangleMarker(this.addRescueMarkerExpId, '找应急救援点', jingDu, weiDu, 2, '00FF00');
+	var that = this;
+	$.myajax.showLoading(true, parent.lang.loading);
+	$.myajax.jsonGet('WHLocationAction_queryExistRescueCompany.action?jingDu='+jingDu+'&weiDu='+weiDu+'&toMap='+ rootParent.toMap, function(json,action,success){
+		//删除拉框标记
+		that.delMarkOnMap(that.addRescueMarkerExpId);
+		if(success) {
+			if(json.exist && json.exist == 1) {
+				//有记录，就刷新列表
+				that.searchRescuePointTable(jingDu, weiDu);
+			}else {
+				$.dialog.tips('区域内不存在应急救援点！', 2);
+				//清空表格
+				that.rescuePointTable.flexClear();
+			}
+		};
+		$.myajax.showLoading(false);
+	}, null);
+}
+
+/************************** ↓↓↓↓↓↓↓ ******************************************************************************/
+
+//拉框查找消防水源点
+monitorTtxChemical.prototype.searchSourceByRectangle = function(jingDu, weiDu) {
+	//添加拉框区域标记
+	this.addChemicalRectangleMarker(this.addSourceMarkerExpId, '找消防水源点', jingDu, weiDu, 2, '00FF00');
+	var that = this;
+	$.myajax.showLoading(true, parent.lang.loading);
+	$.myajax.jsonGet('WHLocationAction_queryExistSourceCompany.action?jingDu='+jingDu+'&weiDu='+weiDu+'&toMap='+ rootParent.toMap, function(json,action,success){
+		//删除拉框标记
+		that.delMarkOnMap(that.addSourceMarkerExpId);
+		if(success) {
+			if(json.exist && json.exist == 1) {
+				//有记录，就刷新列表
+				that.searchSourcePointTable(jingDu, weiDu);
+			}else {
+				$.dialog.tips('区域内不存在消防水源点！', 2);
+				//清空表格
+				that.sourcePointTable.flexClear();
+			}
+		};
+		$.myajax.showLoading(false);
+	}, null);
+}
+
+/***************************** ↑↑↑↑↑↑↑↑ *************************************************************************/
+
+//拉框查找时添加区域标记
+monitorTtxChemical.prototype.addChemicalRectangleMarker = function(index, name, jingDu, weiDu, markerType, color, param) {
+	var marker = findMarker(index);
+	if(marker != null) {
+		this.delMarkOnMap(index);
+	}
+	if(typeof insertMarker == 'function') {
+		//加入
+		insertMarker(index);
+	}
+	if(markerType > 10) {
+		if(markerType == 13 || markerType == 14) {
+			markerType -= 4;
+		}else {
+			markerType -= 9;
+		}
+	}
+	if(typeof updateMarker == 'function') {
+		updateMarker(index, markerType, name, jingDu, weiDu, '', color, '', param);
+	}
+//	ttxMap.selectMarker(index);
+}
+
+//清除地图上的应急救援点
+monitorTtxChemical.prototype.clearRescuePoint = function() {
+	var that = this;
+	this.mapRescuePointAdded.each(function(key, value) {
+		that.delMarkOnMap(key);
+	});
+	this.mapRescuePointAdded.clear();
+}
+
+//清除地图上的消防水源点
+monitorTtxChemical.prototype.clearSourcePoint = function(){
+	var that = this;
+	this.mapSourcePointAdded.each(function(key, value) {
+		that.delMarkOnMap(key);
+	});
+	this.mapSourcePointAdded.clear();
+}
+
+
+
+//清除地图上的生产仓储企业
+monitorTtxChemical.prototype.clearProducePoint = function() {
+	var that = this;
+	this.mapProducePointAdded.each(function(key, value) {
+		that.delMarkOnMap(key);
+	});
+	this.mapProducePointAdded.clear();
+}
+
+//清除地图上的物流企业
+monitorTtxChemical.prototype.clearLogisticsPoint = function() {
+	var that = this;
+	this.mapLogisticsPointAdded.each(function(key, value) {
+		that.delMarkOnMap(key);
+	});
+	this.mapLogisticsPointAdded.clear();
+}
+
+//画区域结束时删除区域
+monitorTtxChemical.prototype.delExampleMarker = function() {
+	this.delMarkOnMap(this.addMarkerExpId);
+}
+
+//修改地图标记（数据库）
+monitorTtxChemical.prototype.editMarkerAreaInfo = function(markerId, type) {
+	var title = "";
+	var height = "380px";
+	var marker = null;
+	if(type == 11 || type == 12 || type == 14){
+		marker = this.mapAreaInfo.get(Number(markerId));
+		if(type == 11){//修改矩形
+			title = lang.addRectangle;
+		}else if(type == 12){//修改多边形
+			title = lang.addPolygon;
+		}else if(type == 14){//修改圆
+			title = lang.tipAddCircle;
+		}
+	}else if(type == 13){//修改线路  数据库为4 地图为9
+		title = lang.addLine;
+		marker = this.mapLineInfo.get(Number(markerId));
+	}
+	if(title) {
+		//先隐藏其他弹出框
+		if(typeof parent.hidePopTips == 'function'){
+			parent.hidePopTips('areaInfo');
+		}
+		//如果打开了同类型的窗口，则先关闭
+		if(this.areaInfoObj != null) {
+			this.areaInfoObj.close();
+		}
+		var data = {};
+		data.markerId = markerId;
+		data.markType = type;
+		var that = this;
+		this.areaInfoObj = $.dialog({id:'areaInfo', title: title,content: 'url:whManagement/AreaInfo.html',
+			width:'350px',height: height, min:false, max:false, lock:false,data:data, close: function() {
+				that.areaInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('areaInfo');
+				}
+				if(marker.isExistMark) {
+					//删除原有标记
+					that.delMarkOnMap(marker.id);
+//					添加标记到地图
+//					that.addMarkOnMap(marker);
+					that.loadMarkInfos(marker);
+				}
+			}});
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+			parent.popTipsObject.put('areaInfo', this.areaInfoObj);
+		}
+	}
+}
+
+//删除地图标记（数据库）
+monitorTtxChemical.prototype.delMarkerAreaInfo = function(markerId, type) {
+	if(!confirm(lang.delconfirm)) {
+		return ;
+	}
+	//显示的消息
+	$.myajax.showLoading(true, lang.deleting);
+	var that = this;
+	$.myajax.jsonGet('StandardLoginAction_deleteArea.action?id=' + markerId, function(json,action,success){
+		$.myajax.showLoading(false);
+		if(success){
+			that.delMarkerAreaInfoSuc(markerId, type);
+		}
+	}, null);
+}
+
+//删除标记成功后执行
+monitorTtxChemical.prototype.delMarkerAreaInfoSuc = function(markerId, type) {
+	//删除rootParent 里面的标记信息
+	rootParent.mapMarkManager.removeMapMark(markerId);
+	//删除缓存中的信息
+	if(type == 11 || type == 12 || type == 14){ //区域
+		this.addForbidAreaTableList();
+	}else if(type == 13){//线路
+		this.addForbidLineTableList();
+	}
+	//删除地图上的标记
+	this.delMarkOnMap(markerId);
+}
+
+//地图上画图操作，加入数据库
+monitorTtxChemical.prototype.addMarkerAreaInfo = function(type, jingdu, weidu, param) {
+	var title = "";
+	var height = "380px";
+	if(type == 2 || type == 3 || type == 10){
+		if(type == 2){//加矩形
+			title = lang.addRectangle;
+			type = 11;
+		}else if(type == 3){//加多边形
+			title = lang.addPolygon;
+			type = 12;
+		}else if(type == 10){//加圆
+			title = lang.tipAddCircle;
+			type = 14;
+		}
+	}else if(type == 9){//加线路 //修改线路  数据库为4 地图为9
+		title = lang.addLine;
+		type = 13;
+	}
+	//画区域结束时删除区域
+	this.delExampleMarker();
+	if(title) {
+		//先隐藏其他弹出框
+		if(typeof parent.hidePopTips == 'function'){
+			parent.hidePopTips('areaInfo');
+		}
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null &&
+				parent.popTipsObject.get('areaInfo') != null) {
+			parent.popTipsObject.get('areaInfo').close();
+		}
+		//画区域时添加区域 
+		this.addChemicalRectangleMarker(this.addMarkerExpId, '', jingdu, weidu, type, 'FF0000', param);
+		var that = this;
+		var data = {};
+		data.jingdu = jingdu;
+		data.weidu = weidu;
+		data.param = param;
+		data.markType = type;
+		this.areaInfoObj = $.dialog({id:'areaInfo', title: title,content: 'url:whManagement/AreaInfo.html',
+			width:'350px',height: height, min:false, max:false, lock:false, data:data, close: function() {
+				that.areaInfoObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('areaInfo');
+				}
+				//设置车辆画区域标志 为false
+				if(typeof parent.setVehicleDrowing == 'function') {
+					parent.setVehicleDrowing(false);
+				}
+				that.delExampleMarker();
+			}});
+		if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+			parent.popTipsObject.put('areaInfo', this.areaInfoObj);
+		}
+	}
+}
+
+//添加标记成功后执行
+monitorTtxChemical.prototype.doSaveMarkerSuc = function(marker) {
+	//添加rootParent 里面的标记信息
+	rootParent.mapMarkManager.addNativeMapMark(marker);
+	$.dialog({id:'areaInfo'}).close();
+	$.dialog.tips(lang.saveok, 1);
+	this.delExampleMarker();
+	//添加标记到地图
+//	marker.isExistMark = true;
+//	this.addMarkOnMap(marker);
+	//添加标记信息到缓存中
+	if(marker.markerType == 11 || marker.markerType == 12 ||
+			marker.markerType == 14) {
+		this.addForbidAreaTableList();
+	}else if(marker.markerType == 13) {
+		this.addForbidLineTableList();
+	}
+	//追加到报警刷新参数
+	if(marker.markerType == 11 || marker.markerType == 12 ||
+			marker.markerType == 13 || marker.markerType == 14) {
+		if(typeof parent.appendTrafficAreaParam != 'undefined' &&
+				typeof parent.appendTrafficAreaParam == 'function') {
+			parent.appendTrafficAreaParam(marker.id);
+		}
+	}
+}
+
+//修改我的地图标记成功后执行（database）
+monitorTtxChemical.prototype.doEditMarkSuc = function(marker) {
+	$.dialog({id:'areaInfo'}).close();
+	$.dialog.tips(lang.saveok, 1);
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.remove('areaInfo');
+	}
+	//添加rootParent 里面的标记信息
+	rootParent.mapMarkManager.addNativeMapMark(marker);
+	//删除原有标记
+//	this.delMarkOnMap(marker.id);
+	//添加标记到地图
+//	marker.isExistMark = true;
+//	this.addMarkOnMap(marker);
+	
+	//添加标记信息到缓存中
+	var marker_ = null;
+	if(marker.markerType == 11 || marker.markerType == 12 ||
+			marker.markerType == 14) {
+		this.addForbidAreaTableList();
+		marker_ = this.mapAreaInfo.get(Number(marker.id));
+	}else if(marker.markerType == 13) {
+		this.addForbidLineTableList();
+		marker_ = this.mapLineInfo.get(Number(marker.id));
+	}
+	if(marker_ && marker_.isExistMark) {
+		//删除原有标记
+		this.delMarkOnMap(marker_.id);
+		//添加标记到地图
+		this.loadMarkInfos(marker_);
+	}
+}
+
+//修改标记信息改变地图上标记的大小，颜色
+monitorTtxChemical.prototype.doEditMarkChangeParam = function(marker, type) {
+	if(type == 'add') {//新增
+		this.delExampleMarker();
+		//画区域时添加区域 
+		this.addChemicalRectangleMarker(this.addMarkerExpId, '', marker.jingDu, marker.weiDu, marker.markerType, marker.color, marker.radius);
+	}else {
+		var info = null;
+		 if(marker.markerType == 13) {
+			info = this.mapLineInfo.get(Number(marker.id));
+		}else {
+			info = this.mapAreaInfo.get(Number(marker.id));
+		}
+		marker.mapType = info.mapType;
+		marker.name = info.name;
+		this.delMarkOnMap(marker.id);
+		this.loadMarkInfos(marker);
+//		this.addMarkOnMap(marker);
+	}
+}
+
+/***********************  导航  ***************************/
+//添加导航
+monitorTtxChemical.prototype.addLineNavigation = function() {
+	if(this.driverLineDescObject != null) {
+		this.driverLineDescObject.close();
+	}
+	//如果打开了同类型的窗口，则先关闭
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null 
+			&& parent.popTipsObject.get('info') != null) {
+		parent.popTipsObject.get('info').close();
+	}
+	var that = this;
+	this.lineNavigationObj = $.dialog({id:'info', title:'导航',content: 'url:whManagement/LineNavigation.html',
+		width:'500px',height:'385px', min:false, max:false, lock:false,left: 0, top: 80, close: function() {
+			that.lineNavigationObj = null;
+			if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+				parent.popTipsObject.remove('info');
+			}
+			//删除所有导航点
+			that.clearAlllineNavigationPoint();
+		}});
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('info', this.lineNavigationObj);
+	}
+	if(typeof parent.hidePopTips != 'undefined' && typeof parent.hidePopTips == 'function') {
+		parent.hidePopTips('info');
+	}
+}
+
+//添加导航点
+monitorTtxChemical.prototype.addLineNavigationPoint = function(index_) {
+	this.addNavMarkerIndex = index_;
+	if(this.addNavMarkerIndex == 'lineBegin') {//起点
+		this.addNavMarkerExpId = this.defaultAddNavMarkerExpId - 1;
+	}else if(this.addNavMarkerIndex == 'lineEnd') {//终点
+		this.addNavMarkerExpId = this.defaultAddNavMarkerExpId;
+	}else {//途经点
+		this.addNavMarkerExpId = this.defaultAddNavMarkerExpId + Number(this.addNavMarkerIndex);
+	}
+	var data = {};
+	data.id = this.addNavMarkerExpId;
+	this.mapLineNavPoint.put(this.addNavMarkerIndex.toString(), data);
+	pointAddType = 2;
+	addMarkerPoint();
+}
+
+//删除导航点
+monitorTtxChemical.prototype.deleteLineNavigationPoint = function(index_) {
+	var data = this.mapLineNavPoint.get(index_.toString());
+	if(data) {
+		this.delMarkOnMap(data.id);
+	}
+	this.mapLineNavPoint.remove(index_.toString());
+}
+
+//地图返回经纬度点
+monitorTtxChemical.prototype.addNavigationPoint = function(type, jingDu, weiDu, param) {
+	var name = "";
+	if(this.addNavMarkerIndex == 'lineBegin') {//起点
+		name = '起点';
+	}else if(this.addNavMarkerIndex == 'lineEnd') {//终点
+		name = '终点';
+	}else {//途经点
+		name = '途经点'+this.addNavMarkerIndex;
+	}
+	this.addChemicalRectangleMarker(this.addNavMarkerExpId, name, jingDu, weiDu, 1, '00FF00');
+	var data = this.mapLineNavPoint.get(this.addNavMarkerIndex.toString());
+	if(data) {
+		data.jingDu = jingDu;
+		data.weiDu = weiDu;
+	}
+	
+	if(this.lineNavigationObj.content && (typeof this.lineNavigationObj.content.addNavigationPoint == 'function')) {
+		this.lineNavigationObj.content.addNavigationPoint(jingDu, weiDu);
+	}
+}
+
+//改变地图图标
+//将老的点设置为新的点
+monitorTtxChemical.prototype.changeLineNavigationPoint = function(oldIndex_, index_) {
+	var data = this.mapLineNavPoint.get(oldIndex_.toString());
+	if(data) {
+		//先删除
+		this.deleteLineNavigationPoint(oldIndex_);
+		//再添加
+		this.addNavMarkerExpId = this.defaultAddNavMarkerExpId + Number(index_);
+		this.addNavMarkerIndex = index_;
+		
+		var data_ = {};
+		data_.id = this.addNavMarkerExpId;
+		this.mapLineNavPoint.put(this.addNavMarkerIndex.toString(), data_);
+		
+		this.addNavigationPoint('', data.jingDu, data.weiDu);
+	}
+}
+
+//修改地图上点的位置
+monitorTtxChemical.prototype.changeMapMarker = function(index_, jingDu, weiDu) {
+	var data = this.mapLineNavPoint.get(index_.toString());
+	this.addNavMarkerIndex = index_;
+	if(data) {
+		//再添加
+		this.addNavMarkerExpId = data.id;
+	}else {
+		if(index_ == 'lineBegin') {//起点
+			this.addNavMarkerExpId = this.defaultAddNavMarkerExpId - 1;
+		}else if(index_ == 'lineEnd') {//终点
+			this.addNavMarkerExpId = this.defaultAddNavMarkerExpId;
+		}else {//途经点
+			this.addNavMarkerExpId = this.defaultAddNavMarkerExpId + Number(this.addNavMarkerIndex);
+		}
+		var data_ = {};
+		data_.id = this.addNavMarkerExpId;
+		this.mapLineNavPoint.put(this.addNavMarkerIndex.toString(), data_);
+	}
+	this.addNavigationPoint('', jingDu, weiDu);
+	if(typeof selectMarker == 'function') {
+		selectMarker(this.addNavMarkerExpId);
+	}
+}
+
+//删除所有导航点
+monitorTtxChemical.prototype.clearAlllineNavigationPoint = function() {
+	var that = this;
+	this.mapLineNavPoint.each(function(key, value) {
+		that.delMarkOnMap(value.id);
+	});
+	this.mapLineNavPoint.clear();
+	//删除导航路线
+	this.deleteDriverLineObject();
+}
+
+//删除导航线路
+monitorTtxChemical.prototype.deleteDriverLineObject = function() {
+	if(typeof deleteDriverLine != 'undefined' && typeof deleteDriverLine == 'function') {
+		deleteDriverLine(this.arrDriverLineObject);
+	}
+	this.arrDriverLineObject = [];
+}
+
+//生成导航线路
+monitorTtxChemical.prototype.loadLineNavigationInfo = function(data) {
+	if(typeof addDrivingRoute != 'undefined' && typeof addDrivingRoute == 'function') {
+		//删除导航路线
+		this.deleteDriverLineObject();
+		//清空导航线路规划
+		this.arrDriverLineDesc = [];
+		//生成导航线路
+		var that = this;
+		addDrivingRoute(data.begin, data.end, data.ways, data.type, function(success, arrDriverLineObject, arrDriverLineDesc, arrDriverLineLngLat) {
+			if(success) {
+				that.arrDriverLineLngLat = arrDriverLineLngLat;
+				that.arrDriverLineObject = arrDriverLineObject;
+				that.arrDriverLineDesc = arrDriverLineDesc;
+	        	//加载导航规划页面
+	        	that.loadLineNavigationDesc();
+			}else {
+				alert("没有导航数据");
+			}
+		});
+	}else {
+		alert("不支持驾车导航");
+	}
+}
+
+//加载导航规划页面
+monitorTtxChemical.prototype.loadLineNavigationDesc = function() {
+	//隐藏窗口
+	if(this.lineNavigationObj != null) {
+		this.lineNavigationObj.hide();
+	}
+	//如果打开了同类型的窗口，则先关闭
+	if(this.driverLineDescObject != null) {
+		this.driverLineDescObject.close();
+	}
+	var that = this;
+	this.driverLineDescObject = $.dialog({id:'LineNavigationDesc', title:'导航结果',content: 'url:whManagement/LineNavigationDescription.html',
+		width:'400px',height:'500px', min:false, max:false, lock:false,left: 0, top: 80, data: this.arrDriverLineDesc, close: function() {
+			that.driverLineDescObject = null;
+			if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+				parent.popTipsObject.remove('LineNavigationDesc');
+			}
+			//删除所有导航点
+			that.clearAlllineNavigationPoint();
+		}});
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('LineNavigationDesc', this.driverLineDescObject);
+	}
+}
+
+//保存导航线路
+monitorTtxChemical.prototype.addDriverLineMarker = function() {
+	var jingdu = [];
+	var weidu = [];
+	for (var i = 0; i < this.arrDriverLineLngLat.length; i++) {
+		jingdu.push(this.arrDriverLineLngLat[i].lng);
+		weidu.push(this.arrDriverLineLngLat[i].lat);
+	}
+	var data = {};
+	data.jingdu = jingdu.join(',');
+	data.weidu = weidu.join(',');
+	data.markType = 9;
+	//如果打开了同类型的窗口，则先关闭
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null &&
+			parent.popTipsObject.get('areaInfo') != null) {
+		parent.popTipsObject.get('areaInfo').close();
+	}
+	var that = this;
+	this.driverLineObj = $.dialog({id:'areaInfo', title: '添加线路',content: 'url:RulesManagement/AreaInfo.html?addType=lineNavigation',
+		width:'350px',height: '380px', min:false, max:false, lock:false, data:data, close: function() {
+			that.driverLineObj = null;
+			if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+				parent.popTipsObject.remove('areaInfo');
+			}
+		}});
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('areaInfo', this.driverLineObj);
+	}
+}
+
+/***************************** 热力图 ****************************/
+
+//企业危化品储量热点分布图
+//弹框显示
+monitorTtxChemical.prototype.loadChemicalHeatMap = function() {
+	var that = this;
+	if(this.heatMapObj == null) {
+		this.heatMapObj = $.dialog({id:'heatMap', title: '热力图配置',content: 'url:whManagement/ChemicalHeatMap.html',
+			width:'500px',height: '355px', min:false, max:false, lock:false, close:function() {
+				that.heatMapObj = null;
+				if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+					parent.popTipsObject.remove('heatMap');
+				}
+			}});
+	}else {
+		this.heatMapObj.show();
+	}
+	if(typeof parent.popTipsObject != 'undefined' && parent.popTipsObject != null) {
+		parent.popTipsObject.put('heatMap', this.heatMapObj);
+	}
+	if(typeof parent.hidePopTips == 'function'){
+		parent.hidePopTips('heatMap');
+	}
+	if(!this.loadHeatMapSuc) {//没有加载就从后台获取数据
+		//加载部门下的产品信息
+		this.loadCompanyProduct();
+		loadScript("../ttxmap/baidu/js/Heatmap_min.js", function() {
+			that.loadHeatMapSuc = true;
+		});
+	}
+}
+
+//物流企业数目的热点分布图
+monitorTtxChemical.prototype.loadChemicalLogisticsHeatMap = function() {
+	alert(_getRootFrameElement().companys.length);
+}
+
+//加载部门下的产品信息
+monitorTtxChemical.prototype.loadCompanyProduct = function() {
+	var that = this;
+	$.myajax.showLoading(true, parent.lang.loading);
+	$.myajax.jsonGet('WHLocationAction_getCompanyProductInfo.action?toMap='+ rootParent.toMap, function(json,action,success){
+		if(success) {
+			if(json.product && json.product.length > 0) {//有记录
+				for (var i = 0; i < json.product.length; i++) {
+					var info = json.product[i];
+					//公司产品储量列表 公司id
+					var companyProduct = that.mapCompanyProduct.get(info.companyId.toString());
+					if(companyProduct == null) {
+						companyProduct = {};
+						companyProduct.capacity = info.capacity;
+						companyProduct.jingDu = info.jingDu;
+						companyProduct.weiDu = info.weiDu;
+						that.mapCompanyProduct.put(info.companyId.toString(), companyProduct);
+					}else {
+						companyProduct.capacity += info.capacity;
+					}
+					//产品容量列表 产品id
+					var productCapacity = that.mapProductCapacity.get(info.id.toString());
+					if(productCapacity == null) {
+						productCapacity = [];
+						productCapacity.push(info);
+						that.mapProductCapacity.put(info.id.toString(), productCapacity);
+					}else {
+						productCapacity.push(info);
+					}
+				}
+			}
+		};
+		$.myajax.showLoading(false);
+	}, null);
+}
+
+//配置热力图参数
+monitorTtxChemical.prototype.saveHeatMapConfig = function(colorConfig, type, chemical) {
+	this.heatmapType = type;
+	this.heatmapChemical = chemical;
+	if(colorConfig) {
+		this.arrHeatmapColor = colorConfig.split(';');
+	}else {
+		this.arrHeatmapColor = null;
+	}
+	this.isHeatmapChanged = true;
+	if(this.isShowHeatmap) {
+		this.isShowHeatmap = false;
+		this.showHeatMap();
+	}
+}
+
+//显示热力图
+monitorTtxChemical.prototype.showHeatMap = function(colorConfig, type, chemical) {
+	if(this.isSupportCanvas()) {
+		if(type) {
+			this.heatmapType = type;
+		}
+		if(chemical) {
+			this.heatmapChemical = chemical;
+		}
+		if(colorConfig) {
+			this.arrHeatmapColor = colorConfig.split(';');
+		}
+		if(this.isHeatmapChanged) {//如果热力图改变
+			if(this.heatmapOverlay) {
+				if(typeof removeHeatmapOverlay != 'undefined' && typeof removeHeatmapOverlay == 'function') {
+					removeHeatmapOverlay(this.heatmapOverlay);
+				}
+			}
+			this.loadHeatmapOverlay();
+			this.isHeatmapChanged = false;
+			this.isShowHeatmap = false;
+		}
+		if(!this.isShowHeatmap) {//如果热力图是显示的，就隐藏
+			if(typeof showHeatmapOverlay != 'undefined' && typeof showHeatmapOverlay == 'function') {
+				showHeatmapOverlay(this.heatmapOverlay);
+				this.isShowHeatmap = true;
+			}
+		}
+	}else {
+		alert("热力图目前只支持有canvas支持的浏览器,您所使用的浏览器不能使用热力图功能~");
+	}
+}
+
+//隐藏热力图
+monitorTtxChemical.prototype.hideHeatMap = function() {
+	if(this.isShowHeatmap) {//如果热力图是显示的，就隐藏
+		if(typeof hideHeatmapOverlay != 'undefined' && typeof hideHeatmapOverlay == 'function') {
+			hideHeatmapOverlay(this.heatmapOverlay);
+			this.isShowHeatmap = false;
+		}
+	}
+}
+
+//判断浏览区是否支持canvas
+monitorTtxChemical.prototype.isSupportCanvas = function() {
+	var elem = document.createElement('canvas');
+    return !!(elem.getContext && elem.getContext('2d'));
+}
+
+//加载热力图
+monitorTtxChemical.prototype.loadHeatmapOverlay = function() {
+	var that = this;
+	var points = [];
+	var maxPoint = 0;
+	if(that.heatmapType == 1) {//按公司
+		if(that.mapCompanyProduct.size() > 0) {
+			that.mapCompanyProduct.each(function(key, value) {
+				points.push({"lng": parseFloat(value.jingDu),"lat": parseFloat(value.weiDu),"count": value.capacity/1000});
+				/*if(value.capacity > maxPoint) {
+					maxPoint = value.capacity;
+				}*/
+			});
+		}
+	}else {//按危化品
+		if(that.mapProductCapacity.size() > 0 && that.heatmapChemical != null) {
+			var infos = that.mapProductCapacity.get(that.heatmapChemical.toString());
+			if(infos && infos.length > 0) {
+				for (var i = 0; i < infos.length; i++) {
+					points.push({"lng": parseFloat(infos[i].jingDu),"lat": parseFloat(infos[i].weiDu),"count": infos[i].capacity/1000});
+					/*if(infos[i].capacity > maxPoint) {
+						maxPoint = infos[i].capacity;
+					}*/
+				}
+			}
+		}
+	}
+	var radius = 20; //每个点的半径大小
+	var gradient = null; //热力图的渐变区间
+	if(that.arrHeatmapColor) {
+		gradient = {};
+		gradient['0'] = '#FFFFFF';				//1,00FF00,11,FF2B00,21,6600AC
+		maxPoint = parseInt(that.arrHeatmapColor[that.arrHeatmapColor.length-1].split(",")[0], 10);
+		for (var i = 0; i < that.arrHeatmapColor.length; i++) {
+			var colors = that.arrHeatmapColor[i].split(",");
+			var key = parseInt(colors[0], 10) / maxPoint;
+			if(key >= 1) {
+				key = 1;
+			}
+			gradient[key.toString()] = '#'+colors[1];
+		}
+	}
+	
+	if(typeof addHeatmapOverlay != 'undefined' && typeof addHeatmapOverlay == 'function') {
+		that.heatmapOverlay = addHeatmapOverlay(points, radius, maxPoint, gradient);
+		//加载热力图成功
+		that.isShowHeatmap = true;
+	}
+}

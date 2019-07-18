@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!-- saved from url=(0054)http://112.74.87.74/808gps/ttxline/ttxline.html?150701 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title></title>
+
+<link href="http://112.74.87.74/808gps/ttxline/favicon.ico" type="image/x-icon" rel="shortcut icon">
+<link rel="stylesheet" type="text/css" href="./reset.css">
+<link rel="stylesheet" type="text/css" href="./bin.css">
+<link rel="stylesheet" type="text/css" href="./jquery.sliderTabs.css">
+<link rel="stylesheet" type="text/css" href="./ttxline.css">
+<script type="text/javascript" src="./jquery.min.js.下载"></script>
+<script type="text/javascript" src="./jquery-ui.min.js.下载"></script>
+<script type="text/javascript" src="./public.js(2).下载"></script>
+<script type="text/javascript" src="./public.js(3).下载"></script>
+<script type="text/javascript" src="./hashtable.js.下载"></script>
+<script type="text/javascript" src="./jquery.sliderTabs.js.下载"></script>
+<script type="text/javascript" src="./ttxlineoverview.js.下载"></script>
+<script type="text/javascript" src="./ttxline.js.下载"></script>
+</head>
+<body onresize="setPanelWidth();">
+    <!--地图公交-->
+    <div class="map_area" style="width: 0px; height: 0px;">
+    	<div class="gj_box">
+    		<div class="gj_overview">所有线路</div>
+    		<div class="gj_box_top">
+            	<ul></ul>
+        	</div>
+    	</div>
+        <div class="gj_box_cont" style="height: 0px;">
+        	<div id="gj_nulltip" class="gj_nulltip"></div>
+        	<div class="gj_xlnv">
+            	<div class="fl gj_lx" style="margin-left: 50px;">
+            		<span>
+            			<span class="zi_cuhei gj_lx_direct"></span>
+            			<span class="gj_lx_from">从</span>&nbsp;&nbsp; 
+            			<i class="zi_cuhei gj_lx_begin"></i>  
+            			&nbsp;&nbsp;<span class="gj_lx_to">开往</span>&nbsp;&nbsp;
+            			<i class="zi_cuhei gj_lx_end"></i>
+            		</span>
+            		&nbsp;&nbsp;<span class="gj_lx_morning">首班时间</span>
+            		&nbsp;&nbsp;<i class="zi_bl gj_lx_beginTime"></i> 
+            		&nbsp;&nbsp; <span class="gj_lx_night">末班时间</span>
+            		&nbsp;&nbsp;<i class="zi_bl gj_lx_endTime"></i>
+           	 	</div>
+            	<div class="fr gj_btn_xq">
+            		<a class="gj_btn_xq_detail" href="http://112.74.87.74/808gps/ttxline/ttxline.html?150701#">线路详情</a>
+<!--             		<a class="gj_btn_xq_scheduling" href="#"></a> -->
+            		<a class="gj_btn_xq_station cur" href="http://112.74.87.74/808gps/ttxline/ttxline.html?150701#">显示站点</a>
+            	</div>
+            	<div class="spacer"></div>
+            </div>
+            <div class="gj_xlxx">
+            	<h3 id="gj_xlxx_title">线路详情信息</h3>
+            	<div class="gj_xlxx_box">
+            		<table width="0" border="0" cellspacing="0" cellpadding="0">
+            			<tbody><tr>
+            				<td><span id="gj_xlxx_abbrTip">简称：</span>&nbsp;&nbsp;<span id="gj_xlxx_abbr"></span></td>
+					  		<td><span id="gj_xlxx_ticketTip">售票方式：</span>&nbsp;&nbsp;<span id="gj_xlxx_ticket"></span></td>
+					    	<td><span id="gj_xlxx_priceTip">售票价格：</span>&nbsp;&nbsp;<span id="gj_xlxx_price"></span></td>
+					  	</tr>
+					  	<tr>
+					    	<td><span id="gj_xlxx_normalTip">平峰间隔：</span>&nbsp;&nbsp;<span id="gj_xlxx_normal"></span></td>
+					    	<td><span id="gj_xlxx_peakTip">高峰间隔：</span>&nbsp;&nbsp;<span id="gj_xlxx_peak"></span></td>
+					    	<td><span id="gj_xlxx_lengthTip">线路长度：</span>&nbsp;&nbsp;<span id="gj_xlxx_length"></span></td>
+					  	</tr>
+					  	<tr>
+					  		<td><span id="gj_xlxx_totalTimeTip">全程耗时：</span>&nbsp;&nbsp;<span id="gj_xlxx_totalTime"></span></td>
+					  		<td><span id="gj_xlxx_totalTip">车辆总数：</span>&nbsp;&nbsp;<span id="gj_xlxx_total"></span></td>
+					  	</tr>
+					</tbody></table>
+            	</div>
+            </div>
+            <!--公交路线-->
+            <div class="gj_luxian" style="width: 0px;">
+            	<div class="luxian_box"></div>
+                <div class="lu_box">
+                	<div class="car_jian">
+                		<b id="gj_stratStation"></b>
+                		<span id="gj_lineName" class="arow"></span> 
+                		<b id="gj_endStation"></b>
+                		<em class="zhan"></em>
+                	</div>
+                    <div class="car_xx">
+<!--                     	<em></em> -->
+                        <table width="0" border="0" cellspacing="0" cellpadding="0">
+						  	<tbody><tr>
+						    	<td><span id="gj_vehiIdno_label">车牌号：</span>&nbsp;&nbsp;<span id="gj_vehiIdno"></span></td>
+						    	<td><span id="gj_time_label">时间：</span>&nbsp;&nbsp;<span id="gj_time"></span></td>
+						    	<td><span id="gj_speed_label">速度：</span>&nbsp;&nbsp;<span id="gj_speed"></span></td>
+						  	</tr>
+						  	<tr>
+						  		<td><span id="gj_liCheng_label">里程：</span>&nbsp;&nbsp;<span id="gj_liCheng"></span></td>
+						    	<td><span id="gj_position_label">位置：</span>&nbsp;&nbsp;<span id="gj_position"></span></td>
+						    	<td><span id="gj_driver_label">司机：</span>&nbsp;&nbsp;<span id="gj_driver"></span></td>
+						  	</tr>
+						  	<tr>
+						  		<td><span id="gj_preStation_label">上一站：</span>&nbsp;&nbsp;<span id="gj_preStation"></span></td>
+						  		<td><span id="gj_nextStation_label">下一站：</span>&nbsp;&nbsp;<span id="gj_nextStation"></span></td>
+						    	<td><span id="gj_alarm_label">报警：</span>&nbsp;&nbsp;<span id="gj_alarm"></span></td>
+						  	</tr>
+						</tbody></table>
+                    </div>
+                </div>
+            </div>
+            <!--时间线-->
+            <div class="gj_time_line_box">
+            	<div class="siji_box">
+                    <div class="siji">
+                    	<i></i>
+                    	<span>粤B 12345<br>  18:45 <br>  王小明 </span>
+                    </div>
+                    <div style="left:6%; z-index:4" class="siji">
+                    	<i></i>
+                    	<span>粤B 12345<br>  18:45 <br> 王小明 </span>
+                    </div>
+                    <div style="left:60%; z-index:4" class="siji siji_blue">
+                    	<i></i>
+                    	<span>粤B 12345<br>  18:45 <br>  王小明 </span>
+                    </div>
+                    <div style="left:63%; z-index:4" class="siji siji_blue">
+                    	<i></i>
+                    </div>
+                    <div style="left:80%; z-index:4" class="siji siji_blue">
+                    	<i></i>
+                    	<span class="ru">
+                    		<em></em>
+                    		粤B &nbsp;  12345  &nbsp;  22:00   &nbsp; 王小明<br>
+							粤B  &nbsp;12345   &nbsp; 22:00  &nbsp; 王小明<br>
+							粤B &nbsp; 12345  &nbsp;  22:00  &nbsp; 王小明<br>
+							粤B &nbsp; 12345 &nbsp;   22:00  &nbsp; 王小明
+						</span>
+                    </div>
+                </div>
+           		<div class="gj_tl_bg">
+	                <div class="gj_tl">
+	                   	<span class="gj_be_left"><i></i></span>
+						<span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                   	<span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_tl_l"><i></i></span>
+	                    <span class="gj_tl_d"><i></i></span>
+	                    <span class="gj_be_right"></span>
+	                    <div class="gj_tl_cur"></div>
+	                    <div class="spacer"></div>   
+	                </div>
+	                <div class="gj_tl_1">
+	                	<span>6:00</span>
+	                    <span>7:00</span>
+	                    <span>8:00</span>
+	                    <span>9:00</span>
+	                    <span>10:00</span>
+	                    <span>11:00</span>
+	                    <span>12:00</span>
+	                    <span>13:00</span>
+	                    <span>14:00</span>
+	                    <span>15:00</span>
+	                    <span>16:00</span>
+	                    <span>17:00</span>
+	                    <span>18:00</span>
+	                    <span>19:00</span>
+	                    <span>20:00</span>
+	                    <span>21:00</span>
+	                    <span>22:00</span>
+	                    <span>23:00</span>
+	                </div>
+	            </div>
+	        </div>
+	    </div>
+    </div>
+
+</body></html>

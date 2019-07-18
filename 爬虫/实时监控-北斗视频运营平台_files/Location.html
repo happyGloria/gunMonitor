@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<!-- saved from url=(0059)http://112.74.87.74/808gps/LocationManagement/Location.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title></title>
+    <link href="http://112.74.87.74/808gps/LocationManagement/favicon.ico" type="image/x-icon" rel="shortcut icon">
+	<link rel="stylesheet" type="text/css" href="./dhtmlxtree.css">
+	<link rel="stylesheet" type="text/css" href="./dhtmlxmenu.css">
+	<link rel="stylesheet" type="text/css" href="./flexigrid.css">
+	<link rel="stylesheet" type="text/css" href="./flexiManage.css">
+	<link rel="stylesheet" type="text/css" href="./reset.css">
+	<link rel="stylesheet" type="text/css" href="./bin.css">
+	<link rel="stylesheet" type="text/css" href="./jqueryUITip.css">
+	<link rel="stylesheet" type="text/css" href="./labelIcon.css">
+	<link rel="stylesheet" type="text/css" href="./location.css">
+	<link rel="stylesheet" type="text/css" href="./ptt.css">
+	<link rel="stylesheet" type="text/css" href="./my.css">
+	<script type="text/javascript" src="./json2.js.下载"></script>
+	<script type="text/javascript" src="./jquery.min.js.下载"></script>
+	<script type="text/javascript" src="./jquery-ui.min.js.下载"></script>
+	<script type="text/javascript" src="./lhgdialog.min.js.下载"></script>
+	<script type="text/javascript" src="./jquery.cookie.js.下载"></script>
+	<script type="text/javascript" src="./public.js(2).下载"></script>
+	<script type="text/javascript" src="./flexiManage.js(1).下载"></script>
+	<script type="text/javascript" src="./flexigrid.js.下载"></script>
+	<script type="text/javascript" src="./dhtmlxcommon.js.下载"></script>
+	<script type="text/javascript" src="./dhtmlxtree.js.下载"></script>
+	<script type="text/javascript" src="./dhtmlxmenu.js.下载"></script>
+	<script type="text/javascript" src="./company_tree.js.下载"></script>
+	<script type="text/javascript" src="./myajax.js.下载"></script>
+	<script type="text/javascript" src="./public.js(3).下载"></script>
+	<script type="text/javascript" src="./hashtable.js.下载"></script>
+	<script type="text/javascript" src="./standardStatus.js.下载"></script>
+	<script type="text/javascript" src="./standardDevice.js.下载"></script>
+	<script type="text/javascript" src="./vehicleDevice.js.下载"></script>
+	<script type="text/javascript" src="./vehicleAlarm.js.下载"></script>
+	<script type="text/javascript" src="./vehicleManager.js.下载"></script>
+	<script type="text/javascript" src="./alarmManager.js.下载"></script>
+	<script type="text/javascript" src="./date.js.下载"></script>
+	<script type="text/javascript" src="./ttxmapapi.js.下载"></script>
+	<script type="text/javascript" src="./ttxvideoapi.js.下载"></script>
+	<script type="text/javascript" src="./ttxlineapi.js.下载"></script>
+	<script type="text/javascript" src="./downloadFileUtil.js.下载"></script>
+	<script type="text/javascript" src="./monitorStatus.js.下载"></script>
+	<script type="text/javascript" src="./monitorAlarm.js.下载"></script>
+	<script type="text/javascript" src="./taskVehicleAlarm.js.下载"></script>
+	<script type="text/javascript" src="./governmentVehicleAlarm.js.下载"></script>
+<!-- 	<script type="text/javascript" src="js/monitorSafetyAlarm.js"></script> -->
+	<script type="text/javascript" src="./DispatchOpreateAlarm.js.下载"></script>
+	<script type="text/javascript" src="./DispatchOpreateMedia.js.下载"></script>
+	<script type="text/javascript" src="./monitorTreeMenu.js.下载"></script>
+	<script type="text/javascript" src="./monitorAlarmMotion.js.下载"></script>
+	<script type="text/javascript" src="./monitorpaneinfo.js.下载"></script>
+	<script type="text/javascript" src="./monitorMedia.js.下载"></script>
+	<script type="text/javascript" src="./monitorMapTip.js.下载"></script>
+	<script type="text/javascript" src="./monitorLine.js.下载"></script>
+	<script type="text/javascript" src="./monitorHWCLine.js.下载"></script>
+	<script type="text/javascript" src="./monitorChemical.js.下载"></script>
+	<script type="text/javascript" src="./monitorRealtimeTrack.js.下载"></script>
+	<script type="text/javascript" src="./mapConfig.js.下载"></script>
+	<script type="text/javascript" src="./Move.js.下载"></script>
+	<script type="text/javascript" src="./location.js.下载"></script>
+	<style type="text/css">
+	
+	.tab_top li.active {
+    border-bottom: #0071c6 solid 3px;
+    color: #0077ff;
+}
+button:disabled
+{
+background:#AAAAAA;
+}span.el-radio__label {
+    color: black;
+}
+ .tab_top .tab_select li
+{   display: inline;
+    width: 38%;
+    height: 35px;
+    padding-left: 20px;
+    padding-right: 20px;
+	
+}  .tab_top .tab_select li a {
+    display: inline;
+    height: 29px;
+    line-height: 29px;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 3px;
+    padding: 0px;
+}span.pz.fl {
+	    display: none;
+	}
+
+i.icon.icon_open_alarm_window {
+   background-position: -364px 3px;
+}
+i.icon.icon_open_alarm_window.open {
+       background-position: -364px -19px;
+}
+div#show_page_vedio {
+    float:  left;
+    left: 10px;
+    width:  110px;
+    border:  solid 1px #d6d4d2;
+    text-align:  center;
+    line-height: 30px;
+	margin-top: 2px;
+	cursor: pointer;
+    
+}
+div#show_page_vedio i{
+	display: inline-block;
+	width: 30px;
+	height: 30px;
+	background: url(../images/menu-ico.png) no-repeat;
+	background-position: -466px -33px;
+}
+div#show_page_vedio:hover i{
+	background-position: -466px -1px;
+}
+div#show_page_gps {
+    float:  left;
+    left:  10px;
+    border: solid 1px #d6d4d2;
+    width:  110px;
+    text-align:  center;
+    line-height: 30px;
+    margin-left: 10px;
+    margin-top: 2px;
+        cursor: pointer;
+}
+div#show_page_gps i{
+	display: inline-block;
+	width: 30px;
+	height: 30px;
+	background: url(../images/menu-ico.png) no-repeat;
+	background-position: -547px -33px;
+}
+div#show_page_gps:hover i{
+	background-position: -547px -1px;
+}
+	</style>
+	
+</head>
+<body onresize="setPanelWidth(fixHeight);" style="cursor: default;"><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_team_dhxWebMenuTopId" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="team_issued_info_team"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文字信息</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_channel_dhxWebMenuTopId" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="channel_preview_mainstream_channel_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">预览主码流</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_preview_mainstream_channel_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止主码流</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_preview_substream_channel_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">预览子码流</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_preview_substream_channel_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止子码流</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_preview_all_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止所有视频</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_image_capture_channel"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">前端抓拍</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_talkback_mic_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">开始对讲</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_talkback_mic_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止对讲</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_monitor_mic_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">开始监听</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="channel_monitor_mic_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止监听</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_vehicleInfo_param_config_gps_sb" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="vehicleInfo_param_config_gps_sb_state"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">查询基本信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_gps_sb_setting"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_vehicleInfo_GPSDevice" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="vehicleInfo_issued_info_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文字信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_phone_callback_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">电话回拨</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_device_info_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">设备信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_online_upgrade_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">设备升级</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_offline_upgrade_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">离线升级</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_issued_file_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文件</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_gps_sb"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">主动安全设置</div></td><td class="sub_item_hk"><div class="complex_arrow" id="arrow_vehicleInfo_param_config_gps_sb"></div></td></tr><tr class="sub_item" id="vehicleInfo_param_config_code_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_tpms_info_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">TPMS</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_wifi_application_gps"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">WiFi配置诊断</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_vehicleInfo_param_config_video_sb" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="vehicleInfo_param_config_video_sb_state"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">查询基本信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_video_sb_setting"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_vehicleInfo_videoDevice" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="vehicleInfo_issued_info_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文字信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_phone_callback_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">电话回拨</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_device_info_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">设备信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_online_upgrade_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">设备升级</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_offline_upgrade_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">离线升级</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_issued_file_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文件</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_video_sb"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">主动安全设置</div></td><td class="sub_item_hk"><div class="complex_arrow" id="arrow_vehicleInfo_param_config_video_sb"></div></td></tr><tr class="sub_item" id="vehicleInfo_param_config_code_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_tpms_info_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">TPMS</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_wifi_application_video"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">WiFi配置诊断</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_vehicleInfo_param_config_sb" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="vehicleInfo_param_config_sb_state"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">查询基本信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_sb_setting"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr></tbody></table></div><div style="position:relative;"></div></div><div class="dhtmlxMenu_dhx_web_SubLevelArea_Polygon " dir="ltr" id="polygon_vehicleInfo_dhxWebMenuTopId" style="display: none;"><div style="position:relative;"></div><div style="position: relative; overflow:hidden;"><table class="dhtmlxMebu_SubLevelArea_Tbl" cellspacing="0" cellpadding="0" border="0"><tbody><tr class="sub_item" id="vehicleInfo_preview_all_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">预览所有视频</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_preview_all_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止所有视频</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_talkback_mic_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">开始对讲</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_talkback_mic_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止对讲</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_monitor_mic_start"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">开始监听</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_monitor_mic_stop"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">停止监听</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_issued_info"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文字信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_image_capture"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">前端抓拍</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_phone_callback"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">电话回拨</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_vehicle_control"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发控制指令</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_vehicle_remote_control"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发控制指令</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_police_electronic_fence"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">电子围栏</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_gps_report_interval"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">GPS上报间隔设置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_3G_config"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">网络流量配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_wifi_download_task"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">WIFI下载任务设置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_device_info"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">设备信息</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_online_upgrade"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">设备升级</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_offline_upgrade"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">离线升级</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_issued_file"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">下发文件</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_oil_config"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">油量配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_param_config_sb"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">主动安全设置</div></td><td class="sub_item_hk"><div class="complex_arrow" id="arrow_vehicleInfo_param_config_sb"></div></td></tr><tr class="sub_item" id="vehicleInfo_param_config_code"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">参数配置</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_tpms_info"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">TPMS</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_wifi_application"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">WiFi配置诊断</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_realtime_tracking"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">位置实时跟踪</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_realtime_tracking_close"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">关闭位置实时跟踪</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_alarm_clear"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">清除报警</div></td><td class="sub_item_hk">&nbsp;</td></tr><tr class="sub_item" id="vehicleInfo_videoDevice"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">视频设备</div></td><td class="sub_item_hk"><div class="complex_arrow" id="arrow_vehicleInfo_videoDevice"></div></td></tr><tr class="sub_item" id="vehicleInfo_GPSDevice"><td class="sub_item_icon">&nbsp;</td><td class="sub_item_text"><div class="sub_item_text">GPS设备</div></td><td class="sub_item_hk"><div class="complex_arrow" id="arrow_vehicleInfo_GPSDevice"></div></td></tr></tbody></table></div><div style="position:relative;"></div></div>
+<div class="main">
+  	<!--	左边栏 车辆列表		-->
+    <div class="pro_list" style="height: 423px;">
+    	<a href="javascript:void(0);" class="slider_btn" display="none"><i class="icon icon_side"></i></a>
+    	
+ 		<!-- <div class="tab_top" style="margin-top: 11px; margin-bottom:7px;font-size: 11px;">
+  			<ul class="tab_select">
+					<li  class ="active"><a href="#" class="dispatch_tree" id = "dispatchTreeTip"></a></li>
+					<li  class ="active"><a href="#" class="vehicle_tree" id = "vehicleTreeTip" ></a></li>
+  			</ul>
+  		</div> -->
+    	<!-- 车辆列表 	工具栏 -->
+     	<div class="dh"> 
+     		<!-- 操作菜单 -->
+			<span class="pz fl">
+				<a style="padding:10px;" href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_list"></i></a> 
+				<!--<div>
+					<ul class="tc_box">
+						<li><a href="#">发送拍照指令</a></li>
+						<li><a href="#">发送LCD短信</a></li>
+						<li><a href="#">时间点查车</a></li>
+						<li><a href="#">多地图定位</a></li>
+					</ul>
+				</div> -->
+	  		</span>
+	  		
+	  		<!-- 搜索车辆 -->
+			<div id="searchTeam" class="so fl">
+				<span>
+					<i class="icon icon_so"></i>
+					<input id="vehiIdnoOnTree" placeholder="请输入名称或编号" class="so_text" name="" type="text">
+				</span>
+				<div id="so_tree_vehiList" class="tc_box so_box">
+					<ul>
+					</ul>
+				</div>
+			</div>
+			<!-- 提示信息 -->
+      		<span class="dh_tips fr"><i class="icon icon_tips"></i>
+				<div>
+					<ul class="tc_box vehicleMark">
+						<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t1 onlineMark"></i><span class="onlineMarkSpan">在线</span></a></li>
+						<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t2 alarmMark"></i><span class="alarmMarkSpan">报警</span></a></li>
+						<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t3 offlineMark"></i><span class="offlineMarkSpan">离线</span></a></li>
+						<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t4 parkingMark"></i><span class="parkingMarkSpan">怠速</span></a></li>
+						<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t5 parkedMark"></i><span class="parkedMarkSpan">停车</span></a></li>
+						<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t6 invalidMark"></i><span class="invalidMarkSpan">未定位</span></a></li>
+					</ul>
+				</div>
+			</span>
+			<div class="spacer"></div>
+		</div>	
+		<!-- 车辆列表  -->
+		<div id="vehicle_tree" class=" dhxtree_dhx_skyblue" style="height: 353px; display: block; overflow: hidden;"><div class="containerTableStyle" style="width: 100%; height: 100%;"><table cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0px; padding: 0px; overflow: hidden;"><tbody><tr style="display: none;"><td class="hiddenRow"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/minus4.gif&quot;);">&nbsp;</div></td><td width="16px" style="display: none;"><div class="dhx_bg_img_fix" style="background-image: url(&quot;iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/folderOpen.gif&quot;); padding: 0px; margin: 0px; width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="standartTreeRow" style="padding-left: 5px; padding-right: 5px;"></span></td></tr><tr><td> </td><td colspan="3"><table cellspacing="0" cellpadding="0" border="0" style="margin: 0px; padding: 0px;"><tbody><tr title=""><td class="standartTreeImage"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/minus5.gif&quot;);">&nbsp;</div></td><td width="16px"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; height: 18px; background-image: url(&quot;../../js/dxtree/imgs/all_group.png&quot;);">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="selectedTreeRow" style="padding-left: 5px; padding-right: 5px;">监控中心&nbsp;&nbsp;(0/1)</span></td></tr><tr><td> </td><td colspan="3"><table cellspacing="0" cellpadding="0" border="0" style="margin: 0px; padding: 0px;"><tbody><tr><td class="standartTreeImage"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/plus2.gif&quot;);">&nbsp;</div></td><td width="16px"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; height: 18px; background-image: url(&quot;../../js/dxtree/imgs/../../../808gps/images/vehicle/1/offline/3.png&quot;);">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="standartTreeRow" style="padding-left: 5px; padding-right: 5px;">5010439</span></td></tr><tr style="display: none;"><td> </td><td colspan="3"><table cellspacing="0" cellpadding="0" border="0" style="margin: 0px; padding: 0px;"><tbody><tr><td class="standartTreeImage"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/line3.gif&quot;);">&nbsp;</div></td><td width="16px" style="display: none;"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; height: 18px; background-image: url(&quot;../../js/dxtree/imgs/video_01.png&quot;);">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="standartTreeRow" style="padding-left: 5px; padding-right: 5px;">CH1</span></td></tr></tbody></table></td></tr><tr style="display: none;"><td> </td><td colspan="3"><table cellspacing="0" cellpadding="0" border="0" style="margin: 0px; padding: 0px;"><tbody><tr><td class="standartTreeImage"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/line3.gif&quot;);">&nbsp;</div></td><td width="16px" style="display: none;"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; height: 18px; background-image: url(&quot;../../js/dxtree/imgs/video_01.png&quot;);">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="standartTreeRow" style="padding-left: 5px; padding-right: 5px;">CH2</span></td></tr></tbody></table></td></tr><tr style="display: none;"><td> </td><td colspan="3"><table cellspacing="0" cellpadding="0" border="0" style="margin: 0px; padding: 0px;"><tbody><tr><td class="standartTreeImage"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/line3.gif&quot;);">&nbsp;</div></td><td width="16px" style="display: none;"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; height: 18px; background-image: url(&quot;../../js/dxtree/imgs/video_01.png&quot;);">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="standartTreeRow" style="padding-left: 5px; padding-right: 5px;">CH3</span></td></tr></tbody></table></td></tr><tr style="display: none;"><td> </td><td colspan="3"><table cellspacing="0" cellpadding="0" border="0" style="margin: 0px; padding: 0px;"><tbody><tr><td class="standartTreeImage"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; background-image: url(&quot;../../js/dxtree/imgs/line2.gif&quot;);">&nbsp;</div></td><td width="16px" style="display: none;"><div class="dhx_bg_img_fix" style="background-image: url(&quot;../../js/dxtree/imgs/iconUncheckAll.gif&quot;); width: 18px; height: 18px;">&nbsp;</div></td><td class="standartTreeImage" style="width: 18px;"><div class="dhx_bg_img_fix" style="padding: 0px; margin: 0px; width: 18px; height: 18px; background-image: url(&quot;../../js/dxtree/imgs/video_01.png&quot;);">&nbsp;</div></td><td class="standartTreeRow" nowrap="" style="font-size: 10pt; cursor: pointer;"><span class="standartTreeRow" style="padding-left: 5px; padding-right: 5px;">CH4</span></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table><div class="selectionBar" style="display: none;">&nbsp;</div></div></div>
+		
+		<!-- 协同列表  -->
+		<div id="dispatch_group" style="display: none; height: 391px;">
+		<!-- 	<div id="refulshGroup"></div> -->
+			<div id="dispatch_tips"></div>
+			<div id="group_tool" style="margin-top: 2px;margin-left: 6px; height: 74px;margin-bottom:3px;display: block;">
+				<div id="dispatch_group_tool" style="width: 120px;margin-top: 3px; margin-bottom:3px;float: left;"></div>
+				<div id="dispatch_group_tool1" style="margin-top: 3px; margin-bottom:3px;"></div>
+			</div>
+			<div class="gh"> 
+	     		<!-- 操作菜单 -->
+				<span class="pz fl">
+					<a style="padding:10px;" href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_list"></i></a> 
+					<!--<div>
+						<ul class="tc_box">
+							<li><a href="#">发送拍照指令</a></li>
+							<li><a href="#">发送LCD短信</a></li>
+							<li><a href="#">时间点查车</a></li>
+							<li><a href="#">多地图定位</a></li>
+						</ul>
+					</div> -->
+		  		</span>
+		  		
+		  		<!-- 搜索车辆 -->
+				<div id="searchMember" class="so fl">
+					<span>
+						<i class="icon icon_so"></i>
+						<input id="memberOnTree" placeholder="请输入名称或编号" class="so_text" name="" type="text">
+					</span>
+					<div id="so_tree_memberList" class="tc_box so_box">
+						<ul>
+						</ul>
+					</div>
+				</div>
+				<!-- 提示信息 -->
+	      		<span class="dh_tips fr"><i class="icon icon_tips"></i>
+					<div>
+						<ul class="tc_box vehicleMark">
+							<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t1 onlineMark"></i><span class="onlineMarkSpan">在线</span></a></li>
+							<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t2 alarmMark"></i><span class="alarmMarkSpan">报警</span></a></li>
+							<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t3 offlineMark"></i><span class="offlineMarkSpan">离线</span></a></li>
+							<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t4 parkingMark"></i><span class="parkingMarkSpan">怠速</span></a></li>
+							<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t5 parkedMark"></i><span class="parkedMarkSpan">停车</span></a></li>
+							<li><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#"><i class="icon icon_t6 invalidMark"></i><span class="invalidMarkSpan">未定位</span></a></li>
+						</ul>
+					</div>
+				</span>
+				<div class="spacer"></div>
+			</div>
+			<div id="dispatch_tree"></div>
+		</div>
+		
+		
+		<div class="tab_state ui-tabs ui-widget ui-widget-content ui-corner-all" id="tab_state">
+        	<ul class="tab_state_box ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all" role="tablist">
+            	<li id="state_0" class="ui-state-default ui-corner-top ui-tabs-active ui-state-active" role="tab" tabindex="0" aria-controls="tab_state_0" aria-labelledby="ui-id-1" aria-selected="true" aria-expanded="true"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#tab_state_0" class="ui-tabs-anchor" role="presentation" tabindex="-1" id="ui-id-1">状态</a></li>
+                <li id="state_1" class="ui-state-default ui-corner-top" role="tab" tabindex="-1" aria-controls="tab_state_1" aria-labelledby="ui-id-2" aria-selected="false" aria-expanded="false"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#tab_state_1" class="ui-tabs-anchor" role="presentation" tabindex="-1" id="ui-id-2">云台</a></li>
+                <li id="state_2" class="ui-state-default ui-corner-top" role="tab" tabindex="-1" aria-controls="tab_state_2" aria-labelledby="ui-id-3" aria-selected="false" aria-expanded="false"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#tab_state_2" class="ui-tabs-anchor" role="presentation" tabindex="-1" id="ui-id-3">色彩</a></li>
+                <li id="state_3" class="ui-state-default ui-corner-top" role="tab" tabindex="-1" aria-controls="tab_state_3" aria-labelledby="ui-id-4" aria-selected="false" aria-expanded="false"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#tab_state_3" class="ui-tabs-anchor" role="presentation" tabindex="-1" id="ui-id-4">语音</a></li>
+                <li class="icon_state_box"><i class=""></i></li>
+            </ul>
+            <div id="tab_state_0" class="tab_state_pane ui-tabs-panel ui-widget-content ui-corner-bottom" aria-labelledby="ui-id-1" role="tabpanel" aria-hidden="false" style="display: none;">
+	            <ul class="state_list">
+	                <li id="state_vehi"><b>名称</b><span title=""></span></li>
+	                <li id="state_devId"><b>终端ID</b><span title=""></span></li>
+	                <li id="state_company"><b>所属组织</b><span title=""></span></li>
+	                <li id="state_level" style="display: none;"><b>车队</b><span title=""></span></li>
+	                <li id="state_status"><b>状态</b><span title=""></span></li>
+	                <li id="state_Gps_time"><b>GPS时间</b><span title=""></span></li>
+	                <li id="state_position"><b style="float: left;">位置</b><div><span class="maplngLat"></span></div></li>
+	                <li id="state_speed" style="display: none;"><b>速度</b><span title=""></span></li>
+					<li id="state_electric" style="display: none;"><b>电池电量</b><span title=""></span></li>
+	            </ul>
+            </div>
+            <div id="tab_state_1" class="tab_state_pane ui-tabs-panel ui-widget-content ui-corner-bottom" aria-labelledby="ui-id-2" role="tabpanel" aria-hidden="true" style="display: none;">
+            	<div class="state_1_yt">
+            		<div class="fl icon_yt_box">
+	                	<a class="icon_yt_0 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(4);" onmouseup="sendPTZControl(19);" title="左上" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_1 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(2);" onmouseup="sendPTZControl(19);" title="上" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_2 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(5);" onmouseup="sendPTZControl(19);" title="右上" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_3 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(0);" onmouseup="sendPTZControl(19);" title="左" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_4 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(18);" title="自动巡航" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_5 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(1);" onmouseup="sendPTZControl(19);" title="右" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_6 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(6);" onmouseup="sendPTZControl(19);" title="左下" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_7 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(3);" onmouseup="sendPTZControl(19);" title="下" role="button"><span class="ui-button-text"></span></a>
+	                    <a class="icon_yt_8 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(7);" onmouseup="sendPTZControl(19);" title="右下" role="button"><span class="ui-button-text"></span></a>
+                    	<div id="yt_handle" class="yt ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all ui-state-disabled ui-slider-disabled" style="width:92px; margin:3px;"><div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" style="width: 23.5294%;"></div><span class="ui-slider-handle ui-state-default ui-corner-all" tabindex="0" style="left: 23.5294%;"></span></div>
+                	</div>
+                	<div class="fr yt_state2">
+	                	<span>
+	                    	<a class="icon_f0_0 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(8);" onmouseup="sendPTZControl(19);" title="焦距变小" role="button"><span class="ui-button-text"></span></a><a class="icon_f0_1 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(9);" onmouseup="sendPTZControl(19);" title="焦距变大" role="button"><span class="ui-button-text"></span></a>
+	                    </span>	
+	                    <span>
+	                    	<a class="icon_y0_0 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(10);" onmouseup="sendPTZControl(19);" title="光圈缩小" role="button"><span class="ui-button-text"></span></a><a class="icon_y0_1 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(11);" onmouseup="sendPTZControl(19);" title="光圈放大" role="button"><span class="ui-button-text"></span></a>
+	                    </span>	
+	                    <span>
+	                    	<a class="icon_k0_0 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(12);" onmouseup="sendPTZControl(19);" title="焦点后调" role="button"><span class="ui-button-text"></span></a><a class="icon_k0_1 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(13);" onmouseup="sendPTZControl(19);" title="焦点前调" role="button"><span class="ui-button-text"></span></a>
+	                    </span>	
+	                    <span>
+	                    	<a class="icon_light0_0 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(14);" title="打开灯光" role="button"><span class="ui-button-text"></span></a><a class="icon_biao0_1 ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" onmousedown="sendPTZControl(16);" title="打开雨刷" role="button"><span class="ui-button-text"></span></a>
+	                    </span>			
+                	</div>
+               		<div class="spacer"></div>
+                </div>
+                <div class="yt_footer">
+                	<span class="fl">
+                    	<span class="ui-spinner ui-widget ui-widget-content ui-corner-all ui-spinner-disabled ui-state-disabled"><input id="spinner" name="spinner" value="5" aria-valuemin="1" aria-valuemax="128" aria-valuenow="5" class="ui-spinner-input" autocomplete="off" role="spinbutton" disabled=""><a class="ui-spinner-button ui-spinner-up ui-corner-tr ui-button ui-widget ui-state-default ui-button-text-only ui-button-disabled ui-state-disabled" tabindex="-1" role="button"><span class="ui-button-text"><span class="ui-icon ui-icon-triangle-1-n">▲</span></span></a><a class="ui-spinner-button ui-spinner-down ui-corner-br ui-button ui-widget ui-state-default ui-button-text-only ui-button-disabled ui-state-disabled" tabindex="-1" role="button"><span class="ui-button-text"><span class="ui-icon ui-icon-triangle-1-s">▼</span></span></a></span>
+                    </span>
+                	<span class="btn_state1"><a id="transfer" href="javascript:sendPTZControl(21)" title="调用预置点" style="padding:0" class="btn_state">调用</a>
+                    <a id="set_up" href="javascript:sendPTZControl(22)" style="padding:0" title="设置预置点">设置</a>
+                    <a id="delete" href="javascript:sendPTZControl(23)" style="padding:0" title="删除预置点">删除</a></span>
+                </div>
+            </div>
+            <div id="tab_state_2" class="tab_state_pane ui-tabs-panel ui-widget-content ui-corner-bottom" style="padding-top: 15px; display: none;" aria-labelledby="ui-id-3" role="tabpanel" aria-hidden="true">
+            	<div class="state_color">
+                	<i class="state_co_0 fl"></i>
+                    <div id="co_0" class="state_color_handle fl ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all ui-state-disabled ui-slider-disabled"><div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" style="width: 50.1961%;"></div><span class="ui-slider-handle ui-state-default ui-corner-all" tabindex="0" style="left: 50.1961%;"></span></div>
+                    <div class="fl state_co_value"><input id="state_co_0" value="128" name="" type="text" disabled=""></div>
+                    <div class="spacer"></div>
+                </div>
+                <div class="state_color">
+                	<i class="state_co_1 fl"></i>
+                    <div id="co_1" class="state_color_handle fl ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all ui-state-disabled ui-slider-disabled"><div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" style="width: 50%;"></div><span class="ui-slider-handle ui-state-default ui-corner-all" tabindex="0" style="left: 50%;"></span></div>
+                    <span class="fl state_co_value"><input id="state_co_1" value="0" name="" type="text" disabled=""></span>
+                    <div class="spacer"></div>
+                </div>
+                <div class="state_color">
+                	<i class="state_co_2 fl"></i>
+                    <div id="co_2" class="state_color_handle fl ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all ui-state-disabled ui-slider-disabled"><div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" style="width: 50%;"></div><span class="ui-slider-handle ui-state-default ui-corner-all" tabindex="0" style="left: 50%;"></span></div>
+                    <span class="fl state_co_value"><input id="state_co_2" value="0" name="" type="text" disabled=""></span>
+                    <div class="spacer"></div>
+                </div>
+                <div class="state_color">
+                	<i class="state_co_3 fl"></i>
+                    <div id="co_3" class="state_color_handle fl ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all ui-state-disabled ui-slider-disabled"><div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" style="width: 50.1961%;"></div><span class="ui-slider-handle ui-state-default ui-corner-all" tabindex="0" style="left: 50.1961%;"></span></div>
+                    <span class="fl state_co_value"><input id="state_co_3" value="128" name="" type="text" disabled=""></span>
+                    <div class="spacer"></div>
+                </div>
+                <div class="state_color">
+                	<i class="state_co_4 fl"></i>
+                    <div id="co_4" class="state_color_handle fl ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all ui-state-disabled ui-slider-disabled"><div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" style="width: 50.1961%;"></div><span class="ui-slider-handle ui-state-default ui-corner-all" tabindex="0" style="left: 50.1961%;"></span></div>
+                    <span class="fl state_co_value"><input id="state_co_4" value="128" name="" type="text" disabled=""></span>
+                    <div class="spacer"></div>
+                </div>
+                <div class="yt_footer" style="text-align:center;">
+                	<span class="btn_state1"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#" id="btnDefault" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-disabled ui-state-disabled ui-button-text-only" role="button"><span class="ui-button-text">默认</span></a></span>
+                </div>
+            </div>
+            <div id="tab_state_3" class="tab_state_pane ui-tabs-panel ui-widget-content ui-corner-bottom" aria-labelledby="ui-id-4" role="tabpanel" aria-hidden="true" style="display: none;">
+            	<div class="listing_choice">
+	                <label><input name="listing" type="radio" value="0" id="chkTalkback"><span id="talkbackTitle">对讲</span></label>
+	                <label><input name="listing" type="radio" value="1" id="chkListen"><span id="listenTitle">监听</span></label>
+	                <!-- 
+	                <label><input name="listing" type="radio" value="2"><span id="">广播</span></label>
+	                 -->
+                </div>
+                <div class="listing_box">
+                	<i class="icon_dj"></i>
+                	<h5 id="talkbackVehicle">&nbsp;</h5>
+                    <h5 id="talkbackTip">&nbsp;</h5>
+                    <div class="yt_footer">
+                		<span class="btn_state1"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#" id="btnTalkback">开启</a></span>
+                    </div>
+                </div>
+                <div class="listing_box" style="display:none;">
+                	<i class="icon_jt"></i>
+                	<h5 id="listenVehicle">&nbsp;</h5>
+                    <h5 id="listenTip">&nbsp;</h5>
+                    <div class="yt_footer">
+                		<span class="btn_state1"><a href="http://112.74.87.74/808gps/LocationManagement/Location.html#" id="btnListen">开启</a></span>
+                    </div>
+                </div>
+                <!-- 
+                <div class="listing_box" style="display:none;">
+                	<i class="icon_gb"></i>
+                    <h5>请求中</h5>
+                    <div class="yt_footer" style="text-align:center; border:none; margin:0;">
+                		<span class="btn_state1"><a style="padding:0 20px;" href="#">开启</a></span>
+                    </div>
+                </div>
+                 -->
+            </div>
+    	</div>
+    </div>
+    <!-- 左边框结束 -->
+ 	<div id="alarm_dialog_main_div" class="hide" style="opacity: 0;position:absolute; left:0; top:0; width: 100%; height: 100%; z-index: 8888; background-color: white;"></div> 
+        
+	<!-- 报警弹窗   -->
+	<div id="alarm_dialog_main" class="hide" style="background-color: aqua;width: 100px;height: 100px;position: absolute;"> 
+		<div id="alarm_dialog" class="alarm_dialog_hide">
+			<div id="alarm_dialog_head">
+					<span id="alarm_dialog_head_title"></span>
+					 <span title="关闭" id="alarm_dialog_head_close">
+								<i class="alarm_dialog_head_close"></i></span>
+			</div>
+			<div id="alarm_dialog_body">
+					<!-- 头部信息 -->
+					<h3 class="tool_tip">
+						<span id="alarmInfoTitle">报警详情</span>
+						<div class="tool_tip_info">
+							 <span title="警报信息" class="active">
+								<i class="iconfont icon-jingbao"></i></span>
+							 <span title="实时视频" class="">
+							 	<i class="iconfont icon-shishishipin1"></i></span> 
+							 <span title="语音对话">
+							 <i class="iconfont icon-fasongxiaoxi"></i></span> 
+							 <span title="图片抓拍" class="">
+							 <i class="iconfont icon-tupianzhuapai"></i></span> 
+							 <span title="发送消息" class="">
+							 <i class="iconfont icon-xiaoxi1"></i></span>
+							<!--  <span  title="多路视频" class="disabled">
+							  <i  class="iconfont icon-duolushipin"></i></span> -->
+							<!--   <span  title="通知上级">
+							  <i  class="iconfont icon-notifyMaster"></i></span> -->
+						 </div>
+					</h3>
+					
+					<div id="handle_alarm_info_tab">
+						<div id="handle_alarm_top">
+					<!-- 		<span id = "handle_alarm_media_num">1/2</span> -->
+							<div id="handle_alarm_media_infos"></div>
+							<div id="handle_alarm_detail_infos"></div>
+						</div>
+						<div id="handle_operation">
+							<div id="handle_operation_way">
+								<h3>处理方式</h3>
+								<div id="radio_div">
+									<div id="radio_group">
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" checked="" class="el-radio__original" value="1">
+											<span class="el-radio__label">电话通知<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="2">
+											<span class="el-radio__label">建议停车<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="3">
+											<span class="el-radio__label">警告提醒<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="6">
+											<span class="el-radio__label">停车调整<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="7">
+											<span class="el-radio__label">停车休息<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="8">
+											<span class="el-radio__label">强制停车<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="0" class="el-radio is-checked" aria-checked="true">
+											<span class="el-radio__input is-checked"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="9">
+											<span class="el-radio__label">语音下发<!----></span>
+											</span>
+										</label>
+										<label role="radio" tabindex="-1" class="el-radio">
+											<span class="el-radio__input"><span class="el-radio__inner"></span>
+											<input type="radio" tabindex="-1" name="handle_operation_way" class="el-radio__original" value="4">
+											<span class="el-radio__label">其他<!----></span>
+											</span>
+										</label>
+									</div>							
+								</div>
+							</div>
+							<div id="handle_operation_describe">
+								<h3>处理描述</h3>
+								<textarea maxlength="60"></textarea>
+							</div>
+						</div>
+						<div class="handle_alarm_footer">
+						<!-- 	<button  id="el-button-default" type="button"  class="el-button el-button-default">取 消</button> -->
+							 <button id="el-button-submit" type="button" class="el-button icon-button-submit">确 定</button>
+						 	 <button type="button" class="el-button icon-notifyMaster">报警督办</button>
+						 </div>
+					</div>
+			</div>
+		</div>
+    </div>
+    
+    
+    
+    
+    
+    
+	<!-- 主界面  -->
+	<div class="d_main" style="height: 423px;">
+   		<!-- 事件栏 -->
+   	    <div id="mapMoveDiv" class="mapDragMove" style="display: none; height: 59px; top: 364px;"></div>
+   		<div class="d_table map_action" style="height: 59px;">
+        	<div class="map_drag_box">
+        		<i class="icon icon_drag"></i>
+        	</div>
+        	<ul class="map_tab">
+        		<li class="left" id="gps-line" style="display: none;"><a id="gps_line_title">线路监控</a></li>
+            	<li class="left" id="gps-stationReport" style="width: 105px;display:none;"><a id="gps_stationReport_title">报站信息</a></li>
+            	<li class="left active" id="gps-monitor"><a id="gps_monitor_title">GPS监控</a></li>
+            	<li class="left" id="gps-people" style="display: none;"><a id="gps_people_title">人员监控</a></li>
+            	<li class="left" id="gps-alarm"><a id="gps_alarm_title">报警信息</a></li>
+            	
+            <!-- 	<li class="left" id="gps-safetyAlarm" style="width: 120px;"><a id="gps_safetyAlarm_title"></a></li> -->
+            	
+                <li class="left" id="gps-mediaFiles" style="width: 95px;"><a id="gps_mediaFiles_title">媒体文件</a></li>
+                <li class="left" id="gps-system"><a id="gps_system_title">系统事件</a></li>
+                
+                 <li class="left" id="gps-government" style="width: 120px;display:none"><a id="gps_government_title"></a></li>
+               
+                
+				<!-- 任务派单 -->
+                <li class="left" id="gps-taskReport" style="display:none;"><a id="gps-taskReport_title"></a></li>
+                <li class="left" id="gps-dispatchReport" style="display: none;"><a id="gps-dispatchReport_title"></a></li>
+                <li class="left" id="gps-dispatchMedia" style="display: none;"><a id="gps-dispatchMedia_title"></a></li>
+                
+                <!-- <li class="left" id="gps-status" style="display:none;">
+                	<span class="dl status-monitor"><span class="status-title"></span><span class="status-val"></span></span>
+                	<span class="dl status-online"><span class="status-title"></span><span class="status-val"></span></span>
+                	<span class="dl status-alarm"><span class="status-title"></span><span class="status-val"></span></span>
+                	<span class="dl status-offline"><span class="status-title"></span><span class="status-val"></span></span>
+                	<span class="dl status-parking"><span class="status-title"></span><span class="status-val"></span></span>
+                	<span class="dl status-parked"><span class="status-title"></span><span class="status-val"></span></span>
+                	<span class="dl status-invalid"><span class="status-title"></span><span class="status-val"></span></span>
+                </li>-->
+                <li class="right" id="gps-export">
+              		<!--  <i class="icon icon_open_alarm_window">开启报警弹窗</i> -->
+                	<i class="icon icon_company_status" title="物流企业状态"></i>
+                	<i class="icon icon_alarm_linkage" title="报警联动配置" style="display: inline-block;"></i>
+                	<i class="icon icon_alarm_mask" title="报警屏蔽配置" style="display: inline-block;"></i>
+<!-- 					<i class="icon icon_excel"></i> -->
+					<i class="icon icon_s_re min_s" title="窗口化"></i>
+					<i class="icon icon_big min_big" title="最大化"></i>
+				</li>
+            </ul>
+			<div class="gps_box" style="display: none;">
+               <!-- 报表放这里 -->
+				<ul>
+					<li id="gpsLine">
+						<table id="gpsLineTable" style="display:none;"></table>
+					</li>
+					<li id="gpsStationReport">
+						<table id="stationReportTable" style="display:none;"></table>
+					</li>
+					<li id="gpsMonitor" class="active">
+						<div class="flexigrid" style="height: 0px;"><div class="nBtn" title="关闭/显示列"><div></div></div><div class="nDiv" style="margin-bottom: 0px; display: none; top: 0px; height: auto; width: auto;"><table cellpadding="0" cellspacing="0"><tbody><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="0"></td><td class="ndcol2">车牌号</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="1"></td><td class="ndcol2">GPS时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="2"></td><td class="ndcol2">位置</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="3"></td><td class="ndcol2">速度</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="4"></td><td class="ndcol2">报警</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="5"></td><td class="ndcol2">状态</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="6"></td><td class="ndcol2">里程</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="7"></td><td class="ndcol2">其他信息</td></tr></tbody></table></div><div class="hDiv" style="display: block;"><div class="hDivBox"><table cellpadding="0" cellspacing="0"><thead><tr><th axis="col0" abbr="id" class="idno" align="center"><div style="text-align: center; width: 100px;">车牌号</div></th><th axis="col1" abbr="gpsTime" class="gpsTime" align="center"><div style="text-align: center; width: 150px;">GPS时间</div></th><th axis="col2" class="position" align="center"><div style="text-align: center; width: 200px;">位置</div></th><th axis="col3" abbr="speed" sorttype="number" class="speed" align="center"><div style="text-align: center; width: 100px;">速度</div></th><th axis="col4" class="alarm" align="center"><div style="text-align: center; width: 200px;">报警</div></th><th axis="col5" class="normal" align="center"><div style="text-align: center; width: 200px;">状态</div></th><th axis="col6" class="liCheng" align="center"><div style="text-align: center; width: 100px;">里程</div></th><th axis="col7" class="other" align="center"><div style="text-align: center; width: 200px;">其他信息</div></th></tr></thead></table></div></div><div class="cDrag" style="top: 1px;"><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div></div><div class="bDiv" style="height: 0px; display: block;"><table id="gpsMonitorTable" style="" cellpadding="0" cellspacing="0" border="0" class="autoht"></table><div class="iDiv" style="display: none;"></div></div></div>
+					</li>
+					<li id="gpsPeople">
+						<div class="flexigrid" style="height: 0px;"><div class="nBtn" title="关闭/显示列"><div></div></div><div class="nDiv" style="margin-bottom: 0px; display: none; top: 0px; height: auto; width: auto;"><table cellpadding="0" cellspacing="0"><tbody><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="0"></td><td class="ndcol2">终端</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="1"></td><td class="ndcol2">GPS时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="2"></td><td class="ndcol2">位置</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="3"></td><td class="ndcol2">报警</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="4"></td><td class="ndcol2">状态</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="5"></td><td class="ndcol2">其他信息</td></tr></tbody></table></div><div class="hDiv" style="display: block;"><div class="hDivBox"><table cellpadding="0" cellspacing="0"><thead><tr><th axis="col0" abbr="idno" class="idno" align="center"><div style="text-align: center; width: 100px;">终端</div></th><th axis="col1" class="gpsTime" align="center"><div style="text-align: center; width: 150px;">GPS时间</div></th><th axis="col2" class="position" align="center"><div style="text-align: center; width: 200px;">位置</div></th><th axis="col3" class="alarm" align="center"><div style="text-align: center; width: 200px;">报警</div></th><th axis="col4" class="normal" align="center"><div style="text-align: center; width: 200px;">状态</div></th><th axis="col5" class="other" align="center"><div style="text-align: center; width: 200px;">其他信息</div></th></tr></thead></table></div></div><div class="cDrag" style="top: 1px;"><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div></div><div class="bDiv" style="height: 0px; display: block;"><table id="gpsPeopleTable" style="" cellpadding="0" cellspacing="0" border="0" class="autoht"></table><div class="iDiv" style="display: none;"></div></div></div>
+					</li>
+					<li id="gpsAlarm">
+						<div class="flexigrid" style="height: 0px;"><div class="nBtn" title="关闭/显示列"><div></div></div><div class="nDiv" style="margin-bottom: 0px; display: none; top: 0px; height: auto; width: auto;"><table cellpadding="0" cellspacing="0"><tbody><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="0"></td><td class="ndcol2">AI报警处理</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="1"></td><td class="ndcol2">AI报警数目</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="2"></td><td class="ndcol2">操作</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="3"></td><td class="ndcol2">所属公司</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="4"></td><td class="ndcol2">车牌号</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="5"></td><td class="ndcol2">报警数目</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="6"></td><td class="ndcol2">最新报警</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="7"></td><td class="ndcol2">开始时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="8"></td><td class="ndcol2">结束时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="9"></td><td class="ndcol2">报警信息</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="10"></td><td class="ndcol2">开始位置</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="11"></td><td class="ndcol2">结束位置</td></tr></tbody></table></div><div class="tDiv"><div class="tDiv2"><div class="fbutton" id="alarmClear"><div><span class="flexDelete" title="清空" style="padding-left: 20px;">清空</span></div></div><div class="btnseparator"></div><div class="fbutton" id="alarmFind"><div><span class="flexFind" title="查看" style="padding-left: 20px;">查看</span></div></div><div class="btnseparator"></div><div class="fbutton" id="aiAlarmHandle"><div><span class="flexFind" title="AI历史处理" style="padding-left: 20px;">AI历史处理</span></div></div><div class="btnseparator"></div><div class="fbutton" id="openSafetyDialog"><div><span class="uncheacked" title="AI报警弹窗" style="padding-left: 20px;">AI报警弹窗</span></div></div><div class="btnseparator"></div><div class="fbutton" id="openSafetyAudio"><div><span class="uncheacked" title="AI报警声音" style="padding-left: 20px;">AI报警声音</span></div></div><div class="btnseparator"></div><div class="fbutton" id="openDriverDialog"><div><span class="uncheacked" title="人脸识别弹窗" style="padding-left: 20px;">人脸识别弹窗</span></div></div></div><div style="clear:both"></div></div><div class="hDiv" style="display: block;"><div class="hDivBox"><table cellpadding="0" cellspacing="0"><thead><tr><th axis="col0" class="aiOperator" align="center"><div style="text-align: center; width: 60px;">AI报警处理</div></th><th axis="col1" class="aiArmSum" align="center"><div style="text-align: center; width: 60px;">AI报警数目</div></th><th axis="col2" class="operator" align="center"><div style="text-align: center; width: 60px;">操作</div></th><th axis="col3" abbr="company" class="company" align="center"><div style="text-align: center; width: 120px;">所属公司</div></th><th axis="col4" abbr="idno" class="idno" align="center"><div style="text-align: center; width: 100px;">车牌号</div></th><th axis="col5" class="armSum" align="center"><div style="text-align: center; width: 60px;">报警数目</div></th><th axis="col6" class="type" align="center"><div style="text-align: center; width: 160px;">最新报警</div></th><th axis="col7" class="startTime" align="center"><div style="text-align: center; width: 120px;">开始时间</div></th><th axis="col8" class="endTime" align="center"><div style="text-align: center; width: 120px;">结束时间</div></th><th axis="col9" class="desc" align="center"><div style="text-align: center; width: 300px;">报警信息</div></th><th axis="col10" class="startPos" align="center"><div style="text-align: center; width: 150px;">开始位置</div></th><th axis="col11" class="endPos" align="center"><div style="text-align: center; width: 150px;">结束位置</div></th></tr></thead></table></div></div><div class="cDrag" style="top: 1px;"><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div></div><div class="bDiv" style="height: 0px; display: block;"><table id="alarmTable" style="" cellpadding="0" cellspacing="0" border="0" class="autoht"></table><div class="iDiv" style="display: none;"></div></div></div>
+					</li>
+					
+			  <!-- 		<li id="safetyAlarm">
+						<table id="safetyAlarmTable" style="display:none;"></table>
+					</li> -->
+					
+					<li id="gpsMediaFiles">
+						<div class="flexigrid" style="height: 0px;"><div class="nBtn" title="关闭/显示列"><div></div></div><div class="nDiv" style="margin-bottom: 0px; display: none; top: 0px; height: auto; width: auto;"><table cellpadding="0" cellspacing="0"><tbody><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="0"></td><td class="ndcol2">操作</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="1"></td><td class="ndcol2">车牌号</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="2"></td><td class="ndcol2">文件类型</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="3"></td><td class="ndcol2">通道</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="4"></td><td class="ndcol2">接收时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="5"></td><td class="ndcol2">文件时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="6"></td><td class="ndcol2">状态</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="7"></td><td class="ndcol2">报警类型</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="8"></td><td class="ndcol2">大小(MB)</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="9"></td><td class="ndcol2">文件位置</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="10"></td><td class="ndcol2">文件路径</td></tr></tbody></table></div><div class="tDiv"><div class="tDiv2"><div class="fbutton" id="mediaFilesClear"><div><span class="flexDelete" title="清空" style="padding-left: 20px;">清空</span></div></div><div class="btnseparator"></div><div class="fbutton" id="mediaFilesFind"><div><span class="flexFind" title="查看" style="padding-left: 20px;">查看</span></div></div></div><div style="clear:both"></div></div><div class="hDiv" style="display: block;"><div class="hDivBox"><table cellpadding="0" cellspacing="0"><thead><tr><th axis="col0" class="operator" align="center"><div style="text-align: center; width: 100px;">操作</div></th><th axis="col1" abbr="vehiIdno" class="vehiIdno" align="center"><div style="text-align: center; width: 120px;">车牌号</div></th><th axis="col2" class="fileType" align="center"><div style="text-align: center; width: 80px;">文件类型</div></th><th axis="col3" class="channel" align="center"><div style="text-align: center; width: 60px;">通道</div></th><th axis="col4" class="time" align="center"><div style="text-align: center; width: 150px;">接收时间</div></th><th axis="col5" class="fileTime" align="center"><div style="text-align: center; width: 200px;">文件时间</div></th><th axis="col6" class="status" align="center"><div style="text-align: center; width: 60px;">状态</div></th><th axis="col7" class="recType" align="center"><div style="text-align: center; width: 80px;">报警类型</div></th><th axis="col8" class="fileSize" align="center"><div style="text-align: center; width: 100px;">大小(MB)</div></th><th axis="col9" class="location" align="center"><div style="text-align: center; width: 80px;">文件位置</div></th><th axis="col10" class="fileSrc" align="center"><div style="text-align: center; width: 200px;">文件路径</div></th></tr></thead></table></div></div><div class="cDrag" style="top: 1px;"><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div></div><div class="bDiv" style="height: 0px; display: block;"><table id="mediaFilesTable" style="" cellpadding="0" cellspacing="0" border="0" class="autoht"></table><div class="iDiv" style="display: none;"></div></div></div>
+					</li>
+					<li id="gpsServerEvent">
+						<div class="flexigrid" style="height: 0px;"><div class="nBtn" title="关闭/显示列"><div></div></div><div class="nDiv" style="margin-bottom: 0px; display: none; top: 0px; height: auto; width: auto;"><table cellpadding="0" cellspacing="0"><tbody><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="0"></td><td class="ndcol2">车牌号</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="1"></td><td class="ndcol2">时间</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="2"></td><td class="ndcol2">类型</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="3"></td><td class="ndcol2">状态</td></tr><tr><td class="ndcol1"><input type="checkbox" checked="checked" class="togCol" value="4"></td><td class="ndcol2">其他信息</td></tr></tbody></table></div><div class="tDiv"><div class="tDiv2"><div class="fbutton" id="serverEventClear"><div><span class="flexDelete" title="清空" style="padding-left: 20px;">清空</span></div></div></div><div style="clear:both"></div></div><div class="hDiv" style="display: block;"><div class="hDivBox"><table cellpadding="0" cellspacing="0"><thead><tr><th axis="col0" abbr="vehiIdno" class="vehiIdno" align="center"><div style="text-align: center; width: 120px;">车牌号</div></th><th axis="col1" class="time" align="center"><div style="text-align: center; width: 150px;">时间</div></th><th axis="col2" class="type" align="center"><div style="text-align: center; width: 200px;">类型</div></th><th axis="col3" class="status" align="center"><div style="text-align: center; width: 100px;">状态</div></th><th axis="col4" class="other" align="center"><div style="text-align: center; width: 250px;">其他信息</div></th></tr></thead></table></div></div><div class="cDrag" style="top: 1px;"><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div><div style="height: 24px; display: none;"></div></div><div class="bDiv" style="height: 0px; display: block;"><table id="serverEventTable" style="" cellpadding="0" cellspacing="0" border="0" class="autoht"></table><div class="iDiv" style="display: none;"></div></div></div>
+					</li>
+					
+					<li id="gpsGovernmentEvent">
+						<table id="governmentEventTable" style="display:none;"></table>
+					</li>
+					<!-- 中石油特有 -->
+					<li id="gpsTaskReportEvent">
+						<table id="taskReportEventTable" style="display:none;"></table>
+					</li>
+					<!-- 协同操作 强拉强拆等 -->
+					<li id="dispatchReportEvent">
+						<table id="dispatchReportEventTable" style="display:none;"></table>
+					</li>
+							<!-- 协同操作 强拉强拆等 -->
+					<li id="dispatchMedia">
+						<table id="dispatchMediaEventTable" style="display:none;"></table>
+					</li>
+				</ul>
+			</div>
+			<!-- 存储介质等状态放这里 -->
+			<div id="gps-storage">
+				<div id="storage-status">
+					<span class="dl storage-alarm"><span class="status-title">存储介质报警数：</span><span class="status-val">0</span></span>
+               		<span class="dl storage-online"><span class="status-title">在线数：</span><span class="status-val">0</span></span>
+               		<span class="dl storage-damage"><span class="status-title">定损数：</span><span class="status-val">1</span></span>
+               		<span class="dl storage-all"><span class="status-title">总数：</span><span class="status-val">1</span></span>
+               		<span class="dl storage-onlinerates"><span class="status-title">在线率：</span><span class="status-val">0.00%</span></span>
+               		<span class="dl storage-damagerates"><span class="status-title">定损率：</span><span class="status-val">100.00%</span></span>
+				</div>
+				<!-- 危化管理的公司审核和车辆审批 -->
+				<div id="gps-chemicalVerify" style="display:none;">
+					<span class="dl chemicalVerify"><span class="chemicalVerify-title"></span><span class="chemicalVerify-val"></span></span>
+					<span class="dl chemicalWaybill" style="display:none;"><span class="chemicalWaybill-title"></span><span class="chemicalWaybill-val"></span></span>
+				</div>
+			</div>
+        </div>
+        <!--线路监控-->
+    	<div class="dm_line" id="dm_line" style="height: 364px; display: none;">
+    		<iframe frameborder="0" scrolling="no" width="100%" height="100%" name="frameLine" id="frameLine" style="background-color: #ffffff;" src="./ttxline.html">
+			</iframe>
+    	</div>
+        <!--实时视频-->
+    	<div class="dm_video" style="height: 364px; position: relative; left: 0px; margin-right: 414px;">
+    		<iframe frameborder="0" scrolling="no" width="100%" height="100%" name="framePreview" id="framePreview" style="background-color: #ffffff;" src="./ttxvideo.html">
+			</iframe>
+        </div>
+
+		<!--地图位置定位-->
+        <div class="dm_map" style="height: 364px; width: 414px; position: absolute; right: 0px;">
+        	<a class="slider_btn_right hide" href="javascript:void(0);"><i class="icon icon_side_right"></i></a>
+        	<iframe frameborder="0" scrolling="no" width="100%" height="100%" name="frameMap" id="frameMap" style="background-color: #ffffff;" src="./ttxmap.html">
+			</iframe>
+        </div>
+        <div class="spacer"></div>
+    </div>
+    <!-- 主界面结束 -->
+    <div class="show_page" style="z-index: 3; position: absolute;top: 0;left: 268px;height: 30px;
+     width: 250px; text-align: center; line-height: 30px; font-family: monospace;">
+   	 	<!-- <ul style= "list-style-type: none; margin: 0;padding: 0;">
+		  <li style="display:inline;"><a href="#home">视频模式</a></li>
+		  <li style="display:inline;"><a href="#news">地图模式</a></li>
+		</ul> -->
+		<div id="show_page_vedio"><i></i><span>视频模式</span></div>
+		<div id="show_page_gps"><i></i><span>地图模式</span></div>
+    </div>
+    
+    
+    
+</div>
+
+<div role="log" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><div role="log" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><div role="log" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><div role="log" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><div role="log" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><div id="alarmAudioDiv" style="width: 0px; height: 0px; margin-left: -1000px;"></div></body></html>

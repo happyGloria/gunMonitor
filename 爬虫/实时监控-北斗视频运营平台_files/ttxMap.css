@@ -1,0 +1,225 @@
+@charset "UTF-8";
+#myMap_ {
+ 	border-right: 4px solid #a0b1c5;
+   	position: fixed;
+   	right: 0;
+   	top: 70px;
+   	display: none;
+}
+/* #myMap_ .spantitle {
+	color: white;
+	white-space:normal;
+	word-break:break-all;
+	word-wrap: break-word;
+	padding: 10px 0 10px 10px;
+	width: 75px;
+	height:35px;
+	line-height:35px;
+	float: left;
+	cursor: pointer;
+	background-color: #0071c6;
+	left: -85px;
+	position: absolute;
+	border-top:2px solid #99ccff;
+	border-left:2px solid #99ccff;	
+} */
+#myMap_ .spantitle {
+	color: white;
+	white-space:normal;
+	word-break:break-all;
+	word-wrap: break-word;
+	padding: 5px 0 10px 10px;
+	width: 75px;
+	height:12px;
+	line-height:15px;
+	float: left;
+	cursor: pointer;
+	background-color: #0071c6;
+	color: black;
+	left: -85px;
+	position: absolute;
+	border-top:2px solid #99ccff;
+	border-left:2px solid #99ccff;
+}
+
+
+
+#myMap_ .myMap-pane, #chemical-forbidArea .forbidArea-pane{
+	background-color: #fff;
+    border: 1px solid #ddd;
+    display: none;
+    float: left;
+    height: 300px;
+    width: 460px;
+}
+#myMap_ .myMap-pane.active, #chemical-forbidArea .forbidArea-pane.active{
+	display: block;
+}
+#myMap_ .myMap-pane .myMap-tab, #chemical-forbidArea .forbidArea-pane .forbidArea-tab{
+	display: inline-block;
+	cursor: pointer;
+}
+#myMap_ .myMap-pane .myMap-tab li, #chemical-forbidArea .forbidArea-pane .forbidArea-tab li{
+	background-color: #ddd;
+    border-left: 2px solid #fff;
+    float: left;
+    padding: 5px 15px;
+}
+#myMap_ .myMap-pane .myMap-tab li.active, #chemical-forbidArea .forbidArea-pane .forbidArea-tab li.active {
+	background-color: #0071c6;
+}
+#myMap_ .myMap-pane .myMap-box {
+}
+#myMap_ .myMap-pane .myMap-box li, #chemical-forbidArea .forbidArea-pane .forbidArea-box li{
+	display: none;
+}
+#myMap_ .myMap-pane .myMap-box li.active, #chemical-forbidArea .forbidArea-pane .forbidArea-box li.active {
+	display: block;
+}
+.flexigrid .bDiv a {
+    margin: 0px 10px;
+    outline: 0 none;
+    text-decoration: none;
+    cursor: pointer;
+}
+.flexigrid .bDiv a:hover{
+	color: #219bd0;
+}
+.flexigrid .pcontrol input {
+	border: 1px solid #ddd;
+}
+.icon_xu i{
+	margin: 0px 10px;
+}
+#fullScreen label {
+	cursor: pointer;
+}
+#switchVehicle {
+	background-color: #0071c6;
+    border-radius: 3px;
+    color: #fff;
+    cursor: pointer;
+    padding: 5px;
+    position: fixed;
+    right: 0px;
+    top: 70px;
+    display: none;
+}
+
+ #chemical-source , #chemical-rescue , #chemical-produce, #chemical-logistics, #chemical-forbidArea, #map-fence {
+ 	border-right: 4px solid #a0b1c5;
+   	position: fixed;
+   	right: 0;
+	top: 70px;
+   	display: none;
+}
+
+/* #chemical-rescue .spantitle, #chemical-produce .spantitle, 
+#chemical-logistics .spantitle, 
+#chemical-forbidArea .spantitle, #map-fence .spantitle{
+	color: black;
+	white-space:normal;
+	word-break:break-all;
+	word-wrap: break-word;
+	padding: 10px 0 10px 10px;
+	width: 75px;
+	height:35px;
+	line-height:35px;
+	float: left;
+	cursor: pointer;
+	background-color: #dddddd;
+	left: -85px;
+	position: absolute;
+	border-left:2px solid #99ccff;
+}
+#map-fence .spantitle {
+	top: 60px;
+} */
+
+#chemical-source .spantitle,
+#chemical-rescue .spantitle, #chemical-produce .spantitle, 
+#chemical-logistics .spantitle, 
+#chemical-forbidArea .spantitle, #map-fence .spantitle{
+	color: black;
+	white-space:normal;
+	word-break:break-all;
+	word-wrap: break-word;
+	padding: 5px 0 10px 10px;
+	
+	width: 75px;
+	height:12px;
+	line-height:15px;
+	float: left;
+	cursor: pointer;
+	background-color: #dddddd;
+	left: -85px;
+	position: absolute;
+
+	border-left:2px solid #99ccff;
+}
+#map-fence .spantitle {
+	top: 30px;
+}
+
+#chemical-source .spantitle {
+	border-top:1px solid #0071c6;
+	top: 146px;
+}
+
+#chemical-rescue .spantitle {
+	border-top:1px solid #0071c6;
+	top: 120px;
+}
+#chemical-produce .spantitle {
+	border-top:1px solid #0071c6;
+	top: 198px;
+}
+#chemical-logistics .spantitle {
+	border-top:1px solid #0071c6;
+}
+#chemical-forbidArea .spantitle {
+	border-top:1px solid #0071c6;
+	border-bottom:2px solid #99ccff;
+	top: 276px;
+}
+
+#chemical-source .chemical-box,
+#chemical-rescue .chemical-box, #chemical-produce .chemical-box
+, #chemical-logistics .chemical-box
+, #chemical-forbidArea .chemical-box, #map-fence .chemical-box{
+	background-color: #fff;
+    border: 1px solid #ddd;
+    display: none;
+    float: left;
+    height: 300px;
+    width: 460px;
+}
+
+#chemical-source .chemical-box.active,
+#chemical-rescue .chemical-box.active, #chemical-produce .chemical-box.active
+, #chemical-logistics .chemical-box.active
+, #chemical-forbidArea .chemical-box.active, #map-fence .chemical-box.active {
+	display: block;
+}
+
+#chemicalShow {
+	background-color: #0071c6;
+    color: #fff;
+    cursor: pointer;
+    float: left;
+    padding: 5px 10px;
+    position: fixed;
+    right: 416px;
+    top: 42px;
+    width: 30px;
+    display: none;
+}
+#chemicalShow.active {
+	display: block;
+}
+.real-search-bar {
+	width: 184px;
+}
+.search-bar .search-input-ctn {
+	width: 145px;
+}

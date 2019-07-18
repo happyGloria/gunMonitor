@@ -1,0 +1,317 @@
+
+/**
+ * 政府督办报警
+ */
+function GovernmentVehicleAlarm(){
+	this.alarmTableObj = null; //报警信息表格对象
+	this.addAlarmToEventList = new Array();  //向报警信息列表添加报警信息的集合
+	this.mapAlarmAddToEventList = new  Hashtable(); //存放记录
+}
+
+GovernmentVehicleAlarm.prototype.initialize = function(){
+	//任务汇报
+	this.initTaskAlarmTable();
+};
+
+//报警查看
+//vehiIdno 报警guid
+GovernmentVehicleAlarm.prototype.doAlarmFind = function() {
+	if(this.alarmListObj == null) {
+		var myClass = this;
+		var url = 'url:LocationManagement/governmentAlarmList.html';
+		this.alarmListObj = $.dialog({id:'alarmList', title: "上级监管平台", content: url,
+			width: '900px', height: '600px', min:true, max:false, lock: false,fixed:false
+				, resize:false, close: function() {
+					myClass.alarmListObj = null;
+					if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+						popTipsObject.remove('alarmList');
+					}
+				} });
+	}else {
+		if(this.alarmListObj.content && (typeof this.alarmListObj.content.initPageInfo == 'function')) {
+			this.alarmListObj.content.initPageInfo();
+		}
+		this.alarmListObj.show();
+	}
+	
+	if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+		popTipsObject.put('alarmList', this.alarmListObj);
+	}
+	if(typeof hidePopTips == 'function'){
+		hidePopTips('alarmList');
+	}
+}
+
+//初始化任务汇报状态列表
+GovernmentVehicleAlarm.prototype.initTaskAlarmTable = function() {
+	var myMonitorAlarm = this;
+	var buttons = [
+	       	    {separator: false, hidename: "", name: parent.lang.clear, bclass: "flexDelete",
+	       	    	bimage: "", tooltip: parent.lang.clear, id: "governmentAlarmClear",
+	       	    	onpress: function() {
+	       	    		myMonitorAlarm.clearAlarmTableEvent();
+	       	    	}
+	       	    },{separator: true
+	    	    },
+	    	    {separator: false, hidename: "", name: parent.lang.view, bclass: "flexFind",
+	    	    	bimage: "", tooltip: parent.lang.view, id: "alarmFind",
+	    	    	onpress: function() {
+	    	    		myMonitorAlarm.doAlarmFind();
+	    	    	}
+	    	    },{separator: true
+	    	    },
+	    	    {separator: false, hidename: "", name: "开启弹窗", bclass: "uncheacked",
+	    	    	bimage: "", tooltip: "开启弹窗", id: "openDialog",
+	    	    	onpress: function() {
+	    	    		governmentAlarmDialog = !governmentAlarmDialog;
+	    	    		$(this).find('div span').toggleClass('cheacked');
+	    	    		//
+	    	    		if(governmentAlarmDialog){
+	    	    			$.cookie("governmentAlarmDialog", 1, { expires: 365});
+		    	    		$.cookie("governmentAlarmDialog", 1, { expires: 365, path:"/808gps/" });
+	    	    		}else{
+	    	    			$.cookie("governmentAlarmDialog", 0, { expires: 365});
+		    	    		$.cookie("governmentAlarmDialog", 0, { expires: 365, path:"/808gps/" });
+	    	    		}
+	    	    	}
+	    	    },{separator: true
+	    	    },
+	    	    {separator: false, hidename: "", name: "开启声音", bclass: "uncheacked",
+	    	    	bimage: "", tooltip: "开启声音", id: "openAudio",
+	    	    	onpress: function() {
+	    	    		governmentAlarmAudio = !governmentAlarmAudio;
+	    	    		$(this).find('div span').toggleClass('cheacked');
+	    	    		//
+	    	    		if(governmentAlarmAudio){
+	    	    			$.cookie("governmentAlarmAudio", 1, { expires: 365});
+		    	    		$.cookie("governmentAlarmAudio", 1, { expires: 365, path:"/808gps/" });
+	    	    		}else{
+	    	    			$.cookie("governmentAlarmAudio", 0, { expires: 365});
+		    	    		$.cookie("governmentAlarmAudio", 0, { expires: 365, path:"/808gps/" });
+	    	    		}
+	    	    	}
+	    	    }
+	       	];
+	this.alarmTableObj = $("#governmentEventTable").flexigrid({
+		url: "",	//StandardTrackAction_query.action
+		dataType: 'json',
+		colModel : [
+			{display: "操作", name : 'operator',width : 80, align: 'center'},
+	    	{display: "上级平台名称", name : 'name',width : 150, align: 'center'},
+			{display: "事件类型", name : 'typeStr',  width : 80,  align: 'center'},
+			{display: "时间", name : 'startTime',width : 120, align: 'center'},
+			{display: "内容", name : 'content',  width : 800,  align: 'center'},
+			{display: "回复时间", name : 'expectedTime',width : 120, align: 'center'},
+			{display: "回复内容", name : 'peopleInfo',  width : 100,  align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		singleSelect: true,
+		onChangeSort: true,
+		buttons: buttons,
+		rp: 15,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	//本类对象
+	var myMonitorStatus = this;
+	this.alarmTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return myMonitorStatus.fillAlarmTable(p, row, idx, index);	
+	});
+	
+	var governmentAlarmAudio_ = $.cookie("governmentAlarmAudio");
+	var governmentAlarmDialog_ = $.cookie("governmentAlarmDialog");
+	if(governmentAlarmAudio_  && governmentAlarmAudio_ == 1){
+		governmentAlarmAudio = true;
+		$('#openDialog').find('div span').toggleClass('cheacked');
+	}
+	if(governmentAlarmDialog_  && governmentAlarmDialog_ == 1 ){
+		governmentAlarmDialog = true;
+		$('#openAudio').find('div span').toggleClass('cheacked');
+	}
+}
+
+//清空报警列表
+GovernmentVehicleAlarm.prototype.clearAlarmTableEvent = function(){
+	if(this.alarmTableObj != null) {
+		this.alarmTableObj.flexClear();
+	}
+	this.mapAlarmAddToEventList.clear();
+};
+
+//向报警列表添加数据
+//耗时 200ms -  500ms  600ms+ 500辆车 9画面视频
+GovernmentVehicleAlarm.prototype.flashAddAlarmToEvent = function(){
+	if(this.addAlarmToEventList != null && this.addAlarmToEventList.length > 0) {
+		////提示报警有新的报警信息
+		this.showAlarmMessage();
+		//处理报警，同一车辆的报警，向上叠加，只显示最新的报警信息
+		//如果报警列表中不存在车辆的报警信息，则添加，否则更新
+		var armInfo = this.addAlarmToEventList[0];
+		this.addAlarmToEventList.splice(0, 1);
+		var rowObj = this.alarmTableObj.find(this.alarmTableObj.flexGetRowid(armInfo.id));
+		if(rowObj && rowObj.length > 0) {
+			
+		}else {
+			var rows = [];
+			rows.push(armInfo);
+			this.mapAlarmAddToEventList.put(armInfo.id, armInfo);
+			if(governmentAlarmAudio){
+				var data = {'sd':1,"sds":"Alarm1"};
+				alarmMotion.doAlarmMotionRun_(data);
+			}
+			if(governmentAlarmDialog){
+				this.doOperatorFind(armInfo.id);
+			}
+			this.alarmTableObj.flexAppendRowJson(rows, true);
+		}
+	}else {
+		//刷新地理位置信息
+		this.flashAlarmPosition();
+	}
+};
+
+/**
+ * 更新报警信息列表  打卡次数 和 最后一次打卡地点
+ */
+GovernmentVehicleAlarm.prototype.updateAlarmEvent = function(armId, content, objectTalbe_) {
+	var objectTable = this.alarmTableObj;
+	if(objectTalbe_){
+		objectTable = objectTalbe_;
+	}
+	var rowObj = objectTable.find(objectTable.flexGetRowid(armId));
+	var data_ = this.mapAlarmAddToEventList.get(armId);
+	data_.readOnly = 1;
+	data_.resultContent = content;
+	if(rowObj && rowObj.length > 0) {//列表存在
+		this.modifyColumnTitle(rowObj.find('.expectedTime div span'), dateCurrentTimeString());
+		this.modifyColumnTitle(rowObj.find('.peopleInfo div span'), content);
+	}
+	$.dialog.tips(parent.lang.monitor_sendSuccess, 2);
+	$.dialog({id:'governmentInspect'}).close();
+}
+
+//修改具体报警信息
+//object 要修改的对象
+//position 是否是坐标
+GovernmentVehicleAlarm.prototype.modifyColumnTitle = function(object, value) {
+	if(object) {
+		if(value) {
+			object.attr('title', value);
+			object.text(value);
+		}else {
+			object.attr('title', '');
+			object.text('');
+		}
+	}
+}
+
+
+GovernmentVehicleAlarm.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+//填充报警信息列表
+GovernmentVehicleAlarm.prototype.fillAlarmTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var ret = "";
+	 if(name == 'operator') {//报警报警督办
+		if(row.type && (row.type == 21 ||  row.type == 29 || row.type == 28)) {
+			return '<a class="view" href="javascript:doOperatorFind(\''+row.id+'\');" title="'+parent.lang.view+'"></a>';
+		}
+	}else{
+		if(row[name]){
+			ret = row[name];
+		}
+	}
+	return this.getColumnTitle(ret);
+};
+
+GovernmentVehicleAlarm.prototype.doOperatorFind = function(id){
+	this.currentAlarmInfo = this.mapAlarmAddToEventList.get(id);
+	if(this.currentAlarmInfo){
+//		var data_ = {};
+//		data_.id = alarm.guid;//时间
+//		data_.startTime = alarm.time;//时间
+//		data_.name = companyName;//时间
+//		data_.typeStr = type;
+//		data_.type = alarm.info; 21 查岗， 28 平台报文， 29  报警督办)
+//		data_.content = content.join(";");
+//		 21 查岗， 28 平台报文(只显示)， 29  报警督办)
+		//21 28 额外参数
+//		data_.type_ = type_; 查岗对象类型
+//		data_.netId_ = alarm.p2; 查网消息ID:
+//		data_.centerId_ = alarm.p3;中心ID	:
+//		data_.objectId_ = alarm.desc;查岗对象ID
+//		data_.content_ = alarm.img; 查岗内容
+		//29 额外参数
+//		data_.vehiIdno_ = vehiIdno;车牌号
+//		data_.leave_ = leave_;报警督办级别
+//		data_.supervisor_ = alarm.p2;督办ID
+//		data_.source_ = source_;信息源
+//		data_.alarmType_ = alarmType_;报警类型
+//		data_.userName_ = infos_[int]; 督办人
+//		data_.userPhone_ = infos_[int];督办电话
+//		data_.userEmail_ = infos_[int];督办邮箱
+		var infos = this.currentAlarmInfo;
+		if(infos){
+			var title_ = "查岗";
+			if(infos.type){
+				var url = "";
+				if(infos.type == 21 ||  infos.type == 28){//查岗
+//					url = 'url:mobile/inspectMobile.html?ArmGuid='+infos.id+"&p1="+infos.type_+"&p2="+infos.netId_
+//					+"&p3="+infos.centerId_+"&content="+encodeURI(infos.content_)+"&objID="+infos.objectId_+"&center="+encodeURI(infos.name);
+					if(infos.type == 28){
+						title_ = "平台报文";
+					}
+				}else if(infos.type == 29){//报警督办
+					title_ = "报警督办";
+//					url = 'url:mobile/alarmSupervision.html?ArmGuid='+infos.id+"&vehiIdno="+encodeURI(infos.vehiIdno_)+"&ArmTime="+infos.startTime
+					+"&time="+infos.endTime;
+				}
+				url = 'url:OperationManagement/governmentHandle.html?type='+infos.type;
+				this.dialogInspect(url, title_);
+			}
+		}else{
+			alert("内存信息已清空,请去查询页面处理");
+		}
+	}
+}
+
+GovernmentVehicleAlarm.prototype.dialogInspect = function(url, title_){
+	var myClass = this;
+	if(this.governmentInspectObj == null) {
+		this.governmentInspectObj = $.dialog({id:'governmentInspect', title: title_, content: url,
+			width: '650px', height: '400px', min:true, max:false, lock: true,fixed:false
+				, resize:false, close: function() {
+					myClass.governmentInspectObj = null;
+					if(typeof popTipsObject != 'undefined' && popTipsObject != null) {
+						popTipsObject.remove('governmentInspect');
+					}
+		} });
+	}
+} 
+
+
+
+GovernmentVehicleAlarm.prototype.getOperatorInfo = function(){
+	if(this.currentAlarmInfo){
+		return this.currentAlarmInfo;
+	}
+}
+
+
+
+
+//提示报警有新的报警信息
+GovernmentVehicleAlarm.prototype.showAlarmMessage = function() {
+	//如果当前选择的是  GPS监控  或者 系统事件列表，当接收到报警时，需要将  报警信息字体变红，
+	//展现已经接收到了报警，及时提示用户
+	if(!$('#gps-government').hasClass('active') || !isMinSize) {//未选中  并且非 最小化化
+		$('#gps_government_title').css('background-color','#FF0000');
+	}
+}

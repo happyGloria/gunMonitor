@@ -1,0 +1,5621 @@
+/**
+ * 每个报警有一个开始事件和1个结束事件
+ */
+function standardArmInfo(){
+	this.devIdno = null;	//设备编号
+	this.guid = null;		//String 	GUID是唯一的	
+	this.armTime = null;		//Date String  "2015-06-03 11:00:00"
+	this.armType = null;		//int		alarmType
+	this.armIinfo = null;		//int		alarmInfo  公交管理为线路id, 危化区域为区域ID
+	this.param1 = null;			//int		param1  公交管理为司机id   
+	this.param2 = null;			//int		param2  公交管理为前一个报站站点
+	this.param3 = null;			//int		param3  公交管理为前一个报站时间  utc时间
+	this.param4 = null;			//int		param4
+	this.desc = null;		//string	szDesc  //禁行区域、线路等 车牌号;区域名称;运单号
+	this.imgFile = null;		//string	szImgFile
+	this.startType = null;	//int		startAlarmType
+	this.handle = null;			//int		handle
+	this.reserve = null;    //int (录像时长)秒
+	this.srcAlarmType = null; //int (1是图片，2是录像)
+	this.srcTime = null;     //Date String  "2015-06-03 11:00:00"s (录像开始时间)
+	this.status = new standardStatus();
+	this.baseAlarm = null;//文件报警来源
+}
+
+standardArmInfo.prototype.setAlarm = function(alarm){
+	this.devIdno = alarm.DevIDNO;	//设备编号
+	//guid去汉字和特殊字符
+	var isNum = /[^\w\.\/]/ig;
+	if(isNum.test(alarm.guid)){
+		alarm.guid = alarm.guid.replace(isNum,'');
+	}
+	this.guid = alarm.guid;		//String 	GUID是唯一的	
+	this.armTime = alarm.time;		//Date String  "2015-06-03 11:00:00"
+	this.armType = alarm.type;		//int		alarmType
+	this.armIinfo = alarm.info;		//int		alarmInfo
+	this.param1 = alarm.p1;			//int		param1
+	this.param2 = alarm.p2;			//int		param2
+	this.param3 = alarm.p3;			//int		param3
+	this.param4 = alarm.p4;			//int		param4
+	this.desc = alarm.desc;		//string	szDesc
+	this.imgFile = alarm.img;		//string	szImgFile
+	this.startType = alarm.stType;	//int		startAlarmType 
+	this.handle = alarm.hd;			//int		handle
+	this.reserve = alarm.rve;    //int (录像时长)
+	this.srcAlarmType = alarm.srcAt; //int (1是图片，2是录像)
+	this.srcTime = alarm.srcTm;     //Date String  "2015-06-03 11:00:00"s (录像开始时间)
+	this.status.setStatus(alarm.Gps);
+/*	if(alarm.Gps && alarm.Gps.pk){// 文件上传时  改字段为报警来源  暂时屏蔽
+		this.baseAlarm = alarm.Gps.pk;
+	}*/
+};
+
+standardArmInfo.prototype.getDevIdno = function() {
+	return this.devIdno;
+};
+
+standardArmInfo.prototype.getArmType = function() {
+	return this.armType;
+};
+
+standardArmInfo.prototype.getArmTime = function() {
+	return this.armTime;
+};
+
+standardArmInfo.prototype.getLngLat = function() {
+	return this.status.getLngLat();
+};
+
+standardArmInfo.prototype.getLngLatStr = function() {
+	return this.status.getLngLatStr();
+};
+
+standardArmInfo.prototype.getMapLngLat = function() {
+	return this.status.getMapLngLat();
+};
+
+standardArmInfo.prototype.getMapLngLatStr = function() {
+	return this.status.getMapLngLatStr();
+};
+
+/*
+ * 报警类型和开始类型不一样的时候，就是为结束报警
+ */
+standardArmInfo.prototype.isStart = function(){
+	//中石油临时路单
+	//param[0]:0位 时间超时 1位:距离超时 2位:表示报警结束
+	if(this.armType == 149){
+		if((this.param1 & 4) > 0){
+			return false;
+		}else{
+			return true;
+		}
+	}else{
+		if (this.startType == this.armType) {
+			return true;
+		} else{
+			return false;
+		}
+	}
+};
+
+/**
+ * 每个报警有自己的guid
+ */
+function standardAlarm(guid, type){
+	this.guid = guid;	//报警guid
+	this.type = type;	//报警类型，此类型为开始类型
+	this.startAlarm = null;	//开始报警事件
+	this.endAlarm = null;	//结束报警事件
+}
+
+/**
+ * 更新报警信息
+ */
+standardAlarm.prototype.setAlarm = function(alarm){
+	if (alarm.isStart()) {
+		this.startAlarm = alarm;
+	} else {
+		this.endAlarm = alarm;
+	}
+};
+
+/**
+ * 返回  报警类型，报警描述，开始时间，开始位置，结束时间，结束位置
+ * isAnalStart 是否解析开始或者结束状态
+ */
+standardAlarm.prototype.parseAlarmInfo = function(isAnalStart){
+	var ret = {};	
+	//开始报警
+	if (this.startAlarm != null) {
+		ret.idno = this.startAlarm.getDevIdno();
+		ret.startTime = this.startAlarm.getArmTime();
+		var point = this.startAlarm.getMapLngLatStr();
+		var pos = this.startAlarm.getLngLatStr();
+		if(point == null || pos == '0,0') {
+			pos =  _getRootFrameElement().lang.monitor_gpsUnvalid;
+			ret.isStartGpsValid = false;
+		}else {
+			ret.isStartGpsValid = true;
+		}
+		ret.startPos = pos;
+		ret.startMapLngLat = point;
+		ret.armType = this.startAlarm.getArmType();
+	} else {
+		ret.startTime = "";
+		ret.startPos = '';
+		ret.startMapLngLat = "";
+	}
+	//结束报警
+	if (this.endAlarm != null) {
+		ret.idno = this.endAlarm.getDevIdno();
+		ret.endTime = this.endAlarm.getArmTime();
+		var point = this.endAlarm.getMapLngLatStr();
+		var pos = this.endAlarm.getLngLatStr();
+		if(point == null || pos == '0,0') {
+			pos =  _getRootFrameElement().lang.monitor_gpsUnvalid;
+			ret.isEndGpsValid = false;
+		}else {
+			ret.isEndGpsValid = true;
+		}
+		ret.endPos = pos;
+		ret.endMapLngLat = point;
+		ret.armType = this.endAlarm.getArmType();
+	} else {
+		ret.endTime = "";
+		ret.endPos = "";
+		ret.endMapLngLat = "";
+	}
+	
+	//报警描述，具体问下邓工，让邓工把客户端解析代码给过来
+	if(ret.armType) {
+		var data = this.getFormatMDVRAlarmString(ret.armType);
+		if(ret.armType == 149){//中石油 临时路单
+			ret.type = data.strType;
+			ret.desc = data.strDesc;
+			if(data.startTime){
+				ret.startTime =  dateFormat2TimeString(new Date(data.startTime*1000));
+			}
+		}else if(ret.armType == 130 || ret.armType == 148) {
+			//如果是录像下载完成事件
+			ret.time = ret.endTime;  //下载完成时间
+			if(data.srcAlarmType != 5){//非音频文件
+				ret.recType = data.param3; //表示报警，还是常规
+				ret.chn = data.param1;  //通道
+			}
+			ret.size = data.param2; //文件大小
+			ret.loc = data.param4;//存储位置 2存储服务器 4下载服务器
+			ret.src = data.imgFile;  //路径
+			ret.res = data.reserve;  //录像时长
+			ret.srcType =  data.srcAlarmType; //1是图片，2是录像   3音频
+			ret.bgTime = data.srcTime;  //录像开始时间
+			ret.svr = data.armIinfo;  //服务器ID
+			ret.baseAlarm = data.baseAlarm;  //报警来源
+			ret.server = data.server;
+			
+		}else if(ret.armType == 113) {
+			if(data.armIinfo == 19) {
+				//离线任务通知
+				//param1 == 1 {//下发图片文件
+				//2	//升级文件 设备升级
+				//3	//下发设备参数配置文件
+				//4  /wifi围栏开关
+				if(data.param2 == 1) {//0:未执行 1.任务中 2.成功3.失败
+					ret.startTime = data.time;
+					ret.startPos = data.pos;
+					ret.startMapLngLat = data.point;
+					ret.isStartGpsValid = data.isGpsValid;
+				}else {
+					ret.endTime = data.time;
+					ret.endPos = data.pos;
+					ret.endMapLngLat = data.point;
+					ret.isEndGpsValid = data.isGpsValid;
+				}
+				ret.time = data.time;
+				ret.armIinfo = data.armIinfo;
+				ret.type = data.strType;
+				ret.status = data.strDesc;
+				
+			//49水位增加 和 水位减少50
+			}else if(data.armIinfo == 49 || data.armIinfo == 50){
+				ret.startTime = data.time;
+				ret.vehiIdno = data.vehiIdno;
+				ret.armIinfo = data.armIinfo;
+				ret.type = data.strType;
+				ret.desc = data.strDesc;
+			}else if(data.armIinfo == 44 || data.armIinfo == 45) {
+				//上报实时视频（客户端做主动视频弹出）
+				//停止上报实时视频（客户端把主动弹出的视频关闭掉）
+				//param1  表示 通道号，param2表示码流类型
+				ret.channel = data.param1;
+				ret.stream = data.param2;
+				ret.armIinfo = data.armIinfo;
+				ret.type = data.strType;
+				ret.desc = data.strDesc;
+				ret.closeTime = data.param3;
+			}
+		}else if(ret.armType == 232 || ret.armType == 233 || ret.armType == 234
+				 || ret.armType == 282 || ret.armType == 283 || ret.armType == 284) {
+			//禁行区域 //禁行线路//异地车辆入境
+			ret.type = data.strType;
+			if(data.strMark) {
+				ret.type += ' ' + data.strMark;
+			}
+			ret.desc = data.strDesc;
+			ret.vehiIdno = data.vehiIdno;
+			ret.waybillNum = data.waybillNum;
+		}/*else if(ret.armType == 240 ) {
+			ret.status = data.strType;
+			ret.time = data.time;
+			ret.position = data.pos;
+			ret.mapLngLat = data.point;
+			ret.desc = data.strDesc;
+		}*/else {
+			ret.type = data.strType;
+			if(isAnalStart && data.strMark) {
+				ret.type += ' ' + data.strMark;
+			}
+			ret.desc = data.strDesc;
+		}
+	}else {
+		//报警类型
+		var data = this.getFormatMDVRAlarmString(this.type);
+		if(data){
+			ret.type = data.strType;
+		}
+		ret.desc = '';
+	}
+	
+	ret.color = "#FF0000";
+	return ret;
+};
+
+
+/**
+ * 获取油量字符串
+ */
+standardAlarm.prototype.getOilString = function(oil, devIdno) {
+	if(devIdno){
+		if(_getRootFrameElement().vehicleManager &&  typeof _getRootFrameElement().vehicleManager.getDevice == 'function'){
+			var dev = _getRootFrameElement().vehicleManager.getDevice(devIdno);
+			if(dev.isWaterSense()){
+				return oil+ ' ' +  _getRootFrameElement().lang.alarm_oil_unit;
+			}
+		}
+	}
+	return oil/100.0 + ' ' +  _getRootFrameElement().lang.alarm_oil_unit;
+}
+
+/**
+ * 获取温度字符串
+ */
+standardAlarm.prototype.getTempString = function(temp) {
+	return temp/100.0 + ' ' +  _getRootFrameElement().lang.alarm_temperator_unit;
+}
+
+/**
+ * 获取速度字符串
+ */
+standardAlarm.prototype.getSpeedString = function(speed) {
+	return valueConversion(speed/10.0) + ' ' +  _getRootFrameElement().lang.KmPerHour;
+}
+
+/**
+ *  获取通道字符串(包含多个通道)
+ *  @param chnInfo  通道
+ *  @param single  单通道或者多通道
+ */
+standardAlarm.prototype.getChnString = function(devIdno, chnInfo, single) {
+	var device = _getRootFrameElement().vehicleManager.getDevice(devIdno);
+	var chnCount = device.getChnCount();
+	var chnName = device.getChnName().split(',');
+	chnInfo = Number(chnInfo);
+	if(single) {
+		if(chnInfo < chnName.length) {
+			return chnName[chnInfo];
+		}else {
+			return 'CH'+(chnInfo+1);
+		}
+	}else {
+		var strName = [];
+		for (var i = 0; i < chnCount; i++) {
+			if ((chnInfo>>i)&1 > 0) {
+				strName.push(chnName[i]);
+			}
+		}
+		return strName.toString();
+	}
+}
+
+/**
+ * 获取开始或者结束报警字符串
+ */
+standardAlarm.prototype.getAlarmStartEnd =function(type) {
+	if(type == 1) {
+		return  _getRootFrameElement().lang.alarm_start;
+	}else {
+		return  _getRootFrameElement().lang.alarm_end;
+	}
+} 
+
+
+//按照方浩的要求，每一个轮胎从组排列解析成几号轮胎
+function analysisTireAlarmNumber(rawData,strDesc){
+//	var strDesc = [];
+	var ssGroup = (rawData&0x0FF)+"";						//组
+	var ssRow = ((((rawData>>8)&0xFF)>>4)&0X0F)+"";			//排
+	var ssColumn = (((rawData>>8)&0xFF)&0X0F)+"";			//列
+	var alarmTireNumber = ssGroup + ssRow + ssColumn;		//轮胎的编号
+	var ATU = parseInt(alarmTireNumber);					//将解析好的轮胎的编号从字符串转换成数字
+	
+	
+	if( ATU == 111 ){
+		strDesc += 1+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 113 ){
+		strDesc += 2+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 211 ){
+		strDesc += 3+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 212 ){
+		strDesc += 4+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 213 ){
+		strDesc += 5+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 214 ){
+		strDesc += 6+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 221 ){
+		strDesc += 7+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 222 ){
+		strDesc += 8+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 223 ){
+		strDesc += 9+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 224 ){
+		strDesc += 10+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 311){
+		strDesc += 11+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 312 ){
+		strDesc += 12+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 313 ){
+		strDesc += 13+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 314 ){
+		strDesc += 14+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 321 ){
+		strDesc += 15+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 322 ){
+		strDesc += 16+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 323 ){
+		strDesc += 17+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 324 ){
+		strDesc += 18+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 411 ){
+		strDesc += 19+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 412 ){
+		strDesc += 20+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 413 ){
+		strDesc += 21+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 414 ){
+		strDesc += 22+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 421 ){
+		strDesc += 23+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 422 ){
+		strDesc += 24+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 511 ){
+		strDesc += 25+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else if( ATU == 513){
+		strDesc += 26+ _getRootFrameElement().lang.now_alarm_tire_number;
+	}else {
+		strDesc += "";
+	}
+	return strDesc;
+}
+
+/**
+ * 获取GPS讯号丢失报警
+ */
+standardAlarm.prototype.getSignalLossAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 18) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_gps_signal_loss;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取自定义报警
+ */
+standardAlarm.prototype.getUserDefineAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 1) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_userDefine;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取IO报警
+ */
+standardAlarm.prototype.getIOAlarm = function(io,armType) {
+	var alarm = null;
+	var strMark = '';
+	if(armType == 19 || armType == 20 || armType == 21 || armType == 22 || armType == 23 ||
+			armType == 24 || armType == 25 || armType == 26 || armType == 41 || armType == 42 ||
+			armType == 43 || armType == 44 ) {
+		strMark =  this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	var ioName = '';
+	
+	
+	var device;
+	if(_getRootFrameElement().myUserRole.isDispatcher()){
+		device = _getRootFrameElement().vehicleManager.getDispatchDevice(alarm.devIdno);
+	}else{
+		device = _getRootFrameElement().vehicleManager.getDevice(alarm.devIdno);
+	}
+	var ioInName = device.getIoInName();
+	if(ioInName != null && ioInName != '') {
+		var ioInNames = ioInName.split(',');
+		if(ioInNames.length >= (Number(io) + 1)) {
+			ioName = ioInNames[io];
+		}
+	}
+	if(ioName == '') {
+		ioName = "IO_" + (Number(io) + 1);
+	}
+	var ret = {};
+//	ret.strType =  _getRootFrameElement().lang.alarm_type_io;
+	ret.strType = ioName;
+	ret.strMark = strMark;
+	ret.strDesc = ioName;
+	return ret;
+}
+
+/**
+ * 获取紧急按钮报警
+ */
+standardAlarm.prototype.getUrgencyButtonAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 2) {
+		if(this.startAlarm.param1 == 1) {
+			strDesc = ' 1 '+  _getRootFrameElement().lang.second;
+		}else if(this.startAlarm.param1 == 5) {
+			strDesc = ' 5 '+  _getRootFrameElement().lang.second;
+		}
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_ungency_button;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取振动报警(侧翻报警)
+ */
+standardAlarm.prototype.getShakeAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	var alarm;
+	if(armType == 3) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	var ret = {};
+	if(alarm.armIinfo != 0){
+		var direction = false;
+		for(var i = 0; i <= 4; i++){
+			if ((alarm.armIinfo>>i)&1 > 0){
+				switch(i){
+					case 0:strDesc+="X"+ _getRootFrameElement().lang.direction;break;
+					case 1:strDesc==""?strDesc+="Y":strDesc+=",Y";strDesc+= _getRootFrameElement().lang.direction;break;
+					case 2:strDesc==""?strDesc+="Z":strDesc+=",Z";strDesc+= _getRootFrameElement().lang.direction;break;
+					case 3:strDesc==""?strDesc+= _getRootFrameElement().lang.monitor_alarm_collision:strDesc+=","+ _getRootFrameElement().lang.monitor_alarm_collision;break;
+					case 4:strDesc==""?strDesc+= _getRootFrameElement().lang.monitor_alarm_rollover:strDesc+=","+ _getRootFrameElement().lang.monitor_alarm_rollover;break;
+				}
+			}
+		}
+	}	
+	ret.strDesc = strDesc;
+	ret.strType =  _getRootFrameElement().lang.alarm_type_shake;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 时间秒数转换为时分秒
+ */
+standardAlarm.prototype.getTimeDifference = function(second) {
+	var difValue = "";
+	var days = parseInt(second/(60*60*24), 10);
+	var hours =  parseInt(second/(60*60) - days*24, 10);
+	var minutes =  parseInt(second/(60) - days*24*60 - hours*60, 10);
+	var seconds =  parseInt(second - days*24*60*60 - hours*60*60 - minutes*60, 10); 
+	if(days != 0) {
+		difValue += days + ' ' +  _getRootFrameElement().lang.min_day;
+	} 
+	if(hours != 0) {
+		difValue += ' ' + hours + ' ' +  _getRootFrameElement().lang.min_hour;
+	}
+	if(minutes != 0) {
+		difValue += ' ' + minutes + ' ' +  _getRootFrameElement().lang.min_minute;
+	}
+	if(seconds != 0) {
+		difValue += ' ' + seconds + ' ' +  _getRootFrameElement().lang.min_second;
+	}
+	return difValue;
+}
+
+/**
+ * 获取超时停车报警
+ */
+standardAlarm.prototype.getOvertimeParkAlarm = function(armType) {
+	var alarm = null;
+	var strKeepTime = '';
+	var strSetTime = '';
+	var strMark = '';
+	if(armType == 14) {
+		alarm = this.startAlarm;
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark = this.getAlarmStartEnd(0);
+	}
+	if(alarm.param2 != 0) {
+		strKeepTime =  _getRootFrameElement().lang.alarm_park_labelParkTime + this.getTimeDifference(alarm.param2);
+	}else if(alarm.armIinfo != 0) {
+		strKeepTime =  _getRootFrameElement().lang.alarm_park_labelParkTime + this.getTimeDifference(alarm.armIinfo);
+	}
+	if(alarm.param1) {
+		strSetTime = ', ' +  _getRootFrameElement().lang.alarm_park_labelSetTime + this.getTimeDifference(alarm.param1);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_overtimeParking;
+	ret.strMark = strMark;
+	ret.strDesc = strKeepTime + strSetTime;
+	return ret;
+}
+
+/**
+ * 获取视频丢失报警
+ */
+standardAlarm.prototype.getVideoLostAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	if(armType == 4) {
+		alarm = this.startAlarm;
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark = this.getAlarmStartEnd(0);
+	}
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_video_lost;
+	ret.strMark = strMark;
+	ret.strDesc = this.getChnString(alarm.getDevIdno(), alarm.armIinfo);
+	return ret;
+}
+
+/**
+ * 获取摄像头遮挡报警
+ */
+standardAlarm.prototype.getVideoMaskAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 5) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_video_mask;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取非法开门报警
+ */
+standardAlarm.prototype.getDoorOpenLawlessAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 6) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_door_open_lawless;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取密码错误三次报警
+ */
+standardAlarm.prototype.getWrongPwdAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 7) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_erong_pwd;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取非法点火报警
+ */
+standardAlarm.prototype.getFireLowlessAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 8) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_illegalIgnition;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取温度报警
+ */
+standardAlarm.prototype.getTemperatorAlarm = function(armType) {
+	var strType = '';
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 9) {
+		if(this.startAlarm.param1){
+			strType =  _getRootFrameElement().lang.report_low_temperature_alarm;
+		}else{
+			strType =  _getRootFrameElement().lang.report_high_temperature_alarm;
+		}
+		var device = _getRootFrameElement().vehicleManager.getDevice(this.startAlarm.devIdno);
+		var tempName = device != null ? device.getTempName() :'';
+		var names = tempName.split(",");
+		var name = '';
+		if(names.length > this.startAlarm.armIinfo){
+			name = names[this.startAlarm.armIinfo];
+		}else{
+			name = "TEMP_" + Number(this.startAlarm.armIinfo + 1);
+		}
+		strMark =  this.getAlarmStartEnd(1);
+		strDesc=  _getRootFrameElement().lang.report_probe_no + ': ' + name + ";" +  _getRootFrameElement().lang.report_temp_current + ': ' + Number(this.startAlarm.param2/100.0);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+//	if(strType){
+//		ret.strType = strType;
+//	}else{
+	ret.strType =  _getRootFrameElement().lang.alarm_type_temperator;
+//	}
+	if(strType){
+		strType += ";";
+	}
+	ret.strMark = strMark;
+	ret.strDesc = strType+strDesc;
+	return ret;
+}
+
+/**
+ * 根据硬盘类型获取硬盘
+ */
+standardAlarm.prototype.getDiskType = function(type) {
+	var strdisk = '';
+	switch (type) {
+	case 0:
+	case 1:	
+		strdisk =   _getRootFrameElement().lang.alarm_hard_type + '(' +  _getRootFrameElement().lang.alarm_gps_sd + ')';
+		break;
+	case 2:	
+		strdisk =   _getRootFrameElement().lang.alarm_hard_type + '(' +  _getRootFrameElement().lang.alarm_gps_disk + ')';
+		break;
+	case 3:	
+		strdisk =   _getRootFrameElement().lang.alarm_hard_type + '(' +  _getRootFrameElement().lang.alarm_gps_ssd + ')';
+		break;
+	}
+	return strdisk;
+}
+
+/**
+ * 获取硬盘错误报警
+ */
+standardAlarm.prototype.getDiskErrAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 10) {
+		alarm = this.startAlarm;
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	//硬盘
+	var ret = {};
+	//参数 param[0] 存储器掩码 按位 BIT0-BIT11：1-12主存储器 BIT12-BIT15：1-4灾备存储， 相应为1表示故障
+	if(alarm.param1){
+		var mNum = [];//主存储
+		var sNum = [];//灾备
+		for(var i = 0 ; i < 16 ; i ++){
+			if(i<12){//第2位
+				if((alarm.param1 >> i )& 1> 0){
+					mNum.push((i+1));
+				}
+			}else{
+				if((alarm.param1 >> i )& 1> 0){
+					sNum.push((i+1));
+				}
+			}
+		}
+		if(mNum.length > 0){
+			strDesc += mNum.toString() +   _getRootFrameElement().lang.disk_primary_storage;
+		}
+		if(sNum.length > 0){
+			if(strDesc != ''){
+				strDesc += ";";
+			}
+			strDesc += sNum.toString() +   _getRootFrameElement().lang.disk_disaster_recovery;
+		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_disk_error;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+	
+}
+
+
+
+//	
+//	if(armType == 244) {
+//		strMark =  this.getAlarmStartEnd(1);
+//	}else {
+//		strMark =  this.getAlarmStartEnd(0);
+//	}
+//	var ret = {};
+//	ret.strType =  _getRootFrameElement().lang.abnormal_drive;
+//	ret.strMark = strMark;
+//	ret.strDesc =  types.toString();
+//	return ret;
+
+
+
+
+/**
+ * 获取超速报警
+ */
+standardAlarm.prototype.getOverSpeedAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strType = '';
+	var strDesc = '';
+	if(armType == 11) {
+		alarm = this.startAlarm;
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	/*if(alarm.param3/10.0 > 0) {
+		strDesc +=  _getRootFrameElement().lang.alarm_speed + ': ' + this.getSpeedString(alarm.status.speed);
+		strDesc += ', ' +  _getRootFrameElement().lang.alarm_minSpeed + ': ' + this.getSpeedString(alarm.param2);
+		strDesc += ', ' +  _getRootFrameElement().lang.alarm_maxSpeed + ': ' + this.getSpeedString(alarm.param3);
+	}else {*/
+		strDesc +=  _getRootFrameElement().lang.alarm_speed + ': ' + this.getSpeedString(alarm.status.speed);
+//	}
+	if(alarm.armIinfo == 0) {
+		strType =  _getRootFrameElement().lang.alarm_type_overspeed;
+	}else if(alarm.armIinfo == 1) {
+		strType =  _getRootFrameElement().lang.alarm_type_low_speed;
+	}
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取夜间行驶报警
+ */
+standardAlarm.prototype.getNightDrivingAlarm = function(armType) {
+	var strMark = '';
+	var alarm = null;
+	var strDesc = "";
+	if(armType == 151) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+//	 param[0]当前超速限速值
+	if(alarm.param1){
+		strDesc +=  _getRootFrameElement().lang.alarm_speed_threshold+":"  +this.getSpeedString(alarm.param1*10)+";";
+	}
+	if(alarm.status && alarm.status.speed){
+		strDesc +=   _getRootFrameElement().lang.alarm_current_speed+":" +  this.getSpeedString(alarm.status.speed);
+	}
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_nightdriving;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取聚众报警
+ */
+standardAlarm.prototype.getGatheringAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 153) {
+		strMark = this.getAlarmStartEnd(1);
+		if(this.startAlarm.param1) {
+			strDesc +=  _getRootFrameElement().lang.alarm_speed_time + '(' + this.startAlarm.param1 +  _getRootFrameElement().lang.second + ')';
+			strDesc += ', ' +  _getRootFrameElement().lang.alarm_vehicle_number + '(' + this.startAlarm.param2 + ')';
+		}
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		if(this.endAlarm.param1) {
+			strDesc +=  _getRootFrameElement().lang.alarm_speed_time + '(' + this.startAlarm.param1 +  _getRootFrameElement().lang.second + ')';
+		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_gathering;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取UPS 剪线报警
+ */
+standardAlarm.prototype.getUSPCutAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 155) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_upsCut;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取硬盘超温报警
+ */
+standardAlarm.prototype.getHddHighTempAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 157) {
+		alarm = this.startAlarm;
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark = this.getAlarmStartEnd(0);
+	}
+	//硬盘号
+	strDesc +=  _getRootFrameElement().lang.alarm_gps_disk + (Number(alarm.armIinfo) + 1);
+	//硬盘类型
+	strDesc += ', ' + this.getDiskType(alarm.param1);
+	//温度
+	strDesc += ', ' +  _getRootFrameElement().lang.alarm_temperator + '(' + alarm.param2 +  _getRootFrameElement().lang.alarm_temperator_unit + ')';
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_highTemperature;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取前面板被撬开报警
+ */
+standardAlarm.prototype.getBeBoOpenedAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 159) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_before_board_opened;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取关机上报报警
+ */
+standardAlarm.prototype.getTurnOffAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 161) {
+		strMark = this.getAlarmStartEnd(1);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_turn_off;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取硬盘空间不足报警
+ */
+standardAlarm.prototype.getDiskSpaceAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	var alarm = null;
+	if(armType == 162) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	//硬盘号
+	strDesc +=  _getRootFrameElement().lang.alarm_gps_disk + (Number(alarm.armIinfo) + 1);
+	//硬盘类型
+	strDesc += ', ' + this.getDiskType(alarm.param1);
+	//总空间
+	strDesc += ', ' +  _getRootFrameElement().lang.alarm_disk_all_capacity  + '(' + alarm.param2 +  _getRootFrameElement().lang.alarm_disk_unit_mb + ')';
+	//剩余容量
+	strDesc += ', ' +  _getRootFrameElement().lang.alarm_disk_sur_capacity  + '(' + alarm.param3 +  _getRootFrameElement().lang.alarm_disk_unit_mb + ')';
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_defect_disk;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取SIM卡丢失报警
+ */
+standardAlarm.prototype.getSimLostAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 166) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_sim_lost;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取越界报警
+ */
+standardAlarm.prototype.getBeyondBoundsAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 12) {
+		strMark = this.getAlarmStartEnd(1);
+		if(this.startAlarm.armIinfo == 0) {
+			strDesc =  _getRootFrameElement().lang.alarm_beyond_bounds_into;
+		}else {
+			strDesc =  _getRootFrameElement().lang.alarm_beyond_bounds_out;
+		}
+		strDesc += ', ' +  _getRootFrameElement().lang.alarm_beyond_bounds_no + ': ' + this.startAlarm.param1;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_beyond_bounds;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取异常开关车门报警
+ */
+standardAlarm.prototype.getDoorAbnormalAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 13) {
+		strMark = this.getAlarmStartEnd(1);
+		if(this.startAlarm != null){
+            if(this.startAlarm.armIinfo == 0) {
+                strDesc =  _getRootFrameElement().lang.alarm_door_abnormal_1;
+            }else if(this.startAlarm.armIinfo == 1) {
+                strDesc =  _getRootFrameElement().lang.alarm_door_abnormal_2;
+            }else if(this.startAlarm.armIinfo == 2) {
+                strDesc =  _getRootFrameElement().lang.alarm_door_abnormal_3;
+            }
+		}
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_door_abnormal;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取上下线报警
+ */
+standardAlarm.prototype.getOnlineAlarm = function(armType) {
+	var strType = '';
+	if(armType == 17) {
+		strType =  _getRootFrameElement().lang.alarm_type_device_online;
+	}else {
+		strType =  _getRootFrameElement().lang.alarm_type_device_disOnline;
+	}
+	var ret = {};
+	ret.strType = strType;
+	return ret;
+}
+
+/**
+ * 获取ACC报警
+ */
+standardAlarm.prototype.getACCAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 16) {
+		strMark = this.getAlarmStartEnd(1);
+		strDesc =  _getRootFrameElement().lang.monitor_accOpen;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		strDesc =  _getRootFrameElement().lang.monitor_accClose;
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_Acc;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取移动侦测报警
+ */
+standardAlarm.prototype.getMotionAlarm = function(armType) {
+	var strMark = '';
+	var alarm = null;
+	if(armType == 15) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_motion;
+	ret.strMark = strMark;
+	ret.strDesc = this.getChnString(alarm.getDevIdno(), alarm.armIinfo);
+	return ret;
+}
+
+/**
+ * 获取油量报警
+ */
+standardAlarm.prototype.getOilAlarm = function(armType) {
+	var strMark = '';
+	var strType = '';
+	var strDesc = '';
+	var alarm = null;
+	if(armType == 46 || armType == 86) {
+		strType =  _getRootFrameElement().lang.alarm_type_add_oil;
+		strDesc =  _getRootFrameElement().lang.alarm_oil_add;
+		if(armType == 46) {
+			strMark = this.getAlarmStartEnd(1);
+			alarm = this.startAlarm;
+		}else {
+			strMark = this.getAlarmStartEnd(0);
+			alarm = this.endAlarm;
+		}
+	}else {
+		strType =  _getRootFrameElement().lang.alarm_type_dec_oil;
+		strDesc =  _getRootFrameElement().lang.alarm_oil_dec;
+		if(armType == 47) {
+			strMark = this.getAlarmStartEnd(1);
+			alarm = this.startAlarm;
+		}else {
+			strMark = this.getAlarmStartEnd(0);
+			alarm = this.endAlarm;
+		}
+	}
+
+	
+	
+	
+	
+	
+	strDesc =  _getRootFrameElement().lang.alarm_type_oil_begin + ': ' + this.getOilString(alarm.param1, alarm.devIdno) + ', ' + strDesc + ': ' + this.getOilString(alarm.armIinfo, alarm.devIdno);
+	
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ *  获取水位报警 加油184 减油185
+ * @param armInfo
+ * @returns {String}
+ */
+standardAlarm.prototype.getWaterLevelAlarm = function(armType) {
+	var strMark = '';
+	var strType = '';
+	var strDesc = '';
+	var alarm = null;
+	if(armType == 184) {
+		strType =  _getRootFrameElement().lang.alarm_type_add_water;
+		strDesc =  _getRootFrameElement().lang.alarm_water_add;
+		if(armType == 184) {
+			strMark = this.getAlarmStartEnd(1);
+			alarm = this.startAlarm;
+		}else {
+			strMark = this.getAlarmStartEnd(0);
+			alarm = this.endAlarm;
+		}
+	}else {
+		strType =  _getRootFrameElement().lang.alarm_type_dec_water;
+		strDesc =  _getRootFrameElement().lang.alarm_water_dec;
+		if(armType == 185) {
+			strMark = this.getAlarmStartEnd(1);
+			alarm = this.startAlarm;
+		}else {
+			strMark = this.getAlarmStartEnd(0);
+			alarm = this.endAlarm;
+		}
+	}
+	strDesc =  _getRootFrameElement().lang.alarm_type_water_begin + ': ' + this.getOilString(alarm.param1) + ', ' + strDesc + ': ' + this.getOilString(alarm.armIinfo);
+	
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+
+//获取疲劳驾驶报警
+standardAlarm.prototype.getFatigueAlarmString = function(armInfo) {
+	var str = '';
+	switch (armInfo) {
+	case 0:
+		break;
+	case 1:
+		str =  _getRootFrameElement().lang.alarm_fatigue_type1; 
+		break;
+	case 2:
+		str =  _getRootFrameElement().lang.alarm_fatigue_type2; 
+		break;
+	case 3:
+		str =  _getRootFrameElement().lang.alarm_fatigue_type3; 
+		break;
+	case 4:
+		str =  _getRootFrameElement().lang.alarm_fatigue_type4; 
+		break;
+	}
+	return str; 
+}
+
+/**
+ * 获取疲劳驾驶报警
+ */
+standardAlarm.prototype.getFatigueAlarm = function(armType) {
+	var strMark = '';
+	var alarm = null;
+	if(armType == 49) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	var types = [];
+	if(alarm.armIinfo){
+		if(alarm.armIinfo == 1){//一级报警
+			types.push( _getRootFrameElement().lang.alarm_fatigue_type1);
+		}else if(alarm.armIinfo == 2){//二级报警
+			types.push( _getRootFrameElement().lang.alarm_fatigue_type2);
+		}else if(alarm.armIinfo == 3){//三级报警
+			types.push( _getRootFrameElement().lang.alarm_fatigue_type3);
+		}else if(alarm.armIinfo == 4){//关注度报警
+			types.push( _getRootFrameElement().lang.alarm_fatigue_type4);
+		}
+	}
+	if(alarm.param1){
+		types.push( _getRootFrameElement().lang.fatigue_driving+"["+alarm.param1+"]");
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_fatigue;
+	ret.strMark = strMark;
+	ret.strDesc =  types.toString();
+	return ret;
+}
+
+
+
+/**
+ * 获取面部疲劳报警
+ */
+standardAlarm.prototype.getFaceFatigueAlarm = function(armType) {
+	var strMark = '';
+	var alarm = null;
+	if(armType == 249) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	var types = [];
+	if(alarm.param1){
+		types.push( _getRootFrameElement().lang.fatigue_driving+"["+alarm.param1+"]");
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.face_fatigue;
+	//报警类型显示
+	ret.strMark = strMark;
+	ret.strDesc =  types.toString();
+	return ret;
+}
+
+//获取区域或者线路名称
+standardAlarm.prototype.getAreaName = function(id) {
+	if(_getRootFrameElement().mapMarkManager.mapMarkList && _getRootFrameElement().mapMarkManager.mapMarkList.length > 0) {
+		for (var i = 0; i < _getRootFrameElement().mapMarkManager.mapMarkList.length ; i++) {
+			if(_getRootFrameElement().mapMarkManager.mapMarkList[i].id == id) {
+				return _getRootFrameElement().mapMarkManager.mapMarkList[i].name;
+			}
+		}
+	}
+	return id;
+}
+
+ // 解析区域   这个就是位置定位下面的禁行区域报警解析
+standardAlarm.prototype.getAreaType = function(alarm) {
+	var str = '';
+	switch (alarm.param1) {
+	//1;点;2;矩形;3;多边形;4;路线;10;圆;
+	//11禁行区域  危化管理使用
+	case 0:
+		str =  _getRootFrameElement().lang.alarm_post_type + '(' +  _getRootFrameElement().lang.alarm_undefine_pos + ')';
+		break;
+	case 1:
+		str =  _getRootFrameElement().lang.rule_areaName + '(' + this.getAreaName(alarm.param2) + '), ' +  _getRootFrameElement().lang.alarm_post_type + '(' +  _getRootFrameElement().lang.mark_point + ')';
+		break;
+	case 2:
+		str =  _getRootFrameElement().lang.rule_areaName + '(' + this.getAreaName(alarm.param2) + '), ' +  _getRootFrameElement().lang.alarm_post_type + '(' +  _getRootFrameElement().lang.alarm_rect_area + ')';
+		break;
+	case 3:
+		str =  _getRootFrameElement().lang.rule_areaName + '(' + this.getAreaName(alarm.param2) + '), ' +  _getRootFrameElement().lang.alarm_post_type + '(' +  _getRootFrameElement().lang.alarm_poligon_area + ')';
+		break;
+	case 4:
+		str =  _getRootFrameElement().lang.alarm_route_name + '(' + this.getAreaName(alarm.param2) + '), ' +  _getRootFrameElement().lang.alarm_post_type + '(' +  _getRootFrameElement().lang.alarm_line + ')';
+		break;
+	case 10:
+		str =  _getRootFrameElement().lang.rule_areaName + '(' + this.getAreaName(alarm.param2) + '), ' +  _getRootFrameElement().lang.alarm_post_type + '(' +  _getRootFrameElement().lang.alarm_circle_area + ')';
+		break;
+	}
+	return str;
+}
+
+/**
+ * 获取区域/线路超速、低速报警(平台产生)
+ */
+standardAlarm.prototype.getCMSAreaOverSpeedAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strType = '';
+	if(armType == 300 || armType == 350) {
+		strType =  _getRootFrameElement().lang.alarm_type_areaOverSpeed_platform;
+	}else if(armType == 301 || armType == 351) {
+		strType =  _getRootFrameElement().lang.alarm_type_areaLowSpeed_platform;
+	}else if(armType == 309 || armType == 359) {
+		strType =  _getRootFrameElement().lang.alarm_type_lineOverSpeed_platform;
+	}else if(armType == 310 || armType == 360) {
+		strType =  _getRootFrameElement().lang.alarm_type_lineLowSpeed_platform;
+	}
+	var strDesc = '';
+	if(armType == 300 || armType == 301 || armType == 309 || armType == 310) {
+		alarm = this.startAlarm;
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var strArea =  _getRootFrameElement().lang.alarm_current_speed + '(' + this.getSpeedString(alarm.status.speed) + ')';
+	strDesc = strArea + ', ' +  _getRootFrameElement().lang.alarm_speed_threshold + '(' + this.getSpeedString(alarm.param3 * 10)
+			+ '), ' + this.getAreaType(alarm) ;
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取进出入区域、线路报警(平台产生)
+ */
+standardAlarm.prototype.getCMSAreaInOutAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strType = '';
+	if(armType == 302 || armType == 352) {
+		strType =  _getRootFrameElement().lang.alarm_type_areaInOut_platform;
+	}else if(armType == 303 || armType == 353){
+		strType =  _getRootFrameElement().lang.alarm_type_lineInOut_platform;
+	}else if(armType == 211 || armType == 261){
+		strType =  _getRootFrameElement().lang.alarm_type_outOfRegional;
+	}else if(armType == 212 || armType == 262){
+		strType =  _getRootFrameElement().lang.alarm_type_outOfLine;
+	}
+	
+	var strDesc = '';
+	if(armType == 302 || armType == 303 || armType == 211 || armType == 212) {
+		alarm = this.startAlarm;
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var strArea = this.getAreaType(alarm);
+	if(alarm.param3 == 0) {
+		strDesc = strArea + ', ' +  _getRootFrameElement().lang.direction + '(' +  _getRootFrameElement().lang.into + ')';
+	}else if(alarm.param3 == 1) {
+		strDesc = strArea + ', ' +  _getRootFrameElement().lang.direction + '(' +  _getRootFrameElement().lang.out + ')';
+	}
+	
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取时间段超速报警(平台产生)
+ */
+standardAlarm.prototype.getCMSTimeOverSpeedAlarm = function(armType) {
+	var strMark = '';
+	var strDesc = "";
+	var alarm = null;
+	if(armType == 304) {
+		alarm = this.startAlarm;
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark = this.getAlarmStartEnd(0);
+	}
+	if(alarm.param1){
+//		var speed = "0.0";
+//		if(alarm.status && alarm.status.speed){
+//			speed = alarm.status.speed / 10.0;
+//		}
+//		strDesc +=  _getRootFrameElement().lang.alarm_speed_threshold+":"  +(alarm.param1)+"km/h;"
+//		strDesc +=   _getRootFrameElement().lang.alarm_current_speed+":" + speed+"km/h;"
+		strDesc +=  _getRootFrameElement().lang.alarm_speed_threshold+":"  +this.getSpeedString(alarm.param1*10)+";";
+		if(alarm.status && alarm.status.speed){
+			strDesc +=   _getRootFrameElement().lang.alarm_current_speed+":" +  this.getSpeedString(alarm.status.speed);
+		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_overSpeed_platform;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取时间段低速报警(平台产生)
+ */
+standardAlarm.prototype.getCMSTimeLowSpeedAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 305) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_lowSpeed_platform;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取疲劳驾驶报警(平台产生)
+ */
+standardAlarm.prototype.getCMSFatigueAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 306) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_fatigue_platform;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取超时停车报警(平台产生)
+ */
+standardAlarm.prototype.getCMSParkTooLongAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 307) {
+		strMark = this.getAlarmStartEnd(1);
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_parkTooLong_platform;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取关键点监控报警(平台产生)
+ */
+standardAlarm.prototype.getCMSAreaPointAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 308) {
+		alarm = this.startAlarm;
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var strArea = this.getAreaType(alarm);
+	if(alarm.param3 == 0) {
+		strDesc = strArea + ', ' +  _getRootFrameElement().lang.alarm_not_arrive;
+	}else if(alarm.param3 == 1) {
+		strDesc = strArea + ', ' +  _getRootFrameElement().lang.alarm_not_leave;
+	}
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_areaPoint_platform;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 解析道路等級
+ */
+standardAlarm.prototype.getRoadLevel = function(type){
+	var ret =  _getRootFrameElement().lang.alarm_road_level_lab;
+	switch (type) {
+	case 1:
+		ret +=  _getRootFrameElement().lang.alarm_road_highway;
+		break;
+	case 2:
+		ret +=  _getRootFrameElement().lang.alarm_road_city_highway;
+		break;
+	case 3:
+		ret +=  _getRootFrameElement().lang.alarm_road_state;
+		break;
+	case 4:
+		ret +=  _getRootFrameElement().lang.alarm_road_provincial;
+		break;
+	case 5:
+		ret +=  _getRootFrameElement().lang.alarm_road_county;
+		break;
+	case 6:
+		ret +=  _getRootFrameElement().lang.alarm_road_township;
+		break;
+	case 7:
+		ret +=  _getRootFrameElement().lang.alarm_road_other;
+		break;
+	case 8:
+		ret +=  _getRootFrameElement().lang.alarm_road_nine;
+		break;
+	case 9:
+		ret +=  _getRootFrameElement().lang.alarm_road_ferry;
+		break;
+	case 10:
+		ret +=  _getRootFrameElement().lang.alarm_road_pedestrian;
+		break;
+	}
+	return ret;
+}
+
+/**
+ * 获取道路等級超速报警(平台产生)
+ */
+standardAlarm.prototype.getCMSRoadLevelOverSpeedAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 311) {
+		alarm = this.startAlarm;
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		alarm = this.endAlarm;
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var strDesc =  _getRootFrameElement().lang.alarm_current_speed + '(' + this.getSpeedString(alarm.status.speed) + ')';
+	strDesc += ','+  _getRootFrameElement().lang.alarm_speed_threshold + '(' + this.getSpeedString(alarm.param3 * 10);
+	strDesc += '), ' + this.getRoadLevel(alarm.param1) ;
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.report_roadLvlOverSpeed_platform;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+//获取录像类型
+standardAlarm.prototype.getRecordTypeStr = function(type) {
+	if(type == 1) {
+		return  _getRootFrameElement().lang.alarm_rectype_alarm;
+	}else {
+		return  _getRootFrameElement().lang.alarm_rectype_normal;
+	}
+}
+
+//获取文件大小
+standardAlarm.prototype.getFileSize = function(size) {
+	var temp = (size * 1.0 / 1024 / 1024).toFixed(2);
+	if (temp == "0.00") {
+		temp = "0.01";
+	}
+	return temp +  _getRootFrameElement().lang.alarm_disk_unit_mb;
+}
+
+/**
+ * 获取图片文件或者录像文件下载完成事件
+ */
+standardAlarm.prototype.getEventFileDownload = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var ret = {};
+	ret.srcAlarmType =  alarm.srcAlarmType; //1是图片，2是录像 3音频
+	if( alarm.srcAlarmType != 5){//非音频文件 
+		ret.param3 = alarm.param3; //表示报警，还是常规
+		ret.param1 = alarm.param1;  //通道
+	}
+	ret.param2 = alarm.param2; //文件大小
+	ret.param4 = alarm.param4;//存储位置 2存储服务器 4下载服务器
+	
+	ret.imgFile = alarm.imgFile;  //路径
+	ret.reserve = alarm.reserve;  //录像时长
+
+	ret.srcTime = alarm.srcTime;  //录像开始时间
+	ret.armIinfo = alarm.armIinfo;  //服务器ID
+	ret.baseAlarm = alarm.baseAlarm;  //报警来源
+	ret.server = alarm.desc;//服务器id 对应的信息
+	return ret;
+}
+
+
+
+
+/**
+ * 获取图片文件或者录像文件上传
+ */
+standardAlarm.prototype.getEventFileUpload = function(armType) {
+	var alarm = null;
+	var strType = '';// _getRootFrameElement().lang.unknown;
+	var strDesc = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.armIinfo == 2) {//图片上传成
+		strType =  _getRootFrameElement().lang.alarm_type_record_upload;
+	}else if(alarm.armIinfo == 1) {
+		strType =  _getRootFrameElement().lang.alarm_type_image_upload;
+	}else if(alarm.armIinfo == 5){
+		strType =  _getRootFrameElement().lang.alarm_type_audio_upload;
+	}
+	var recType = 0;
+	var size = 0;
+	var chn = 0;
+	var desc = '';
+	if(armType == 109) { // 普通
+		recType = alarm.param2;
+		size = alarm.param1;
+		chn = alarm.param4;
+		desc = alarm.desc;
+	}else if(armType == 130) { //报警
+		if(alarm.armIinfo != 5){//非音频文件上传
+			recType = alarm.param3; //文件类型
+			chn = alarm.param1;//通道参数
+		}
+		size = alarm.param2;
+		desc = alarm.imgFile;
+	}
+	if(alarm.armIinfo != 5){
+		strDesc =  _getRootFrameElement().lang.fileType + ': ' + this.getRecordTypeStr(recType) + ', ';
+		strDesc +=  _getRootFrameElement().lang.alarm_channel + ': ' + this.getChnString(alarm.getDevIdno(), chn) + ', ';
+	}
+	strDesc +=  _getRootFrameElement().lang.alarm_record_size + ': ' + this.getFileSize(size) + ', ';
+	strDesc +=  _getRootFrameElement().lang.alarm_file_name + ': ' +  desc;
+
+	var ret = {};
+	ret.strType = strType;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 驾驶员信息采集上报
+ */
+standardAlarm.prototype.getDriverInfo = function(armType) {
+	//this.desc 线路名称;IC卡id;司机工号
+	//this.param1  11 联合欣业
+	//this.param4  0 签退 1签到
+	var strType =  _getRootFrameElement().lang.alarm_driver_info;
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var desc = "";
+	if(alarm.param1 == 11) {// 联合欣业
+		var descInfos = [];
+		if(alarm.desc) {
+			descInfos = alarm.desc.split(";");
+		}
+		if(alarm.param4 == 1) {
+			desc =  _getRootFrameElement().lang.alarm_signIn;
+		}else {
+			desc =  _getRootFrameElement().lang.alarm_signOut;
+		}
+		//线路名称
+		if(descInfos.length > 0) {
+			desc += " , " +  _getRootFrameElement().lang.alarm_route_name +" : "+ descInfos[0];
+		}
+		//司机工号
+		if(descInfos.length > 2) {
+			desc += " , " +  _getRootFrameElement().lang.alarm_driver_indo +" : "+ descInfos[2];
+		}
+	}
+	var ret = {};
+	ret.strType = strType;
+	ret.strDesc = desc;
+	return ret;
+}
+
+//获取
+standardAlarm.prototype.getRunDir = function(type) {
+	if(type == 0) {
+		return  _getRootFrameElement().lang.alarm_go;
+	}else {
+		return  _getRootFrameElement().lang.alarm_return;
+	}
+}
+
+//获取
+standardAlarm.prototype.getAutoStation = function(type) {
+	if(type == 0) {
+		return  _getRootFrameElement().lang.alarm_auto;
+	}else {
+		return  _getRootFrameElement().lang.alarm_manually;
+	}
+}
+
+/**
+ * 报站信息
+ */
+standardAlarm.prototype.getEventStationInfo = function(armType) {
+	var alarm = null;
+	var strType = '';
+	var strDesc = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	switch (alarm.param1) {
+	case 1:
+		strType =  _getRootFrameElement().lang.alarm_event_in_station;
+		break;
+	case 2:
+		strType =  _getRootFrameElement().lang.alarm_event_out_station;
+		break;
+	case 3:
+		strType =  _getRootFrameElement().lang.alarm_event_over_speed_start;
+		break;
+	case 4:
+		strType =  _getRootFrameElement().lang.alarm_event_over_speed_end;
+		break;
+	case 5:
+		strType =  _getRootFrameElement().lang.alarm_event_delay_start;
+		break;
+	case 6:
+		strType =  _getRootFrameElement().lang.alarm_event_delay_end;
+		break;
+	}
+	strDesc =  _getRootFrameElement().lang.alarm_station_name + '(' + alarm.imgFile + '), ';
+	strDesc +=  _getRootFrameElement().lang.alarm_route_name + '(' + alarm.desc + '), ';
+	strDesc += 'BSM(' + alarm.param2 + '), ';
+	strDesc += this.getRunDir(alarm.param3) + ', ';
+	strDesc +=  _getRootFrameElement().lang.alarm_auto_station + '(' + this.getAutoStation(alarm.param4) + '), ';
+	strDesc +=  _getRootFrameElement().lang.alarm_run_number + '(' + alarm.armIinfo + ')';
+
+	var ret = {};
+	ret.strType = strType;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取围栏报警
+ */
+standardAlarm.prototype.getFenceAlarm = function(armType) {
+	var alarm = null;
+	var strMark = '';
+	var strType = '';
+	var strDesc = '';
+	switch (armType) {
+	case 27:
+	case 77:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_in;
+		break;
+	case 28:
+	case 78:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_out;
+		break;
+	case 29:
+	case 79:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_in_overspeed;
+		break;
+	case 30:
+	case 80:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_out_overspeed;
+		break;
+	case 31:
+	case 81:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_in_lowspeed;
+		break;
+	case 32:
+	case 82:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_out_lowspeed;
+		break;
+	case 33:
+	case 83:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_in_stop;
+		break;
+	case 34:
+	case 84:
+		strType =  _getRootFrameElement().lang.alarm_type_fence_out_stop;
+		break;
+	}
+	
+	switch (armType) {
+	case 77:
+	case 78:
+	case 79:
+	case 80:
+	case 81:
+	case 82:
+	case 83:
+	case 84:
+		alarm = this.endAlarm;
+		strMark = this.getAlarmStartEnd(0);
+		break;
+	case 27:
+	case 28:
+	case 29:
+	case 30:
+	case 31:
+	case 32:
+	case 33:
+	case 34:
+		alarm = this.startAlarm;
+		strMark = this.getAlarmStartEnd(1);
+		break;
+	}
+	var strArea = this.getAreaType(alarm);
+	switch (armType) {
+	case 29:  //区域内高速报警
+	case 30:  //区域外高速报警
+	case 31:  //区域内低速报警
+	case 32:  //区域外低速报警
+	case 79:  //区域内高速报警
+	case 80:  //区域外高速报警
+	case 81:  //区域内低速报警
+	case 82:  //区域外低速报警
+		strDesc = ', ' +  _getRootFrameElement().lang.alarm_speed + ': ' + this.getSpeedString(alarm.status.speed);
+		strDesc += ', ' +  _getRootFrameElement().lang.alarm_minSpeed + ': ' + this.getSpeedString(alarm.param2);
+		strDesc += ', ' +  _getRootFrameElement().lang.alarm_maxSpeed + ': ' + this.getSpeedString(alarm.param3);	
+		break;
+	}
+	
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strArea + strDesc;
+	return ret;
+}
+
+/**
+ * 获取区域超速报警
+ */
+standardAlarm.prototype.getAreaOverSpeedAlarm = function(armType) {
+	var strMark = '';
+	var alarm = null;
+	if(armType == 200) {
+		strMark =  this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	var strArea = this.getAreaType(alarm);
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_regionalSpeedingAlarm;
+	ret.strMark = strMark;
+	ret.strDesc = strArea;
+	return ret;
+}
+
+/**
+ * 获取预警
+ */
+standardAlarm.prototype.getWarningAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 201) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_earlyWarning;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取GNSS模块故障
+ */
+standardAlarm.prototype.getGNSSModuleFailureAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 202) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_GNSSModuleFailure;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取GNSS天线未接或剪断
+ */
+standardAlarm.prototype.getGNSSAntennaMissedOrCutAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 203) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_GNSSAntennaMissedOrCut;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取GNSS天线短路
+ */
+standardAlarm.prototype.getGNSSAntennaShortAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 204) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_GNSSAntennaShort;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取主电源欠压
+ */
+standardAlarm.prototype.getSupplyUndervoltageAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 205) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_mainSupplyUndervoltage;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取主电源掉电
+ */
+standardAlarm.prototype.getPowerFailureAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 206) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_mainPowerFailure;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取LCD或显示器故障
+ */
+standardAlarm.prototype.getLCDFailureAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 207) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_LCDorDisplayFailure;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取TTS模块故障
+ */
+standardAlarm.prototype.getTTSModuleFailureAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 208) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_TTSModuleFailure;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取摄像头故障
+ */
+standardAlarm.prototype.getCameraFailureAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 209) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_cameraMalfunction;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取当天累计驾驶超时
+ */
+standardAlarm.prototype.getDrivingTimeoutAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 210) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_cumulativeDayDrivingTimeout;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取路段行驶时间不足或过长
+ */
+standardAlarm.prototype.getRoadTravelTimeAlarm = function(armType) {
+	var strMark = '';
+	var strType = '';
+	var alarm = null;
+	var strDesc = '';
+	if(armType == 213) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	switch (alarm.param3) {
+	case 0:
+		strType =  _getRootFrameElement().lang.alarm_type_drive_time_over;
+		break;
+	case 1:
+		strType =  _getRootFrameElement().lang.alarm_type_drive_time_less;
+		break;
+	}
+	strDesc =  _getRootFrameElement().lang.alarm_route_name + '(' + this.getAreaName(alarm.param1) + '), ';
+	strDesc +=  _getRootFrameElement().lang.time + '(' + alarm.param2 +  _getRootFrameElement().lang.min_second +')';
+	
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 获取路线偏离
+ */
+standardAlarm.prototype.getRouteDeviationAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 214) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_routeDeviation;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取VSS故障
+ */
+standardAlarm.prototype.getVSSFailureAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 215) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_VSSFailure;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取油量异常
+ */
+standardAlarm.prototype.getAbnormalFuelAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 216) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_abnormalFuel;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取防盗器  车辆被盗
+ */
+standardAlarm.prototype.getAntitheftDeviceAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 217) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_antitheftDevice;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取非法位移
+ */
+standardAlarm.prototype.getIllegalDisplacementAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 218) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_illegalDisplacement;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 获取侧翻报警
+ */
+standardAlarm.prototype.getRolloverAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 219) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_rollover;
+	ret.strMark = strMark;
+	return ret;
+}
+
+
+/**
+ * 获取胎温报警
+ */
+standardAlarm.prototype.getTiretemperature = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strMark = '';
+	
+	var strDesc = [];
+	var ret = {};
+	if(armType == 235) {
+		strMark =  this.getAlarmStartEnd(1);
+	
+		strDesc =  _getRootFrameElement().lang.sensor_number + ":";	//传感器编号
+		if(alarm.param4 > 0){
+			strDesc = analysisTireAlarmNumber(alarm.param4,strDesc);
+			strDesc += " , ";
+			strDesc +=  _getRootFrameElement().lang.sensorNowStatus + ":";	//传感器当前状态
+			if( [(alarm.param4>>16)&0xFF] == 4){
+				strDesc +=  _getRootFrameElement().lang.alarm_temperture_too_high;
+			}
+//			strDesc += (alarm.param4>>16)&0xFF;		//传感器当前状态
+			
+			strDesc += ";";
+		
+		}	
+		 strDesc +=  _getRootFrameElement().lang.current_temperature + ":";//当前温度
+		if(alarm.param1){
+			strDesc += alarm.param1/10.0 +  _getRootFrameElement().lang.alarm_temperator_unit + ";";	//摄氏度 
+		}else{
+			strDesc += 0 +  _getRootFrameElement().lang.alarm_temperator_unit + ";";	//摄氏度
+		}	
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.net_alarm_type_tt_abnormal;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+/**
+ *  获取配置错误报警
+ */
+standardAlarm.prototype.getConfigurationErrorAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strMark = '';
+	if(armType == 236) {
+		strMark =  this.getAlarmStartEnd(1);
+		
+		strDesc =  _getRootFrameElement().lang.sensor_number + ":";	//传感器编号
+		if(alarm.param4 > 0){
+			strDesc = analysisTireAlarmNumber(alarm.param4,strDesc);
+			strDesc += " , ";
+			strDesc +=  _getRootFrameElement().lang.sensorNowStatus + ":";
+			strDesc += (alarm.param4>>16)&0xFF;		//传感器当前状态
+			strDesc += ";";
+		}
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.net_alarm_type_tc_abnormal;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ *  获取传感器无信号报警
+ */
+standardAlarm.prototype.getSensorNoSignal = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strMark = '';
+	if(armType == 237) {
+		strMark =  this.getAlarmStartEnd(1);
+		
+		strDesc =  _getRootFrameElement().lang.sensor_number + ":";	//传感器编号
+		if(alarm.param4 > 0){
+			strDesc = analysisTireAlarmNumber(alarm.param4,strDesc);
+			strDesc += " , ";
+			strDesc +=  _getRootFrameElement().lang.sensorNowStatus + ":";
+			strDesc += (alarm.param4>>16)&0xFF;		//传感器当前状态
+			strDesc += ";";
+		
+		}
+		
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.net_alarm_type_ts_nosignal; //传感器无信号这几个字
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+/**
+ *  获取低电压报警
+ */
+standardAlarm.prototype.getLowVoltageAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = [];
+	var strMark = '';
+	if(armType == 238) {
+		
+		strMark =  this.getAlarmStartEnd(1);
+	
+		strDesc =  _getRootFrameElement().lang.sensor_number + ":";	//传感器编号
+		if(alarm.param4 > 0){
+			strDesc = analysisTireAlarmNumber(alarm.param4,strDesc);
+			strDesc += " , ";
+			strDesc +=  _getRootFrameElement().lang.sensorNowStatus + ":";
+			strDesc += (alarm.param4>>16)&0xFF;		//传感器当前状态
+			strDesc += ";";
+		
+		}	
+		strDesc +=  _getRootFrameElement().lang.current_voltage + ":";	//当前电压
+		if(alarm.param3){
+			strDesc += alarm.param3/10.0 + "V;";
+		}else{
+			strDesc += 0 + "V;";
+		}
+	
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.net_alarm_type_ts_lowvoltage;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+/**
+ * 获取离线任务通知
+ * @param param1
+ * @param param2
+ * @returns {String}
+ */
+standardAlarm.prototype.getOflTaskInfo = function(param1, param2) {
+	var ret = '';
+	switch (Number(param2)) {
+	case 0://未执行
+		ret =  _getRootFrameElement().lang.notPerformed;
+		break;
+	case 1://任务中
+		if(param1 == 1) {
+			ret =  _getRootFrameElement().lang.alarm_dev_img_ing;
+		}else if(param1 == 2) {
+			ret =  _getRootFrameElement().lang.alarm_file_task_ing;
+		}else if(param1 == 3) {
+			ret =  _getRootFrameElement().lang.alarm_dev_conf_ing;
+		}else if(param1 == 4) {
+			ret =  _getRootFrameElement().lang.alarm_wifi_conf_ing;
+		}
+		break;
+	case 2://成功
+		if(param1 == 1) {
+			ret =  _getRootFrameElement().lang.alarm_dev_img_success;
+		}else if(param1 == 2) {
+			ret =  _getRootFrameElement().lang.alarm_file_task_success;
+		}else if(param1 == 3) {
+			ret =  _getRootFrameElement().lang.alarm_dev_conf_success;
+		}else if(param1 == 4) {
+			ret =  _getRootFrameElement().lang.alarm_wifi_conf_success;
+		}
+		break;
+	case 3://失败
+		if(param1 == 1) {
+			ret =  _getRootFrameElement().lang.alarm_dev_img_fail;
+		}else if(param1 == 2) {
+			ret =  _getRootFrameElement().lang.alarm_file_task_fail;
+		}else if(param1 == 3) {
+			ret =  _getRootFrameElement().lang.alarm_dev_conf_fail;
+		}else if(param1 == 4) {
+			ret =  _getRootFrameElement().lang.alarm_wifi_conf_fail;
+		}
+		break;
+	default:
+		ret =  _getRootFrameElement().lang.notPerformed;
+		break;
+	}
+	return ret;
+}
+
+
+
+/**
+ *  获取上传视频报警
+ */
+standardAlarm.prototype.getCustomVedioAlarm = function(alarm) {
+	var strMark = '';
+	var strType = '';
+	var strDesc = '';
+	var armType = alarm.armIinfo;
+	var dev = _getRootFrameElement().vehicleManager.getDevice(alarm.devIdno);
+	var chnName = dev.getSingleChnName(alarm.param1);
+	if(armType == 44) {
+		strMark =  this.getAlarmStartEnd(1);//开始报警
+		strType =  _getRootFrameElement().lang.report_realtime_video_alarm;
+		strDesc =  _getRootFrameElement().lang.report_realtime_video+chnName;	//传感器编号
+	}else {
+		strMark =  this.getAlarmStartEnd(0);//结束报警
+		strType =  _getRootFrameElement().lang.stop_report_realtime_video_alarm;
+		strDesc =  _getRootFrameElement().lang.stop_report_realtime_video+chnName;	//传感器编号
+	}
+	var ret = {};
+	ret.strType = strType; //传感器无信号这几个字
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+/**
+ * 自定义报警
+ * 离线任务通知
+ */
+standardAlarm.prototype.getCustomAlarmInfo = function(armType) {
+	var strType = '';
+	var strDesc = '';
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 113) {
+		//离线任务通知
+		if(alarm.armIinfo == 19) {
+			//this.startAlarm.param1 == 1 {//下发图片文件
+			//2	//升级文件 设备升级
+			//3	//下发设备参数配置文件
+			//4  /wifi围栏开关
+			//strDesc = this.getOflTaskInfo(alarm.param1, alarm.param2);
+			//任务类型
+			switch (Number(alarm.param1)) {
+			case 1:
+				strType =  _getRootFrameElement().lang.alarm_dev_iamge;
+				break;
+			case 2:
+				strType =  _getRootFrameElement().lang.alarm_dev_iamge;
+				break;
+			case 3:
+				strType =  _getRootFrameElement().lang.deviceUpgrade;
+				break;
+			case 4:
+				strType =  _getRootFrameElement().lang.alarm_wifi_config;
+				break;
+			}
+			//任务状态
+			switch (Number(alarm.param2)) {
+			case 0:
+				strDesc =  _getRootFrameElement().lang.notPerformed;
+				break;
+			case 1:
+				strDesc =  _getRootFrameElement().lang.taskExecution;
+				break;
+			case 2:
+				strDesc =  _getRootFrameElement().lang.taskCompletion;
+				break;
+			case 3:
+				strDesc =  _getRootFrameElement().lang.taskFails;
+				break;
+			default:
+				strDesc =  _getRootFrameElement().lang.notPerformed;
+				break;
+			}
+		}else if(alarm.armIinfo == 44 || alarm.armIinfo == 45 ){//上报实时视频（客户端做主动视频弹出）
+			//param1  表示 通道号，param2表示码流类型
+			var date =	this.getCustomVedioAlarm(alarm);
+			strType = date.strType; //传感器无信号这几个字
+			strDesc = date.strDesc; 
+		}/*else if(alarm.armIinfo == 45){//停止上报实时视频（客户端把主动弹出的视频关闭掉）
+			getCustomVedioAlarm();
+		}*/
+	}
+	var ret = {};
+	ret.strType = strType;
+	ret.strDesc = strDesc;
+	ret.armIinfo = alarm.armIinfo;
+	ret.param1 = alarm.param1;
+	ret.param2 = alarm.param2;
+	ret.param3 = alarm.param3;
+	ret.time = alarm.getArmTime();
+	var point = alarm.getMapLngLatStr();
+	var pos = alarm.getLngLatStr();
+	if(point == null || pos == '0,0') {
+		pos =  _getRootFrameElement().lang.monitor_gpsUnvalid;
+		ret.isGpsValid = false;
+	}else {
+		ret.isGpsValid = true;
+	}
+	ret.pos = pos;
+	ret.point = point;
+	return ret;
+}
+
+//获取司机信息
+standardAlarm.prototype.getDriverInfoEx = function(driverId) {
+	if(_getRootFrameElement().vehicleManager) {
+		return _getRootFrameElement().vehicleManager.getDriverInfo(driverId);
+	}
+	return null;
+}
+
+//获取线路信息
+standardAlarm.prototype.getLineInfo = function(lineId) {
+	if(_getRootFrameElement().vehicleManager) {
+		return _getRootFrameElement().vehicleManager.getLineInfo(lineId);
+	}
+	return null;
+}
+
+//获取站点信息
+standardAlarm.prototype.getStationInfo = function(lineId, lineDirect, stationIndex) {
+	if(_getRootFrameElement().vehicleManager) {
+		return _getRootFrameElement().vehicleManager.getStationInfoEx(lineId+'-'+lineDirect+'-'+ stationIndex);
+	}
+	return null;
+}
+
+/**
+ * 报站信息
+ */
+standardAlarm.prototype.getBusArrivalStationInfo = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strType = "";
+	var strDesc = [];
+	if(armType == 117) {
+		var lineId = alarm.status.lineId; //线路id
+		var lineDirect = alarm.status.lineDirect; //线路上下行 0 上行 1下行
+		var stationId = alarm.status.stationFlag; //站点标识 0站点 1站场
+		var stationIndex = alarm.status.stationIndex; //站点索引
+		var stationStatus = alarm.status.stationStatus; //站点状态 0到站 1出站
+		var driverId = alarm.param1;
+		var lineInfo = this.getLineInfo(lineId);
+		var stationIfo = this.getStationInfo(lineId, lineDirect, stationIndex);
+		var nextStationInfo = this.getStationInfo(lineId, lineDirect, stationIndex+1);
+		var driverInfo = this.getDriverInfoEx(driverId);
+		
+		var stationName = '';
+		if(stationIfo) {
+			stationName = stationIfo.getName();
+		}
+		var nextStationName = '';
+		if(nextStationInfo) {
+			nextStationName = nextStationInfo.getName();
+		}
+		var lineName = '';
+		if(lineInfo) {
+			lineName = lineInfo.getName()
+			if(lineDirect == 1) {
+				lineName += '('+  _getRootFrameElement().lang.line_down +')';
+			}else {
+				lineName += '('+  _getRootFrameElement().lang.line_up +')';
+			}
+		}
+		var driverName = '';
+		if(driverInfo) {
+			driverName = driverInfo.getName()+'('+ driverInfo.getJobNum() +')';
+		}
+		if(stationName) {
+			if(stationStatus == 0) {
+				strDesc.push( _getRootFrameElement().lang.monitor_cur_station_label + stationName);
+				strType =  _getRootFrameElement().lang.monitor_vehicle_arrival_station;
+			}else {
+				strDesc.push( _getRootFrameElement().lang.monitor_pre_station_label + stationName);
+				strType =  _getRootFrameElement().lang.monitor_vehicle_out_station;
+			}
+		}
+		if(nextStationName) {
+			strDesc.push( _getRootFrameElement().lang.monitor_next_station_label + nextStationName);
+		}
+		if(lineName) {
+			strDesc.push( _getRootFrameElement().lang.monitor_belong_line_label + lineName);
+		}
+		if(driverName) {
+			strDesc.push( _getRootFrameElement().lang.monitor_labelDriver + driverName);
+		}
+	}
+	var ret = {};
+	ret.strType = strType;
+	ret.strDesc = strDesc.toString();
+	ret.time = alarm.getArmTime();
+	var point = alarm.getMapLngLatStr();
+	var pos = alarm.getLngLatStr();
+	if(point == null || pos == '0,0') {
+		pos =  _getRootFrameElement().lang.monitor_gpsUnvalid;
+		ret.isGpsValid = false;
+	}else {
+		ret.isGpsValid = true;
+	}
+	ret.pos = pos;
+	ret.point = point;
+	return ret;
+}
+
+/**
+ * 溜站报警
+ */
+standardAlarm.prototype.getBusSlipStationAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strType = "";
+	var strDesc = [];
+	if(armType == 118) {
+		var lineId = alarm.status.lineId; //线路id
+		var lineDirect = alarm.status.lineDirect; //线路上下行 0 上行 1下行
+		var stationId = alarm.status.stationFlag; //站点标识 0站点 1站场
+		var stationIndex = alarm.status.stationIndex; //站点索引
+		var stationStatus = alarm.status.stationStatus; //站点状态 0到站 1出站
+		var driverId = alarm.param1;
+		var lineInfo = this.getLineInfo(lineId);
+		var stationIfo = this.getStationInfo(lineId, lineDirect, stationIndex);
+		var nextStationInfo = this.getStationInfo(lineId, lineDirect, stationIndex+1);
+		var driverInfo = this.getDriverInfoEx(driverId);
+		
+		var stationName = '';
+		if(stationIfo) {
+			stationName = stationIfo.getName();
+		}
+		var nextStationName = '';
+		if(nextStationInfo) {
+			nextStationName = nextStationInfo.getName();
+		}
+		var lineName = '';
+		if(lineInfo) {
+			lineName = lineInfo.getName()
+			if(lineDirect == 1) {
+				lineName += '('+  _getRootFrameElement().lang.line_down +')';
+			}else {
+				lineName += '('+  _getRootFrameElement().lang.line_up +')';
+			}
+		}
+		var driverName = '';
+		if(driverInfo) {
+			driverName = driverInfo.getName()+'('+ driverInfo.getJobNum() +')';
+		}
+		if(stationName) {
+			if(stationStatus == 0) {
+				strDesc.push( _getRootFrameElement().lang.monitor_cur_station_label + stationName);
+				strType =  _getRootFrameElement().lang.monitor_vehicle_arrival_station;
+			}else {
+				strDesc.push( _getRootFrameElement().lang.monitor_pre_station_label + stationName);
+				strType =  _getRootFrameElement().lang.monitor_vehicle_out_station;
+			}
+		}
+		if(nextStationName) {
+			strDesc.push( _getRootFrameElement().lang.monitor_next_station_label + nextStationName);
+		}
+		if(lineName) {
+			strDesc.push( _getRootFrameElement().lang.monitor_belong_line_label + lineName);
+		}
+		if(driverName) {
+			strDesc.push( _getRootFrameElement().lang.monitor_labelDriver + driverName);
+		}
+	}
+	var ret = {};
+	ret.strType = strType;
+	ret.strDesc = strDesc.toString();
+	return ret;
+}
+
+/**
+ * 胎压报警
+ */
+standardAlarm.prototype.getTpmsAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strType = "";
+	var strDesc = [];
+	var ret = {};
+	if(armType == 239){
+		strMark =  this.getAlarmStartEnd(1);
+		if(alarm.armIinfo == 1) {
+			ret.strType =  _getRootFrameElement().lang.battery_voltage_warning;	//当报警信息类型等于1时，为电池电压报警
+		}else if(alarm.armIinfo == 2) {
+			ret.strType =  _getRootFrameElement().lang.tire_pressure_abnormal_alarm;	//当armIinfo等于2时，为轮胎 压力异常报警
+		}else if(alarm.armIinfo == 3) {
+			ret.strType =  _getRootFrameElement().lang.temperature_anomalies;	//当armIinfo等于3时，为温度异常报警
+		}
+
+		var strDesc =  _getRootFrameElement().lang.sensor_number + ":";	//传感器编号
+		if(alarm.param4 > 0){
+			strDesc = analysisTireAlarmNumber(alarm.param4,strDesc);
+			strDesc += " , ";
+			strDesc +=  _getRootFrameElement().lang.sensorNowStatus + ":";
+			strDesc += (alarm.param4>>16)&0xFF;		//传感器当前状态
+			strDesc += ";";
+		}		
+		strDesc +=  _getRootFrameElement().lang.current_temperature + ":";//当前温度
+		if(alarm.param1){
+			strDesc += alarm.param1/10.0 +  _getRootFrameElement().lang.alarm_temperator_unit + ";";	//摄氏度 
+		}else{
+			strDesc += 0 +  _getRootFrameElement().lang.alarm_temperator_unit + ";";	//摄氏度
+		}		
+	
+		strDesc +=  _getRootFrameElement().lang.the_current_tire_pressure + ":";	//当前胎压
+		if(alarm.param2){
+			strDesc += alarm.param2/10.0 + "P;";
+		}else{
+			strDesc += 0 + "P;";
+		}
+		strDesc +=  _getRootFrameElement().lang.current_voltage + ":";	//当前电压
+		if(alarm.param3){
+			strDesc += alarm.param3/10.0 + "V;";
+		}else{
+			strDesc += 0 + "V;";
+		}
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.net_alarm_type_tpms;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+
+}
+/**
+ * 设备开锁、设备上锁报警
+ */
+standardAlarm.prototype.getDeviceLockAlarm = function(armType) {
+	var strMark = '';
+	var strType = '';
+	var alarm = null;
+	var strDesc = '';
+	if(armType == 182) {
+		strType =  _getRootFrameElement().lang.alarm_type_device_unlock;
+	}else {
+		strType =  _getRootFrameElement().lang.alarm_type_device_lock;
+	}
+	var ret = {};
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 危化区域报警
+ * 禁行区域、禁行线路、异地车辆入境
+ */
+standardAlarm.prototype.getChemicalAreaAlarm = function(armType) {
+	var strMark = '';
+	var strType = '';
+	var alarm = null;
+	var strDesc = '';
+	//禁行区域  //禁行线路  //异地车辆入境
+	if(armType == 232 || armType == 233 || armType == 234) {
+		strMark = this.getAlarmStartEnd(1);
+		alarm = this.startAlarm;
+	}else {
+		strMark = this.getAlarmStartEnd(0);
+		alarm = this.endAlarm;
+	}
+	//alarm.armIinfo 区域id
+	switch (armType) {
+	case 232:
+	case 282:
+		strType =  _getRootFrameElement().lang.forbiddenArea;
+		break;
+	case 233:
+	case 283:
+		strType =  _getRootFrameElement().lang.forbiddenLine;
+		break;
+	case 234:
+	case 284:
+		strType =  _getRootFrameElement().lang.remoteVehicleEntry;
+		break;
+	}
+	var ret = {};
+	if(alarm && alarm.desc) {
+		var desc = alarm.desc.split(';');  //禁行区域、线路等 车牌号;区域名称;运单号
+		if(desc.length > 0) {
+			ret.vehiIdno = desc[0];
+		}
+		if(desc.length > 1) {
+			strDesc +=  _getRootFrameElement().lang.rule_areaName+'：'+ desc[1];
+		}
+		if(desc.length > 2) {
+			strDesc += '，'+ _getRootFrameElement().lang.waybillNumber+'：'+ desc[2];
+			ret.waybillNum = desc[2];
+		}
+	}
+	ret.strType = strType;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ *	面向警示
+ */
+standardAlarm.prototype.getFaceAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 170) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_face;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	闭眼警示
+ */
+standardAlarm.prototype.getEyesClosedAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 172) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_eyesClosed;
+	ret.strMark = strMark;
+	return ret;
+}
+
+
+
+/**
+ *	手机警示
+ */
+standardAlarm.prototype.getPhoneAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 174) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_phone;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	抽烟警示
+ */
+standardAlarm.prototype.getSmokeAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 176) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_smoke;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	离岗警示
+ */
+standardAlarm.prototype.getLeaveJobAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 186) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_leaveJob;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	左顾右盼
+ */
+standardAlarm.prototype.getLookAroundAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 188) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_lookAround;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	打哈欠
+ */
+standardAlarm.prototype.getYawnAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 190) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_yawn;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	氧气浓度低
+ */
+standardAlarm.prototype.getLowOxygenAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 192) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_lowOxygen;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	急加速
+ */
+standardAlarm.prototype.getRapidAccelerationAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 246) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_rapidAcceleration;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	急减速
+ */
+standardAlarm.prototype.getRapidDecelerationAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 247) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_rapidDeceleration;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	其他视频设备故障报警
+ */
+standardAlarm.prototype.getOtherDeviceError = function(armType) {
+	var strMark = '';
+	var strDesc = '';
+	if(armType == 244) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.other_device_error;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ *	录像阀值 
+ */
+standardAlarm.prototype.getRecordThreshold = function(armType) {
+	var strMark = '';
+	if(armType == 245) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.record_threshold;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	烟感报警 
+ */
+standardAlarm.prototype.getSmokeInductionAlarm = function(armType) {
+	var strMark = '';
+	if(armType == 194){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.smoke_induction_alarm;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	超载
+ */
+standardAlarm.prototype.getOverLoad = function(armType) {
+	var strMark = '';
+	if(armType == 231){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.overload;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	驾驶员识别报警
+ */
+standardAlarm.prototype.getDriverIdentify = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	
+	var strDesc = [];
+	var strMark = '';
+	if(armType == 636){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	if(alarm.armIinfo  != null){
+		if(alarm.armIinfo == 1) {
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_through+";");	
+		}else if(alarm.armIinfo == 0) {
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_notThrough+";");	
+		}else if(alarm.armIinfo == 2) {
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_unknown+";");	
+		}else if(alarm.armIinfo == 3) {
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_notCompare+";");	
+		}
+		
+		if(alarm.param1  != null && alarm.armIinfo != -2){
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_ratio+(alarm.param1/100).toFixed(2)+"%;");	
+		}
+	}
+	
+	// param[0]:AlarmInfo=-2表示比对错误码,其他表示对比度(万分值) param[1](低16位):预设失败匹配度 param[1](高16位):预设成功匹配度
+	if(alarm.param2  != null){
+		var l = (alarm.param2 & 0xffff); //低16位
+		var  h  = (alarm.param2 & 0xffffffff) >> 16 ; //高16为
+		if(l > 0){
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_fail+l+"%;");	
+		}
+		if(h > 0){
+			strDesc.push( _getRootFrameElement().lang.net_alarm_type_sb_driver_identification_success+h+"%;");	
+		}
+	}
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.net_alarm_type_sb_driver_identification;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc.toString();
+	return ret;
+}
+
+/**
+ *	解析苏标相关报警
+ */
+standardAlarm.prototype.getSuBiaoAlarm = function(armType) {
+	var strMark = '';
+	var typeStr = '';//报警类型
+	var strDesc = '';//报警信息
+	switch (armType) {
+
+        case 643://驾驶员身份识别事件
+            typeStr =  _getRootFrameElement().lang.net_event_type_sb_l1_driver_ident;
+            break;
+        case 642://驾驶员IC卡异常报警2级
+        case 692:
+            typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_driver_ic_abnormal;
+            if(armType == 642){//开始报警
+                strMark =  this.getAlarmStartEnd(1);
+            }else {
+                strMark =  this.getAlarmStartEnd(0);
+            }
+            break;
+        case 641://驾驶员IC卡异常报警1级
+        case 691:
+            typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_driver_ic_abnormal;
+            if(armType == 641){//开始报警
+                strMark =  this.getAlarmStartEnd(1);
+            }else {
+                strMark =  this.getAlarmStartEnd(0);
+            }
+            break;
+		case 635://右侧后方接近报警
+		case 685:
+			typeStr =  _getRootFrameElement().lang.right_rear;
+			if(armType == 635){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 634://左侧后方接近报警
+		case 684: 
+			typeStr =  _getRootFrameElement().lang.left_rear;
+			if(armType == 634){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 633://后方接近报警
+		case 683:
+			typeStr =  _getRootFrameElement().lang.report_approach;
+			if(armType == 633){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 632://胎压报警
+		case 682:		//胎压报警(苏标)
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_tpms+"("+ _getRootFrameElement().lang.standard1078ShuBiao+")";
+			if(armType == 632){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			strDesc = this.getTireAlarmTypeSB();
+			break;
+		case 631://驾驶员变更事件 2级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_driver_change;
+			break;
+		case 630://驾驶员变更事件 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_driver_change;
+			break;
+		case 629://自动抓拍事件 2级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_driver_auto;
+			break;
+		case 628://自动抓拍事件 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_driver_auto;
+			break;
+		case 627://驾驶员异常报警 2级
+		case 677:    //驾驶员异常报警 2级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_driver_abnormal;
+			if(armType == 627){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 626://驾驶员异常报警 1级
+		case 676:     //驾驶员异常报警 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_driver_abnormal;
+			if(armType == 626){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 625://分神驾驶报警 2级
+		case 675:     //分神驾驶报警 2级
+			if(armType == 625){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_distracted_driving;
+			break;
+		case 624://分神驾驶报警 1级
+		case 674:     //分神驾驶报警 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_distracted_driving;
+			if(armType == 624){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 623://抽烟报警 2级
+		case 673:     //抽烟报警 2级	
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_smoking;
+			if(armType == 623){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 622://抽烟报警 1级
+		case 672:   //抽烟报警 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_smoking;
+			if(armType == 622){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			break;
+		case 621://接打电话报警 2级
+		case 671:		//接打电话报警 2级
+			if(armType == 621){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_answer_the_call;
+			break;
+		case 620://接打电话报警  1级
+		case 670:     //接打电话报警 1级
+			if(armType == 620){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_answer_the_call;
+			break;
+		case 619://疲劳驾驶报警 2级
+		case 669:		//疲劳驾驶报警 2级
+			if(armType == 619){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_fatigue_driving;
+			strDesc = this.getDriverFatigueSBAlarm();
+			break;
+		case 618://疲劳驾驶报警  1级
+		case 668:		//疲劳驾驶报警 1级
+			if(armType == 618){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_fatigue_driving;
+			strDesc = this.getDriverFatigueSBAlarm();
+			break;
+		case 617://主动抓拍事件 2级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_driver_active;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 616://主动抓拍事件 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_driver_active;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+			
+		case 615://道路标志识别事件 2级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_driver_sign;
+			strDesc = this.getVehicleSignsSBAlarm();
+			break;
+		case 614://道路标志识别事件 1级
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_driver_sign;
+			strDesc = this.getVehicleSignsSBAlarm();
+			break;
+		case 613://障碍物报警 2级
+		case 663:     //障碍物报警 2级
+			if(armType == 613){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_obstacle;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 612://障碍物报警 1级
+		case 662:     //障碍物报警 1级
+			if(armType == 612){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_obstacle;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 611://道路标识超限报警  2级
+		case 661:     //道路标识超限报警 2级
+			if(armType == 611){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_road_marking_over_limit;
+			strDesc = this.getVehicleSignsSBAlarm();
+			break;
+		case 610://道路标识超限报警  1级
+		case 660:     //道路标识超限报警 1级
+			if(armType == 610){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_road_marking_over_limit;
+			strDesc = this.getVehicleSignsSBAlarm();
+			break;
+		case 609://频繁变道  2级
+		case 659:     //频繁变道 2级
+			if(armType == 609){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}	
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_frequent_lane_change;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 608://频繁变道  1级
+		case 658:     //频繁变道 1级
+			if(armType == 608){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_frequent_lane_change;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 607://行人碰撞报警  2级
+		case 657:		//行人碰撞报警2级
+			if(armType == 607){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_hit_pedestrian;
+			strDesc = this.getImpactingPedestriansSBAlarm();
+			break;
+		case 606://行人碰撞报警  1级
+		case 656:		//行人碰撞报警1级
+			if(armType == 606){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_hit_pedestrian;
+			strDesc = this.getImpactingPedestriansSBAlarm();
+			break;
+		case 605://车距过近报警 2级
+		case 655:		//车距过近报警2级
+			if(armType == 605){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_near_car;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 604://车距过近报警 1级
+		case 654:		//车距过近报警1级
+			if(armType == 604){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_near_car;
+			strDesc = this.getVehicleAutoSBAlarm();
+			break;
+		case 603://车道偏离报警 2级
+		case 653:		//车道偏离报警2级
+			if(armType == 603){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_ldw;
+			strDesc = this.getRoadDeviationSBAlarm();
+			break;
+		case 602://车道偏离报警1级
+		case 652:		//车道偏离报警1级
+			if(armType == 602){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_ldw;
+			strDesc = this.getRoadDeviationSBAlarm();
+			break;
+		case 601://前向碰撞报警2级
+		case 651:		//前向碰撞报警2级
+			if(armType == 601){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_fcw;
+			strDesc = this.getVehicleCollisionSBAlarm();
+			break;
+		case 600://前向碰撞报警1级
+		case 650:	//前向碰撞报警1级
+			if(armType == 600){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_fcw;
+			strDesc = this.getVehicleCollisionSBAlarm();
+			break;
+		case 639:		//墨镜失效一级报警
+		case 689:		
+			if(armType == 639){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l1_sunglass_failure;
+//			strDesc = this.getVehicleCollisionSBAlarm();
+			break;
+		case 640:		//墨镜失效二级报警
+		case 690:		
+			if(armType == 640){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_sunglass_failure;
+//			strDesc = this.getVehicleCollisionSBAlarm();
+			break;
+		case 637:		//驾驶员识别
+		case 687:	
+			if(armType == 637){//开始报警
+				strMark =  this.getAlarmStartEnd(1);
+			}else {
+				strMark =  this.getAlarmStartEnd(0);
+			}
+			typeStr =  _getRootFrameElement().lang.net_alarm_type_sb_l2_distracted_driving+"("+ _getRootFrameElement().lang.alarmSource_platform+")";
+			break;
+		default:
+			break;
+	}
+	
+	var ret = {};
+	ret.strType = typeStr;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 解析G-SenSor报警
+ * @param armType
+ */
+standardAlarm.prototype.getGSenSorAlarm = function(armType){
+    var strMark = '';
+    var typeStr = '';//报警类型
+    var strDesc = '';//报警信息
+    switch (armType) {
+		case 444://急转弯
+		case 494:
+            typeStr = _getRootFrameElement().lang.alarm_type_sharpTurn;
+            if (armType == 444) {//开始报警
+                strMark = this.getAlarmStartEnd(1);
+            } else {
+                strMark = this.getAlarmStartEnd(0);
+            }
+            break;
+        case 439://GSensor启动
+		case 489:
+            typeStr = _getRootFrameElement().lang.alarm_GSensorStart;
+            if (armType == 439) {//开始报警
+                strMark = this.getAlarmStartEnd(1);
+            } else {
+                strMark = this.getAlarmStartEnd(0);
+            }
+            break;
+        case 440://GSensor停止
+        case 490:
+            typeStr = _getRootFrameElement().lang.alarm_GSensorStop;
+            if (armType == 440) {//开始报警
+                strMark = this.getAlarmStartEnd(1);
+            } else {
+                strMark = this.getAlarmStartEnd(0);
+            }
+            break;
+        case 441://GSensor侧翻
+        case 491:
+            typeStr = _getRootFrameElement().lang.alarm_GSensorRollOver;
+            if (armType == 441) {//开始报警
+                strMark = this.getAlarmStartEnd(1);
+            } else {
+                strMark = this.getAlarmStartEnd(0);
+            }
+            break;
+        default:
+            break;
+    }
+	var ret = {};
+	ret.strType = typeStr;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+/**
+ * 司机刷卡
+ * @param armType
+ */
+standardAlarm.prototype.getDriverSwape = function(armType){
+    var strMark = '';
+    var typeStr = _getRootFrameElement().lang.driver_swipe;//报警类型 //司机刷卡
+    var strDesc = '';//报警信息
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+    //司机刷卡		szDesc: 司机名称;发证机关;身份证号;从业资格证编码	
+//    param4为司机id
+	var szDesc = alarm.desc;
+	if(szDesc != null){
+		if(szDesc){
+			var infos_ = szDesc.split(';')
+			if(infos_ && infos_.length > 0){
+				for (var i = 0; i < infos_.length; i++) {
+					var value_ = infos_[i];
+					if(i == 0){
+						strDesc +=   _getRootFrameElement().lang.driver_name+":"+value_+";";
+					}else if(i == 1){
+						strDesc +=   _getRootFrameElement().lang.driver_swipe_issue+":"+value_+";";
+					}else if(i == 2){
+						strDesc +=   _getRootFrameElement().lang.ID_number+":"+value_+";";
+					}else if(i == 3){
+						strDesc +=   _getRootFrameElement().lang.driver_swipe_number+":"+value_+";";
+					}
+				}
+			}
+		}
+	}
+	var ret = {};
+	ret.strType = typeStr;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+/**
+ * 学生刷卡
+ * @param armType
+ */
+standardAlarm.prototype.getStudentSwape = function(armType){
+    var strMark = '';
+    var typeStr = _getRootFrameElement().lang.student_swipe;//报警类型 //司机刷卡
+    var strDesc = '';//报警信息
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+    //司机刷卡		szDesc: 学生姓名;班级;学号
+//    param4为司机id
+	var szDesc = alarm.desc;
+	if(szDesc != null){
+		if(szDesc){
+			var infos_ = szDesc.split(';')
+			if(infos_ && infos_.length > 0){
+				for (var i = 0; i < infos_.length; i++) {
+					var value_ = infos_[i];
+					if(i == 0){
+						strDesc +=    _getRootFrameElement().lang.student_swipe_name+":"+value_+";";
+					}else if(i == 1){
+						strDesc +=   _getRootFrameElement().lang.grade_belong+":"+value_+";";
+					}else if(i == 2){
+						strDesc +=   _getRootFrameElement().lang.student_num+":"+value_+";";
+					}
+				}
+			}
+		}
+	}
+	var ret = {};
+	ret.strType = typeStr;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ *前向碰撞报警(苏标)
+ */
+standardAlarm.prototype.getVehicleCollisionSBAlarm = function(armType) {
+	 //Param[0]:道路标志识别数据,Param[1]:前车车速,Param[2]:前车/行人距离
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.param1 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_roadSigns + alarm.param1+";"
+	}
+	if(alarm.param2 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_vehicleSpeed + alarm.param2+"Km/h;";
+	}
+	if(alarm.param3 != null){
+		strDesc +=  _getRootFrameElement().lang.reportInfo_people+alarm.param3*100+'ms'; 
+	}
+	return strDesc;
+}
+
+
+/**
+ *车道偏离报警(苏标)
+ */
+standardAlarm.prototype.getRoadDeviationSBAlarm = function(armType) {
+	 //Param[0]:道路标志识别数据,Param[1](低16位):前车车速,
+	//Param[1](高16位):前车/行人距离,Param[2]:偏离类型
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.param1 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_roadSigns + alarm.param1
+	}
+	if(alarm.param2 != null){
+		var l = (alarm.param2 & 0xffff); //低16位
+		var  h  = (alarm.param2 & 0xffffffff) >> 16 ; //高16为
+		if(l > 0){
+			strDesc +=   _getRootFrameElement().lang.reportInfo_vehicleSpeed + l+"Km/h;";
+		}
+		if(h > 0){
+			strDesc +=   _getRootFrameElement().lang.reportInfo_people + h*100+"ms;"
+		}
+	}
+	if(alarm.param3 != null){
+		var tpStr =  _getRootFrameElement().lang.deviation_left;
+		if(alarm.param3 == 2){//1左侧偏离 2右侧偏离
+			 tpStr =  _getRootFrameElement().lang.deviation_right;
+		}
+		strDesc +=  _getRootFrameElement().lang.reportInfo_deviate+tpStr; 
+	}
+	return strDesc;
+}
+
+/**
+ * 行人碰撞报警(苏标)
+ */
+standardAlarm.prototype.getImpactingPedestriansSBAlarm = function(armType) {
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.param1 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_roadSigns + alarm.param1;
+	}
+	if(alarm.param2 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_people + alarm.param2*100+"ms";
+	}
+	return strDesc;
+}
+
+/**
+ * 道路标志识别事件(苏标)
+ */
+standardAlarm.prototype.getVehicleSignsSBAlarm = function(armType) {
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.param1 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_roadSigns + alarm.param1;
+	}
+	if(alarm.param2 != null){
+		var  tpStr =  _getRootFrameElement().lang.signs_speed;
+		if(alarm.param2 == 2){//1左侧偏离 2右侧偏离
+			 tpStr =  _getRootFrameElement().lang.signs_height; 
+		}else if(alarm.param2 == 3){
+			tpStr =  _getRootFrameElement().lang.signs_weight; 
+		}
+		strDesc +=   _getRootFrameElement().lang.reportInfo_roadSignsType + tpStr;
+	}
+	return strDesc;
+}
+
+/**
+ * 主动抓拍(苏标)
+ */
+standardAlarm.prototype.getVehicleAutoSBAlarm = function(armType) {
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.param1 != null){
+		strDesc +=   _getRootFrameElement().lang.reportInfo_roadSigns + alarm.param1
+	}
+	return strDesc;
+}
+
+/**
+ * 疲劳驾驶报警(苏标)
+ */
+standardAlarm.prototype.getDriverFatigueSBAlarm = function(armType) {
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.param1 != null){
+		strDesc +=   _getRootFrameElement().lang.fatigue_driving + alarm.param1
+	}
+
+	return strDesc;
+}
+
+/**
+ * 胎压报警(苏标)
+ */
+standardAlarm.prototype.getTireAlarmTypeSB = function(armType) {
+	var strDesc = "";
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	
+	
+	//胎压报警(苏标) 
+	//AlarmInfo:bit0：胎压（定时上报） bit1：胎压过高报警 bit2：胎压过低报警 bit3：胎温过高报警 bit4：传感器异常报警 bit5：胎压不平衡报警 bit6：慢漏气报警 bit7：电池电量低报警 
+	//bit8~bit15：自定义 Param[0]:胎压(单位 Kpa),
+	//Param[1](低16位):胎温(单位 ℃),Param[1](高16位):电池电量(单位 %),
+	//Param[2]:传感器编号（01表示TPMS左1，02表示TPMS左2，03表示TPMS左3，04表示TPMS左4，11表示TPMS右1，12表示TPMS右2，13表示TPMS右3，14表示TPMS右4）
+	if(alarm.param3){
+		var sensor = "";//left 、 right
+		var key = Number(alarm.param3);
+		switch (key) {
+		case 1:
+			sensor = "TPMS"+ _getRootFrameElement().lang.left+"1";
+			break;
+		case 2:
+			sensor = "TPMS"+ _getRootFrameElement().lang.left+"2";
+			break;
+		case 3:
+			sensor = "TPMS"+ _getRootFrameElement().lang.left+"3";
+			break;
+		case 4:
+			sensor = "TPMS"+ _getRootFrameElement().lang.left+"4";
+			break;
+		case 11:
+			sensor = "TPMS"+ _getRootFrameElement().lang.right+"1";
+			break;
+		case 12:
+			sensor = "TPMS"+ _getRootFrameElement().lang.right+"2";
+			break;
+		case 13:
+			sensor = "TPMS"+ _getRootFrameElement().lang.right+"3";
+			break;
+		case 14:
+			sensor = "TPMS"+ _getRootFrameElement().lang.right+"4";
+			break;
+		default:
+			sensor = key;
+			break;
+		}
+		strDesc +=  _getRootFrameElement().lang.reportInfo_sensor+sensor+";";
+	}
+	
+	if(alarm.armIinfo){
+		var armInfo = Number(alarm.armIinfo);
+		var type = '';
+		if((armInfo & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_onTime+";";
+		}
+		if((armInfo >> 1 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_high+";";
+		}
+		if((armInfo >> 2 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_low+";";
+		}
+		if((armInfo >> 3 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_temperature+";";
+		}
+		if((armInfo >> 4 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_sensor+";";
+		}
+		if((armInfo >> 5 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_balance+";";
+		}
+		if((armInfo >> 6 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_leak+";";
+		}
+		if((armInfo >> 7 & 1) > 0){
+			type +=  _getRootFrameElement().lang.tireReport_battery+";";
+		}
+		if(type){
+			strDesc +=  _getRootFrameElement().lang.reportInfo_tpmsType+type+";"
+		}
+	}
+	if(alarm.param1){
+		strDesc +=  _getRootFrameElement().lang.reportInfo_tire+(alarm.param1)+"kpa"+";"
+	}
+	
+	if(alarm.param2){
+		var l = (alarm.param2 & 0xffff); //低16位 胎温(单位 ℃)
+		var h  = (alarm.param2 & 0xffffffff) >> 16 ; //高16位 电池电量(单位 %),
+		if(l > 0){
+			strDesc +=  _getRootFrameElement().lang.reportInfo_temperature+l+ _getRootFrameElement().lang.degree+";"
+		}
+		if(h > 0){
+			strDesc +=  _getRootFrameElement().lang.reportInfo_batteryLevel+(h)+"%"+";";
+		}
+	}
+
+	
+	
+	return strDesc;
+}
+
+
+
+/**
+ * 异常定位
+ * @returns 
+ */
+standardAlarm.prototype.getAbnormalPositionAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	strDesc +=  _getRootFrameElement().lang.abnormalPosition_Tip.replace(/{second}/, alarm.param1).replace(/{distance}/, alarm.param2);
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.report_abnormalPosition_platform;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 中石油无任务报警
+ * @returns 
+ */
+standardAlarm.prototype.getTaskAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var ret = {};
+	ret.strType = "无任务出车";
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 前车碰撞预警
+ * @returns 
+ */
+standardAlarm.prototype.getFrontCarCollisionAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 400){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	Param[1]:前车车速
+//	Param[2]:前车/行人距离
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=   _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";"
+//		}
+//		if(alarm.param2){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_vehicleSpeed+alarm.param2+";"
+//		}
+//		if(alarm.param3){
+//			strDesc +=   _getRootFrameElement().lang.reportInfo_people+alarm.param3+";"
+//		}
+//	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_front_car_collision;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+
+/**
+ * 道偏离预警
+ * @returns 
+ */
+standardAlarm.prototype.getLaneDeviationAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 401){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	Param[1]:前车车速
+//	Param[2]:前车/行人距离
+//	Param[3]:偏离类型
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_grade + alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns + alarm.param1+";"
+//		}
+//		if(alarm.param2){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_vehicleSpeed + alarm.param2+";"
+//		}
+//		if(alarm.param3){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_people + alarm.param3+";"
+//		}
+//		if(alarm.param4){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_deviate + alarm.param4+";"
+//		}
+//	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_lane_deviation;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+	
+}
+
+/**
+ * 行人检测预警
+ * @returns 
+ */
+standardAlarm.prototype.getPedestrianDetectionAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_pedestrian_detection;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 驾驶员遮挡或镜头偏离位置
+ * @returns 
+ */
+standardAlarm.prototype.getLensDeviationAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_lens_deviation;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ *不系安全带
+ * @returns 
+ */
+standardAlarm.prototype.getNoSeatBeltsAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_no_seat_belts;
+	ret.strDesc = strDesc;
+	return ret;
+}
+/**
+ * 设备故障
+ * @returns 
+ */
+standardAlarm.prototype.getEquipmentFailureAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_equipment_failure;
+	ret.strDesc = strDesc;
+	return ret;
+}
+/**
+ * 车距近
+ * @returns 
+ */
+standardAlarm.prototype.getShortDistanceAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 406){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=   _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";"
+//		}
+//	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_short_distance;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *急刹车
+ * @returns 
+ */
+standardAlarm.prototype.getSlamBrakeAlarm = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_slam_brake;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+/**
+ * 急左转弯
+ * @returns
+ */
+standardAlarm.prototype.getTurnLeftAlarm = function(armType) {
+    var alarm = null;
+    if(this.startAlarm != null) {
+        alarm = this.startAlarm;
+    }
+    if(this.endAlarm != null) {
+        alarm = this.endAlarm;
+    }
+    var strDesc = "";
+    var strType = '';
+    var ret = {};
+    ret.strType =  _getRootFrameElement().lang.alarm_rapid_turnleft;
+    ret.strDesc = strDesc;
+    return ret;
+}
+
+/**
+ * 急右转弯
+ * @returns
+ */
+standardAlarm.prototype.getTurnRightAlarm = function(armType) {
+    var alarm = null;
+    if(this.startAlarm != null) {
+        alarm = this.startAlarm;
+    }
+    if(this.endAlarm != null) {
+        alarm = this.endAlarm;
+    }
+    var strDesc = "";
+    var strType = '';
+    var ret = {};
+    ret.strType =  _getRootFrameElement().lang.alarm_rapid_tturnright;
+    ret.strDesc = strDesc;
+    return ret;
+}
+
+/**
+ * 低头
+ */
+standardAlarm.prototype.getbelowHeadAlarmType = function(armType){
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 410){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.adas_alarm_type_belowHead;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+/**
+ * 在途不在线
+ */
+standardAlarm.prototype.getOnWayOffLine = function(armType){
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.imgFile && alarm.imgFile != ""){//
+		var infos = alarm.imgFile.split(';')
+		if(infos && infos.length > 0){
+			strDesc +=  _getRootFrameElement().lang.monitor_labelVehicleIdno+infos[0]+";";
+			
+		}
+		if(infos && infos.length > 1){
+			strDesc +=  _getRootFrameElement().lang.vehicle_type+"："+infos[1]+";";
+		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.on_the_way_offline_alarm;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 在途不在线
+ */
+standardAlarm.prototype.getUnknowVehicle  = function(armType){
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(alarm.imgFile && alarm.imgFile != ""){//
+		var infos = alarm.imgFile.split(';')
+		if(infos && infos.length > 0){
+			strDesc +=   _getRootFrameElement().lang.monitor_labelVehicleIdno+infos[0]+";";
+			
+		}
+		if(infos && infos.length > 1){
+			strDesc +=  _getRootFrameElement().lang.vehicle_type+"："+infos[1]+";";
+		}
+	}
+	
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.unknow_vehicle_alarm;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ * 808客流统计
+ * 
+ */
+standardAlarm.prototype.getPeopleUpload  = function(armType){
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	//	param[0]上车人数, param[1]下车人数
+	if(alarm.param1){//上车人数
+		strDesc +=  _getRootFrameElement().lang.people_up+"：" + alarm.param1+";"
+	}
+	if(alarm.param2){//下车人数
+		strDesc +=  _getRootFrameElement().lang.people_down+"：" + alarm.param2+";"
+	}
+	var ret = {};
+	ret.strType =   _getRootFrameElement().lang.people_flow;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+
+
+
+/**
+ *撞击行人
+ * @returns 
+ */
+standardAlarm.prototype.getImpactingPedestriansAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 421){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	Param[2]:前车/行人距离
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";"
+//		}
+//		if(alarm.param3){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_people+alarm.param3+";"
+//		}
+//	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.impacting_pedestrians;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *频繁变道
+ * @returns 
+ */
+standardAlarm.prototype.getVehicleFrequentAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 428){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";"
+//		}
+//	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.report_frequent;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+	
+}
+
+
+/**
+ *道路标识超限报警
+ * @returns 
+ */
+standardAlarm.prototype.getOverspeedSignsAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 429){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	Param[1]:道路标志识别类型
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";"
+//		}
+//		if(alarm.param2){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSignsType+alarm.param2+";"
+//		}
+//	}
+	var ret = {};
+	ret.strType =   _getRootFrameElement().lang.overspeed_signs;
+	ret.strDesc = strDesc;
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	case 430:  //障碍物
+ *	case 480:  //障碍物
+ *	case 142:  //主动抓拍事件
+ * @returns 
+ */
+standardAlarm.prototype.getVehicleObstacleAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 430){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else if(armType == 480) {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	desc(非苏标为空):报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=   _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";"
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";"
+//		}
+//	}
+	var ret = {};
+	if(armType == 142){
+		ret.strType =  _getRootFrameElement().lang.report_activeCapture;
+	}else{
+		ret.strType =  _getRootFrameElement().lang.report_obstacle;
+		ret.strMark = strMark;
+	}
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+
+
+/**
+	case 168:  //胎压报警
+	case 169:  //胎压报警
+ */
+standardAlarm.prototype.getTireAlarmType = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 168){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var extra = "";
+//	if(alarm.desc && alarm.desc != ""){//
+////		此处仅说明苏标部分  胎压报警, alarmInfo  TPMS报警类型（1胎压（定时上报），2胎压过高报警，3胎压过低报警,4胎温过高报警,5传感器异常报警,6胎压不平衡报警,7慢漏气报警,8电池电量低报警）
+////		param[0] 当前温度 如: 200 = 20度
+////		param[1] 当前胎压 如: 25 = 2.5P
+////		param[2] 电池电量 如: 10 = 10%
+////		param[3] 传感器编号
+////		desc(非苏标为空):报警标识号
+//		extra += "("+ _getRootFrameElement().lang.standard1078ShuBiao+")";
+//		if(alarm.armIinfo){
+//			var key = Number(alarm.armIinfo);
+//			var type = null;
+//			switch (key) {
+//				case 1:
+//					type =   _getRootFrameElement().lang.tireReport_onTime;
+//					break;
+//				case 2:
+//					type =   _getRootFrameElement().lang.tireReport_high;
+//					break;
+//				case 3:
+//					type =   _getRootFrameElement().lang.tireReport_low;
+//					break;
+//				case 4:
+//					type =   _getRootFrameElement().lang.tireReport_temperature;
+//					break;
+//				case 5:
+//					type =   _getRootFrameElement().lang.tireReport_sensor;
+//					break;
+//				case 6:
+//					type =   _getRootFrameElement().lang.tireReport_balance;
+//					break;
+//				case 7:
+//					type =   _getRootFrameElement().lang.tireReport_leak;
+//					break;
+//				case 8:
+//					type =   _getRootFrameElement().lang.tireReport_battery;
+//					break;
+//				default:
+//					break;
+//			}
+//			if(type){
+//				strDesc +=  _getRootFrameElement().lang.reportInfo_tpmsType+type+";"
+//			}
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_temperature+(alarm.param1/10).toFixed(1)+ _getRootFrameElement().lang.degree+";"
+//		}
+//		if(alarm.param2){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_tire+(alarm.param2/10).toFixed(1)+"P"+";"
+//		}
+//		if(alarm.param3){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_batteryLevel+(alarm.param3)+"%"+";"
+//		}
+//		if(alarm.param4){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_sensor+(alarm.param4)+";"
+//		}
+//	}else{
+//		旧版本不变
+//		#define GPS_ALARM_TYPE_TPMS                     168     //胎压报警//    胎压报警, alarmInfo  TPMS报警类型（1表示电池电压警告，2表示胎压异常报警，3表示温度异常）,
+//      param[0] 当前温度 如: 200 = 20度
+//      param[1] 当前胎压 如: 25 = 2.5P
+//      param[2] 当前电压 如: 102=10.2V
+//      param[3] 传感器编号（01表示TPMS左1，02表示TPMS左2，03表示TPMS左3，04表示TPMS左4，11表示TPMS右1，12表示TPMS右2，13表示TPMS右3，14表示TPMS右4）
+		if(alarm.armIinfo){
+			var key = Number(alarm.armIinfo);
+			var type = null;
+			switch (key) {
+				case 1:
+					type =  _getRootFrameElement().lang.battery_voltage_warning;
+					break;
+				case 2:
+					type =  _getRootFrameElement().lang.tire_pressure_abnormal_alarm;
+					break;
+				case 3:
+					type =  _getRootFrameElement().lang.temperature_anomalies;
+					break;
+				default:
+					break;
+			}
+			if(type){
+				strDesc +=  _getRootFrameElement().lang.reportInfo_tpmsType+type+";"
+			}
+		}
+		if(alarm.param1){
+			strDesc +=  _getRootFrameElement().lang.reportInfo_temperature+(alarm.param1/10).toFixed(1)+"度"+";"
+		}
+		if(alarm.param2){
+			strDesc +=  _getRootFrameElement().lang.reportInfo_tire+(alarm.param2/10).toFixed(1)+"P"+";"
+		}
+		if(alarm.param3){
+			strDesc +=  _getRootFrameElement().lang.reportInfo_power+(alarm.param3/10).toFixed(1)+"V"+";"
+		}
+		if(alarm.param4){
+			var key = Number(alarm.param4);
+			var type = null;
+			switch (key) {
+//			01表示TPMS左1，02表示TPMS左2，03表示TPMS左3，04表示TPMS左4，11表示TPMS右1，12表示TPMS右2，13表示TPMS右3，14表示TPMS右4
+				case 1:
+					type = "TPMS"+ _getRootFrameElement().lang.left+"1";
+					break;
+				case 2:
+					type = "TPMS"+ _getRootFrameElement().lang.left+"2";
+					break;
+				case 3:
+					type = "TPMS"+ _getRootFrameElement().lang.left+"3";
+				case 4:
+					type = "TPMS"+ _getRootFrameElement().lang.left+"4";
+					break;
+				case 11:
+					type = "TPMS"+ _getRootFrameElement().lang.right+"1";
+					break;
+				case 12:
+					type = "TPMS"+ _getRootFrameElement().lang.right+"2";
+					break;
+				case 13:
+					type = "TPMS"+ _getRootFrameElement().lang.right+"3";
+					break;
+				case 14:
+					type = "TPMS"+ _getRootFrameElement().lang.right+"4";
+					break;
+				default:
+					break;
+			}
+			if(type){
+				strDesc +=  _getRootFrameElement().lang.reportInfo_sensor+type+";"
+			}
+//		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.tire_alarm+extra;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+standardAlarm.prototype.getVehicleSignsAlarm = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+//	AlarmInfo:报警级别
+//	Param[0]:道路标志识别数据
+//	Param[1]:道路标志识别类型
+//	desc:报警标识号
+//	if(alarm.desc && alarm.desc != ""){//
+//		if(alarm.armIinfo){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";";
+//		}
+//		if(alarm.param1){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSigns+alarm.param1+";";
+//		}
+//		if(alarm.param2){
+//			strDesc +=  _getRootFrameElement().lang.reportInfo_roadSignsType+alarm.param2+";";
+//		}
+//	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.report_signsRecognition;
+	ret.strDesc = strDesc;
+	return ret;
+}
+
+//只获取报警类型
+standardAlarm.prototype.getOnlyAlarmType = function(armType) {
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(armType == 144 || armType == 143){
+//		if(alarm.desc && alarm.desc != ""){//
+//			if(alarm.armIinfo){
+//				strDesc +=  _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo+";";
+//			}
+//		}
+	}
+	if(armType == 431 || armType == 432 || armType == 433){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else if(armType == 481 || armType == 482 || armType == 483) {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	switch (armType) {
+	case 143:
+		strType =   _getRootFrameElement().lang.report_autoCapture;
+		break;
+	case 144:
+		strType =   _getRootFrameElement().lang.report_driverChange;
+		break;
+	case 431:
+	case 481: 
+		strType =   _getRootFrameElement().lang.report_approach;
+		break;
+	case 432:
+	case 482:
+		strType =   _getRootFrameElement().lang.left_rear;
+		break;
+	case 433:
+	case 483:
+		strType =   _getRootFrameElement().lang.right_rear;
+		break;
+	default:
+		break;
+	}
+	ret.strMark = strMark;
+	ret.strType = strType;
+	ret.strDesc = strDesc;
+	return ret;
+}
+		
+
+/**
+ *	异常驾驶
+ */
+standardAlarm.prototype.getAbnormalDrive = function(armType) {
+	var strMark = '';
+	var alarm = null;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	var types = [];
+	if(alarm.param1){
+		if((alarm.param1) & 1 > 0){//疲劳驾驶
+			 var cd = 0;
+			if(alarm.param2){
+				cd = alarm.param2;
+			}
+			types.push( _getRootFrameElement().lang.fatigue_driving+''+cd);
+		}
+		if((alarm.param1 >> 1) & 1 > 0){//打电话
+			types.push( _getRootFrameElement().lang.on_the_telephone);
+		}
+		if((alarm.param1 >> 2) & 1 > 0){//抽烟
+			types.push( _getRootFrameElement().lang.smoking);
+		}
+//		AlarmInfo:报警级别
+//		param[0]:异常驾驶标志位 bit0：疲劳; bit1：打电话  bit2：抽烟  bit3:分神驾驶  bit4:驾驶员异常
+//		param[1]: //疲劳程度 0-100
+//		desc(非苏标为空):报警标识号
+//		if(alarm.desc && alarm.desc != ""){
+//			if((alarm.param1 >> 3) & 1 > 0){//抽烟
+//				types.push( _getRootFrameElement().lang.reportInfo_distraction);
+//			}
+//			if((alarm.param1 >> 4) & 1 > 0){//抽烟
+//				types.push( _getRootFrameElement().lang.reportInfo_abnormality);
+//			}
+//			if(alarm.armIinfo){
+//				types.push( _getRootFrameElement().lang.reportInfo_grade+alarm.armIinfo);
+//			}
+//		}
+	}
+	
+	if(armType == 248) {
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.abnormal_drive;
+	ret.strMark = strMark;
+	ret.strDesc =  types.join(';');
+	return ret;
+}
+
+/**
+	case 314:  //夜间超速报警(平台)
+	case 364:  //夜间超速报警(平台)
+ * @returns 
+ */
+standardAlarm.prototype.getNigthOverSpeedType = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	if(armType == 314){//报警开始
+		strMark =  this.getAlarmStartEnd(1);
+	}else if(armType == 364) {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+//	 param[0]当前超速限速值
+	if(alarm.param1){
+//		strDesc +=  _getRootFrameElement().lang.vehicke_cur_speed+ this.getSpeedString(alarm.param1*10)+";";
+//		var speed = "0.0";
+//		if(alarm.status && alarm.status.speed){
+//			speed = alarm.status.speed / 10.0;
+//		}
+		strDesc +=  _getRootFrameElement().lang.alarm_speed_threshold+":"  +this.getSpeedString(alarm.param1*10)+";";
+		if(alarm.status && alarm.status.speed){
+			strDesc +=   _getRootFrameElement().lang.alarm_current_speed+":" +  this.getSpeedString(alarm.status.speed);
+		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.alarm_type_night_overSpeed_platform;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+		
+/**
+case 140:  //离线预警(平台产生)
+* @returns 
+*/
+standardAlarm.prototype.getVehicleOffLineType = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+//	 param[0]:0-预警 1-结束预警,当param[0]=1时,Param[1]有效:1-设备上线,2-预警已处理,当param[0]=0时,Param[2]表示判断阀值,单位:秒
+	if(alarm.param1 != null && (alarm.param1 == 0 || alarm.param1 == 1) ){
+		if(alarm.param1 == 1){
+			if(alarm.param2){
+				if(alarm.param2 == 1){
+					strDesc +=  _getRootFrameElement().lang.alarm_type_device_online+";";
+				}else if(alarm.param2 == 2){
+					strDesc +=  _getRootFrameElement().lang.handle_vehicle_offline+";";
+				}
+			}
+		}else if(alarm.param1 == 0){
+			if(alarm.param2){
+				strDesc +=  _getRootFrameElement().lang.judge_vehicle_oddline+':'+alarm.param2+  _getRootFrameElement().lang.second+";";
+			}
+		}
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.vehicle_offline;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}		
+
+/**
+case 145:  //司机工作超过八小时 (平台产生)
+* @returns 
+*/
+standardAlarm.prototype.getDriverOverWorkType = function(armType) {
+	var alarm = null;
+	var strDesc = "";
+	var strType = '';
+	var strMark = '';
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+	//超时驾驶事件 param[0]:司机ID param[1]:驾驶时长,单位:秒 param[2]:超时阀值,单位:秒
+	if(alarm.param2){
+		strDesc +=  _getRootFrameElement().lang.driver_times+':'+alarm.param2+  _getRootFrameElement().lang.second+";";
+	}
+	if(alarm.param3){
+		strDesc +=  _getRootFrameElement().lang.judge_driver_overTime+':'+alarm.param3+  _getRootFrameElement().lang.second+";";
+	}
+	var ret = {};
+	ret.strType =  _getRootFrameElement().lang.report_haiju_driver;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	return ret;
+}
+	
+
+
+/**
+ * 解析报警类型
+ */
+standardAlarm.prototype.getFormatMDVRAlarmString = function(armType) {
+	if(_getRootFrameElement().myUserRole && _getRootFrameElement().myUserRole.isShieldReport()){
+		var shieldAlarm = ",207,194,231,174,217,218,8,182,183,192,244,245,248,";
+		if(shieldAlarm.indexOf(','+armType+",") >= 0){
+			var ret = {};
+			ret.strType =  _getRootFrameElement().lang.unknown;
+			return ret;
+		}
+	}
+	switch (armType) {
+	case 18:  //GPS讯号丢失开始
+	case 68:  //GPS讯号丢失结束
+		return this.getSignalLossAlarm(armType);
+	case 1:  //自定义报警开始
+	case 51:  //自定义报警结束
+		return this.getUserDefineAlarm(armType);
+	case 19:  //IO_1报警 开始
+	case 69:  //  结束
+		return this.getIOAlarm(0, armType);
+	case 20:  //IO_2报警 开始
+	case 70:  //结束
+		return this.getIOAlarm(1, armType);
+	case 21:  //IO_3报警 开始
+	case 71:  //结束
+		return this.getIOAlarm(2, armType);
+	case 22:  //IO_4报警 开始
+	case 72:  //结束
+		return this.getIOAlarm(3, armType);
+	case 23:  //IO_5报警 开始
+	case 73:  //结束
+		return this.getIOAlarm(4, armType);
+	case 24:  //IO_6报警 开始
+	case 74:  //结束
+		return this.getIOAlarm(5, armType);
+	case 25:  //IO_7报警 开始
+	case 75:  //结束
+		return this.getIOAlarm(6, armType);
+	case 26:  //IO_8报警 开始
+	case 76:  //结束
+		return this.getIOAlarm(7, armType);
+	case 41:  //IO_9报警 开始
+	case 91:  //结束
+		return this.getIOAlarm(8, armType);
+	case 42:  //IO_10报警 开始
+	case 92:  //结束
+		return this.getIOAlarm(9, armType);
+	case 43:  //IO_11报警 开始
+	case 93:  //结束
+		return this.getIOAlarm(10, armType);
+	case 44:  //IO_12报警 开始
+	case 94:  //结束
+		return this.getIOAlarm(11, armType);
+	case 2:  //紧急按钮报警 开始
+	case 52:  //结束
+		return this.getUrgencyButtonAlarm(armType);
+	case 3:  //振动报警(侧翻报警) 开始
+	case 53:  //结束
+		return this.getShakeAlarm(armType);
+	case 14:  //超时停车 开始
+	case 64:  // 结束
+		return this.getOvertimeParkAlarm(armType);
+	case 4:  //视频丢失报警 开始
+	case 54:  //结束
+		return this.getVideoLostAlarm(armType);
+	case 5:  //摄像头遮挡报警 开始
+	case 55:  //结束
+		return this.getVideoMaskAlarm(armType);
+	case 6:  //非法开门报警 开始
+	case 56:  //结束
+		return this.getDoorOpenLawlessAlarm(armType);
+	case 7:  //三次密码错误报警 开始
+	case 57:  //结束
+		return this.getWrongPwdAlarm(armType);
+	case 8:  //非法点火报警 开始
+	case 58:  //结束
+		return this.getFireLowlessAlarm(armType);
+	case 9:  //温度报警 开始
+	case 59:  //结束
+		return this.getTemperatorAlarm(armType);
+	case 10:  //硬盘错误报警 开始
+	case 60:  //结束
+		return this.getDiskErrAlarm(armType);
+	case 11:  //超速报警 开始
+	case 61:  //结束
+		return this.getOverSpeedAlarm(armType);
+	case 151:  //夜间行驶报警 开始
+	case 152:  //结束
+		return this.getNightDrivingAlarm(armType);
+	case 153:  //聚众报警 开始
+	case 154:  //结束
+		return this.getGatheringAlarm(armType);
+	case 155:  //UPS 剪线报警警 开始
+	case 156:  //结束
+		return this.getUSPCutAlarm(armType);
+	case 157:  //硬盘超温报警 开始
+	case 158:  //结束
+		return this.getHddHighTempAlarm(armType);
+	case 159:  //前面板被撬开报警 开始
+	case 160:  //结束
+		return this.getBeBoOpenedAlarm(armType);
+	case 161:  //关机上报报警
+		return this.getTurnOffAlarm(armType);
+	case 162:  //硬盘空间不足报警 开始
+	case 163:  //结束
+		return this.getDiskSpaceAlarm(armType);
+	case 166:  //SIM卡丢失报警 开始
+	case 167:  //结束
+		return this.getSimLostAlarm(armType);
+	case 12:  //越界报警 开始
+	case 62:  //结束
+		return this.getBeyondBoundsAlarm(armType);
+	case 13:  //异常开关车门报警 开始
+	case 63:  //结束
+		return this.getDoorAbnormalAlarm(armType);
+	case 17:  //设备在线
+	case 67:  //设备断线
+		return this.getOnlineAlarm(armType);
+	case 16:  //ACC开启报警
+	case 66:  //ACC关闭报警
+		return this.getACCAlarm(armType);
+	case 15:  //移动侦测报警 开始
+	case 65:  //结束
+		return this.getMotionAlarm(armType);
+	case 46:  //油量报警  加油 开始
+	case 86:  //结束
+	case 47:  //油量报警 减油 开始
+	case 87:  //结束
+		return this.getOilAlarm(armType);
+	case 49:  //疲劳驾驶  开始
+	case 99:  //结束
+		return this.getFatigueAlarm(armType);
+		//this.fillObject( _getRootFrameElement().lang.face_fatigue,  _getRootFrameElement().lang.monitor_alarm_adas, "249", "299", "adasAlarm",false,true);	
+	case 249:  //疲劳驾驶  开始
+	case 299:  //结束
+		return this.getFaceFatigueAlarm(armType);	
+	////平台报警
+	case 300:  //区域超速报警  开始
+	case 350:  //结束
+	case 301:  //区域低速报警  开始
+	case 351:  //结束
+		return this.getCMSAreaOverSpeedAlarm(armType);
+	case 302:  //进出入区域报警  开始
+	case 352:  //结束
+	case 303:  //线路偏移报警  开始
+	case 353:  //结束
+		return this.getCMSAreaInOutAlarm(armType);
+	case 304:  //时间段超速报警  开始
+	case 354:  //结束
+		return this.getCMSTimeOverSpeedAlarm(armType);
+	case 305:  //时间段低速报警  开始
+	case 355:  //结束
+		return this.getCMSTimeLowSpeedAlarm(armType);
+	case 306:  //疲劳驾驶报警  开始
+	case 356:  //结束
+		return this.getCMSFatigueAlarm(armType);
+	case 307:  //超时停车报警  开始
+	case 357:  //结束
+		return this.getCMSParkTooLongAlarm(armType);
+	case 308:  //关键点监控报警  开始
+	case 358:  //结束
+		return this.getCMSAreaPointAlarm(armType);
+	case 309:  //线路超速报警  开始
+	case 359:  //结束
+	case 310:  //线路低速报警  开始
+	case 360:  //结束
+		return this.getCMSAreaOverSpeedAlarm(armType);
+	case 311:  //道路等級限速  开始
+	case 361:  //结束
+		return this.getCMSRoadLevelOverSpeedAlarm(armType);
+		//事件
+	case 101:  //停车事件
+		return '';
+	case 102:  //停车未熄火事件
+		return '';
+	case 103:  //流量
+		return '';
+	case 104:  //加油
+		return '';
+	case 105:  //偷油
+		return '';
+	case 106:  //超速事件
+		return '';
+	case 107:  //进出区域事件
+		return '';
+	case 108:  //区域停车事件
+		return '';
+	case 109:  //图片文件或者录像文件上传   有问题
+		return this.getEventFileUpload(armType);
+	case 111:  //海船状态报警
+		return '';
+	case 114:  //超速预警
+		return '';
+	case 115:  //低速预警
+		return '';
+	case 116:  //驾驶员信息采集上报   有问题
+		return this.getDriverInfo(armType);
+	case 130:  //报警图片文件或者录像文件下载
+	case 148:
+		return this.getEventFileDownload(armType);
+	case 110:  //报站信息
+		return this.getEventStationInfo(armType);
+	case 113:  //自定义报警()
+		return this.getCustomAlarmInfo(armType);
+	case 132:  //透传数据
+		return '';
+	case 27:  //进入区域报警
+	case 28:  //出区域报警
+	case 33:  //区域内停车报警
+	case 34:  //区域外停车报警
+	case 77:  //进入区域报警
+	case 78:  //出区域报警
+	case 83:  //区域内停车报警
+	case 84:  //区域外停车报警
+	case 29:  //区域内高速报警
+	case 30:  //区域外高速报警
+	case 31:  //区域内低速报警
+	case 32:  //区域外低速报警
+	case 79:  //区域内高速报警
+	case 80:  //区域外高速报警
+	case 81:  //区域内低速报警
+	case 82:  //区域外低速报警
+		return this.getFenceAlarm(armType);
+		//808部分报警
+	case 200:  //区域超速报警 开始
+	case 250:  //结束
+		return this.getAreaOverSpeedAlarm(armType);
+	case 201:  //预警  开始
+	case 251:  //结束
+		return this.getWarningAlarm(armType);
+	case 202:  //GNSS模块故障  开始
+	case 252:  //结束
+		return this.getGNSSModuleFailureAlarm(armType);
+	case 203:  //GNSS天线未接或剪断  开始
+	case 253:  //结束
+		return this.getGNSSAntennaMissedOrCutAlarm(armType);
+	case 204:  //GNSS天线短路  开始
+	case 254:  //结束
+		return this.getGNSSAntennaShortAlarm(armType);
+	case 205:  //主电源欠压  开始
+	case 255:  //结束
+		return this.getSupplyUndervoltageAlarm(armType);
+		
+	case 206:  //主电源掉电  开始
+	case 256:  //结束
+		return this.getPowerFailureAlarm(armType);
+	case 207:  //LCD或显示器故障  开始
+	case 257:  //结束
+		return this.getLCDFailureAlarm(armType);
+	case 208:  //TTS模块故障  开始
+	case 258:  //结束
+		return this.getTTSModuleFailureAlarm(armType);
+	case 209:  //摄像头故障  开始
+	case 259:  //结束
+		return this.getCameraFailureAlarm(armType);
+	case 210:  //当天累计驾驶超时  开始
+	case 260:  //结束
+		return this.getDrivingTimeoutAlarm(armType);
+	case 211:  //进出区域  开始
+	case 261:  //结束
+	case 212:  //进出线路  开始
+	case 262:  //结束
+		return this.getCMSAreaInOutAlarm(armType);
+	case 213:  //路段行驶时间不足或过长  开始
+	case 263:  //结束
+		return this.getRoadTravelTimeAlarm(armType);
+		
+	case 214:  //路线偏离  开始
+	case 264:  //结束
+		return this.getRouteDeviationAlarm(armType);
+	case 215:  //VSS故障  开始
+	case 265:  //结束
+		return this.getVSSFailureAlarm(armType);
+	case 216:  //油量异常  开始
+	case 266:  //结束
+		return this.getAbnormalFuelAlarm(armType);
+	case 217:  //防盗器  车辆被盗  开始
+	case 267:  //结束
+		return this.getAntitheftDeviceAlarm(armType);
+	case 218:  //非法位移  开始
+	case 268:  //结束
+		return this.getIllegalDisplacementAlarm(armType);
+	case 219:  //侧翻报警  开始
+	case 269:  //结束
+		return this.getRolloverAlarm(armType);
+	case 117: //报站信息开始
+		return '';//this.getBusArrivalStationInfo(armType);
+	case 118: //溜站报警开始
+		return this.getBusSlipStationAlarm(armType);
+		/****** 新增加的轮胎报警*******/	
+		
+	case 235: 	//胎温报警
+	case 285: 	//结束
+		return this.getTiretemperature(armType);
+	case 236: 	//配置错误报警
+	case 286:	//结束	
+		return this.getConfigurationErrorAlarm(armType);
+	case 237:	//传感器无信号
+	case 287:	//结束
+		return this.getSensorNoSignal(armType);
+	case 238:	//低电压报警
+	case 288:	//结束
+		return this.getLowVoltageAlarm(armType);
+	case 239:	//胎压报警开始
+	case 289:
+		return this.getTpmsAlarm(armType);
+//	case 239: //胎压报警开始
+//	case 289:
+//		return this.getTpmsAlarm(armType);	
+		
+	/** 设备上锁**/	
+	case 182: //设备开锁
+	case 183: //设备上锁
+		return this.getDeviceLockAlarm(armType);
+	/******* 2017/2/10 添加 ********/
+	case 184: //加水报警	
+	case 185: //水位减少报警
+		return this.getWaterLevelAlarm(armType);
+	/*******  危化  *******/
+	case 232: //禁行区域
+	case 282:
+	case 233: //禁行线路
+	case 283:
+	case 234: //异地车辆入境
+	case 284:
+		return this.getChemicalAreaAlarm(armType);
+	case 170: //面向警示
+	case 171: 
+		return this.getFaceAlarm(armType);
+	case 172: //闭眼警示
+	case 173: 
+		return this.getEyesClosedAlarm(armType);
+	case 174: //手机警示
+	case 175: 
+		return this.getPhoneAlarm(armType);
+	case 176: //抽烟警示
+	case 177: 
+		return this.getSmokeAlarm(armType);
+	case 186: //离岗警示
+	case 187: 
+		return this.getLeaveJobAlarm(armType);
+	case 188: //左顾右盼
+	case 189: 
+		return this.getLookAroundAlarm(armType);
+	case 190: //打哈欠
+	case 191: 
+		return this.getYawnAlarm(armType);
+	case 192: //氧气浓度低
+	case 193: 
+		return this.getLowOxygenAlarm(armType);
+	case 246: //急加速
+	case 296: 
+		return this.getRapidAccelerationAlarm(armType);
+	case 247: //急减速
+	case 297: 
+		return this.getRapidDecelerationAlarm(armType);
+	//2017年4月26日 11:13:03	
+	case 244://其他视频设备故障报警开始报警
+	case 294://结束报警
+		return  this.getOtherDeviceError(armType);
+	case 245://录像阀值开始报警
+	case 295://结束报警
+		return  this.getRecordThreshold(armType);
+	case 248://异常驾驶开始报警
+	case 298://结束报警
+		return  this.getAbnormalDrive(armType);
+	case 194://烟感报警
+	case 195:
+		return  this.getSmokeInductionAlarm(armType);
+	case 136: //异常定位
+		return this.getAbnormalPositionAlarm(armType);
+	case 48: //无任务出车
+		return this.getTaskAlarm(armType);
+	case 400: //前车碰撞预警
+	case 450: 
+		return this.getFrontCarCollisionAlarm(armType);
+	case 401: //道偏离预警
+	case 451: 
+		return this.getLaneDeviationAlarm(armType);
+	case 402: //行人检测预警
+	case 452: 
+		return this.getPedestrianDetectionAlarm(armType);
+	case 403: //驾驶员遮挡或镜头偏离位置
+	case 453: 
+		return this.getLensDeviationAlarm(armType);
+	case 404: //不系安全带
+	case 454: 
+		return this.getNoSeatBeltsAlarm(armType);
+	case 405: //设备故障
+	case 455: 
+		return this.getEquipmentFailureAlarm(armType);
+	case 406: //车距近
+	case 456: 
+		return this.getShortDistanceAlarm(armType);
+	case 407: //急刹车
+	case 457: 
+		return this.getSlamBrakeAlarm(armType);
+	case 408: //急左转弯
+	case 458:
+		return this.getTurnLeftAlarm(armType);
+	case 409: //急右转弯
+	case 459:
+		return this.getTurnRightAlarm(armType);
+	case 421:  //撞击行人
+	case 471:  //撞击行人
+		return  this.getImpactingPedestriansAlarm(armType);	
+	case 428:  //频繁变道
+	case 478:  //频繁变道
+		return  this.getVehicleFrequentAlarm(armType);	
+	case 429:  //道路标识超限报警
+	case 479:  //道路标识超限报警
+		return  this.getOverspeedSignsAlarm(armType);			
+	case 430:  //障碍物
+	case 480:  //障碍物
+	case 142:  //主动抓拍事件
+		return  this.getVehicleObstacleAlarm(armType);		
+	case 141:  //道路标志识别事件
+		return  this.getVehicleSignsAlarm();
+	case 143:  //自动抓拍事件
+	case 144:  //驾驶员变更事件
+	case 431:  //后方接近报警
+	case 481:  //后方接近报警
+	case 432:  //左后方接近报警
+	case 482:  //左后方接近报警
+	case 433:  //右后方接近报警
+	case 483:  //右后方接近报警
+		return this.getOnlyAlarmType(armType);		
+	case 168:  //胎压报警
+	case 169:  //胎压报警
+		return this.getTireAlarmType(armType);			
+		
+	case 314:  //夜间超速报警(平台)
+	case 364:  //夜间超速报警(平台)
+		return this.getNigthOverSpeedType(armType);		
+		
+	case 140:  //离线预警(平台产生)
+		return this.getVehicleOffLineType(armType);	
+	case 145:  //司机工作超过八小时 (平台产生)
+		return this.getDriverOverWorkType(armType);	
+	case 410:  //低头
+	case 460:  //地头
+		return this.getbelowHeadAlarmType(armType);			
+		
+	case 146: //在途不在线
+		return this.getOnWayOffLine(armType);
+	case 147: //未知车辆
+		return this.getUnknowVehicle(armType);
+	case 135: //808客流统计
+		return this.getPeopleUpload(armType);
+	case 231: //超载
+	case 281:
+		return this.getOverLoad(armType);	
+		
+	case 600://前向碰撞报警1级
+	case 601://前向碰撞报警2级
+	case 602://车道偏离报警1级
+	case 603://车道偏离报警 2级
+	case 604://车距过近报警 1级
+	case 605://车距过近报警 2级
+	case 606://行人碰撞报警  1级
+	case 607://行人碰撞报警  2级	
+	case 608://频繁变道  1级
+	case 609://频繁变道  2级
+	case 610://道路标识超限报警  1级
+	case 611://道路标识超限报警  2级
+	case 612://障碍物报警 1级
+	case 613://障碍物报警 2级
+	case 614://道路标志识别事件 1级
+	case 615://道路标志识别事件 2级
+	case 616://主动抓拍事件 1级
+	case 617://主动抓拍事件 2级
+	case 618://疲劳驾驶报警  1级
+	case 619://疲劳驾驶报警 2级
+	case 620://接打电话报警  1级
+	case 621://接打电话报警 2级
+	case 622://抽烟报警 1级
+	case 623://抽烟报警 2级
+	case 624://分神驾驶报警 1级
+	case 625://分神驾驶报警 2级
+	case 626://驾驶员异常报警 1级
+	case 627://驾驶员异常报警 2级
+	case 628://自动抓拍事件 1级
+	case 629://自动抓拍事件 2级
+	case 630://驾驶员变更事件 1级
+	case 631://驾驶员变更事件 2级
+	case 632://胎压报警
+	case 633://后方接近报警
+	case 634://左侧后方接近报警
+	case 635://右侧后方接近报警
+		//以上是开始
+	case 650:	//前向碰撞报警1级
+	case 651:		//前向碰撞报警2级
+	case 652:		//车道偏离报警1级
+	case 653:		//车道偏离报警2级
+	case 654:		//车距过近报警1级
+	case 655:		//车距过近报警2级
+	case 656:		//行人碰撞报警1级
+	case 657:		//行人碰撞报警2级
+	case 658:     //频繁变道 1级
+	case 659:     //频繁变道 2级
+	case 660:     //道路标识超限报警 1级
+	case 661:     //道路标识超限报警 2级
+	case 662:     //障碍物报警 1级
+	case 663:     //障碍物报警 2级
+		// DSM
+	case 668:		//疲劳驾驶报警 1级
+	case 669:		//疲劳驾驶报警 2级
+	case 670:     //接打电话报警 1级
+	case 671:		//接打电话报警 2级
+	case 672:     //抽烟报警 1级
+	case 673:     //抽烟报警 2级
+	case 674:     //分神驾驶报警 1级
+	case 675:     //分神驾驶报警 2级
+	case 676:     //驾驶员异常报警 1级
+	case 677:    //驾驶员异常报警 2级
+		// TPMS
+	case 682:		//胎压报警(苏标)
+		// BDS
+	case 683:     //后方接近报警,desc(非苏标为空):报警标识号
+	case 684:     //左侧后方接近报警,desc(非苏标为空):报警标识号
+	case 685:     //右侧后方接近报警,desc(非苏标为空):报警标识号
+	
+	case 637:		//驾驶员识别
+	case 687:		
+		
+	case 639:		//墨镜失效一级报警
+	case 689:		
+	
+	case 640:		//墨镜失效二级报警
+	case 690:	
+		
+	case 641:		//驾驶员IC卡异常报警1级
+	case 691:	
+		
+	case 642:		//驾驶员IC卡异常报警2级
+	case 692:
+		
+	case 643:		//驾驶员身份识别事件
+		//其他
+		return this.getSuBiaoAlarm(armType);
+	case 636:		//驾驶员识别
+	case 686:		//驾驶员识别
+		return this.getDriverIdentify(armType);
+//	case 312:		//GPS漂移(平台)312,362
+//	case 362:		//GPS漂移(平台)
+//		return this.getGpsDrift(armType);
+//	case 313:		//轨迹不连续报警(平台)313,363
+//	case 363:		//轨迹不连续报警(平台)
+//		return this.getGpsDiscontinuous(armType);
+//	case 411:		////411,461 Lang=未插卡,
+//	case 461:		
+//		return this.getUnplugged(armType);
+//	case 412:		//412,462 Lang=无法识别卡
+//	case 462:		
+//		return this.getNotRecognized(armType);
+//	case 413:		//413,463 Lang=未复位行车
+//	case 463:		
+//		return this.getUnresetDriving(armType);
+////		Type=436,486 Lang=磁盘坏道故障报警, attr=0,0			
+//	case 436:		//413,463 Lang=未复位行车
+//	case 486:		
+//		return this.getUnresetDriving(armType)
+	case 439:
+	case 489:
+	case 440:
+	case 490:
+	case 441:
+	case 491:
+		return this.getGSenSorAlarm(armType);
+	case 442://司机刷卡     	
+		return this.getDriverSwape(armType);	
+	case 443://学生刷卡		443
+		return this.getStudentSwape(armType);
+	case 149://临时路单报警(中石油)
+		return this.getTemporaryRoad(armType);
+	default:
+		var ret = {};
+		ret.strType =  _getRootFrameElement().lang.unknown;
+		return ret;
+	}
+}
+
+/**
+ *	未复位行车
+ */
+standardAlarm.prototype.getTemporaryRoad = function(armType) {
+    var strMark = '';
+    var typeStr = "临时路单报警";//报警类型 
+    var strDesc = '';//报警信息
+    var startTime = "";
+    var isAlarmEnd = false;
+	if(this.startAlarm != null) {
+		alarm = this.startAlarm;
+	}
+	if(this.endAlarm != null) {
+		alarm = this.endAlarm;
+	}
+//param[0]:0位 时间超时 1位:距离超时 2位:表示报警结束
+//	szDesc:开始时间|规则名称|统计时间,时间阀值;里程,距离阀值
+	var param = alarm.param1;
+	if(param){
+		if((param & 4 )> 0){
+			isAlarmEnd = true;
+		}
+		var szDesc = alarm.desc;
+		if(szDesc != null){
+			if(szDesc){
+				var szDesc_ = szDesc.split('|')
+				startTime = szDesc_[0];//开始时间
+				if(szDesc_.length > 1){
+					typeStr = szDesc_[1];//规则名称
+				}
+				
+				if(szDesc_.length > 2){
+					var infos_ = szDesc_[2].split(';')//开始时间|规则名称|统计时间,时间阀值;里程,距离阀值
+					if(infos_ && infos_.length > 0){
+						var realTime = "";
+						var ruleTime = "";
+						var realMile = "";
+						var ruleMile = "";
+						if((param & 3 ) == 3){
+							realTime = infos_[0].split(",")[0];
+							ruleTime = infos_[0].split(",")[1];
+							if(infos_.length > 1){
+								realMile = infos_[1].split(",")[0];
+								ruleMile = infos_[1].split(",")[1];
+							}
+						}else if((param & 2 ) == 2){//行驶超距
+							if(infos_.length > 1){
+								realMile = infos_[1].split(",")[0];
+								ruleMile = infos_[1].split(",")[1];
+							}else{
+								realMile = infos_[0].split(",")[0];
+								ruleMile = infos_[0].split(",")[1];
+							}
+						}else if((param & 1 ) == 1){//行驶超时
+							realTime = infos_[0].split(",")[0];
+							ruleTime = infos_[0].split(",")[1];
+						}
+						if(realTime && ruleTime){
+							strDesc += "行驶超时："+"预计时长-"+ruleTime+"秒,"+"实际耗时-"+realTime+"秒";
+						}
+						if(realMile && ruleMile){
+							if(strDesc){
+								strDesc += ";"
+							}
+							strDesc += "行驶超距："+"预计行驶-"+ruleMile+"米,"+"实际行驶-"+realMile+"米";
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	
+	var ret = {};
+	ret.strType = typeStr;
+	ret.strMark = strMark;
+	ret.strDesc = strDesc;
+	ret.isAlarmEnd = isAlarmEnd;//是否结束打卡
+	ret.startTime = startTime;
+	return ret;
+
+}
+
+
+/**
+ *	未复位行车
+ */
+standardAlarm.prototype.getUnresetDriving = function(armType) {
+	var strMark = '';
+	if(armType == 413){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType = "未复位行车";
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	无法识别卡
+ */
+standardAlarm.prototype.getNotRecognized = function(armType) {
+	var strMark = '';
+	if(armType == 412){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType = "无法识别卡";
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	未插卡
+ */
+standardAlarm.prototype.getUnplugged = function(armType) {
+	var strMark = '';
+	if(armType == 411){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType = "未插卡";
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	GPS漂移(平台)
+ */
+standardAlarm.prototype.getGpsDrift = function(armType) {
+	var strMark = '';
+	if(armType == 312){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType = "GPS漂移(平台)";
+	ret.strMark = strMark;
+	return ret;
+}
+
+/**
+ *	轨迹不连续报警(平台)
+ */
+standardAlarm.prototype.getGpsDiscontinuous = function(armType) {
+	var strMark = '';
+	if(armType == 313){
+		strMark =  this.getAlarmStartEnd(1);
+	}else {
+		strMark =  this.getAlarmStartEnd(0);
+	}
+	var ret = {};
+	ret.strType = "轨迹不连续报警(平台)";
+	ret.strMark = strMark;
+	return ret;
+}
+
+
+

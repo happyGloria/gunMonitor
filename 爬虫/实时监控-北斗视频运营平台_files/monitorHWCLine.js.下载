@@ -1,0 +1,547 @@
+/**
+ * 环卫监控线路处理类
+ */
+function monitorHWCLine(){
+	this.gpsLineTableObj = null;  //线路监控列表对象
+	this.roleCls = null;  //权限类对象
+	this.isClickEventTable = true; //是否是点击监控表格所选,点击表格的就不再选中表格
+	this.mapType = 0; //地图类型 默认谷歌 3百度
+	this.isShowLineName = false; //地图上是否显示线路名称
+	this.isShowWateringVehicle = true; //地图上是否显示洒水车
+	this.isShowSweepingVehicle = true; //地图上是否显示扫地车
+	this.isShowCleaningVehicle = true; //地图上是否显示清洗车
+	
+	this.combobuttons = null; //线路分组信息
+	this.lastSelectGroupId = -1; //最后选择的分组id
+	this.mapLineId = new Hashtable(); //地图上显示的线路id
+}
+
+//赋值权限类对象
+monitorHWCLine.prototype.setRoleCls = function(roleCls) {
+	if(typeof roleCls != 'undefined' && roleCls != null) {
+		this.roleCls = roleCls;
+	}
+}
+
+//赋值地图类型
+monitorHWCLine.prototype.setMapType = function(mapType) {
+	this.mapType = mapType;
+}
+
+//初始化
+monitorHWCLine.prototype.initialize = function() {
+	//初始化线路分组列表
+	this.initLineGroupCombobuttons();
+	//初始化各种车辆列表
+	this.initVehicleList();
+}
+
+//初始化线路分组列表
+monitorHWCLine.prototype.initLineGroupCombobuttons = function() {
+	if(parent.isLoadVehiList && parent.isLoadPermitVehiGroupList) {
+		this.combobuttons = {};
+		this.combobuttons.comboboxs = [];
+		var lstGroup = parent.vehicleManager.getAllLineGroup();
+		var that = this;
+		this.combobuttons.comboboxs.push({name: "全部", bclass: "timeUp", bimage: "", tooltip: "全部", onpress: -1});
+		for (var i = 0; i < lstGroup.length; i++) {
+			this.combobuttons.comboboxs.push({name: lstGroup[i].name, bclass: "timeUp", bimage: "", tooltip: lstGroup[i].name, onpress: lstGroup[i].id});
+		}
+		this.combobuttons.onchange = function(groupId) {
+			that.onChangeLineGroup(groupId);
+		}
+		//初始化线路列表
+		this.initLineTable();
+	}else {
+		var that = this;
+		setTimeout(function() {
+			that.initLineGroupCombobuttons();
+		},50);
+	}
+}
+
+//改变线路分组
+monitorHWCLine.prototype.onChangeLineGroup = function(groupId) {
+	//与最后选择的值不同才改变
+	if(this.lastSelectGroupId != groupId) {
+		this.lastSelectGroupId = groupId;
+		this.gpsLineTableObj.flexClear();
+		if(this.lastSelectGroupId == -1) {//显示全部
+			this.loadLineToTable();
+		}else {
+			//显示一部分
+			var group = parent.vehicleManager.getLineGroup(groupId);
+			if(group != null) {
+				var lineList = [];
+				var lstLineId = group.getLstLineId();
+				for (var i = 0; i < lstLineId.length; i++) {
+					var line = parent.vehicleManager.getLineInfo(lstLineId[i]);
+					line.getStatus(); //更新线路状态
+					lineList.push(line);
+				}
+				var that = this;
+				this.mapLineId.each(function(lineId, flag) {
+					if(!lstLineId.in_array(lineId)) {//如果不包含，则设置为false
+						that.mapLineId.put(lineId, false);
+					}
+				});
+				if(lineList.length > 0) {
+					this.loadLineToTableEx(lineList);
+				}
+			}
+		}
+	}
+}
+
+//初始化线路列表
+monitorHWCLine.prototype.initLineTable = function() {
+	var that = this;
+	this.gpsLineTableObj = $("#gpsLineTable").flexigrid({
+		url: "",	//StandardTrackAction_query.action
+		dataType: 'json',
+		colModel : [
+			{display: parent.lang.line_name, name : 'name', width : 100, sortable : false, align: 'center'},
+			{display: '清洗车', name : 'cleaning', width : 150, sortable : false, align: 'center'},
+			{display: '洒水车', name : 'watering', width : 150, sortable : false, align: 'center'},
+			{display: '扫地车', name : 'sweeping', width : 150, sortable : false, align: 'center'},
+			{display: parent.lang.abbreviation, name : 'abbr', width : 150, sortable : false, align: 'center'},
+			{display: parent.lang.belong_company, name : 'company', width : 200, sortable : false, align: 'center'}
+			],
+		usepager: false,
+		autoload: false,
+		useRp: false,
+		checkbox: true,
+		singleSelect: false,
+		clickRowDefault: false,
+		rp: 15,
+		buttons: [],
+		combobuttons: this.combobuttons,
+		showTableToggleBtn: true,
+		showToggleBtn: true,
+		width: 'auto',
+		height: 'auto',
+		resizable: false
+	});
+	//本类对象
+	var that = this;
+	this.gpsLineTableObj.flexSetFillCellFun(function(p, row, idx, index) {
+		return that.fillLineTable(p, row, idx, index);	
+	});
+	this.gpsLineTableObj.flexSelectRowPropFun(function(obj, selRow) {
+		that.selectMonitorRowProp(obj, selRow);
+	});
+	this.gpsLineTableObj.flexClickCheckBoxFun(function(obj) {
+		that.clickLineRowCheckbox(obj);
+	});
+};
+
+//初始化各种车辆列表
+monitorHWCLine.prototype.initVehicleList = function() {
+	//获取车辆列表
+	this.wateringVehicleList = []; //洒水车列表
+	this.sweepingVehicleList = []; //扫地车列表
+	this.cleaningVehicleList = []; //清洗车列表
+}
+
+//将所有线路加入线路列表
+monitorHWCLine.prototype.loadLineToTable = function() {
+	if(parent.vehicleManager) {
+		var lineList = parent.vehicleManager.getAllLineInfo();
+		if(lineList.length > 0) {
+			for (var i = 0; i < lineList.length; i++) {
+				lineList[i].getStatus(); //更新线路状态
+			}
+			this.loadLineToTableEx(lineList);
+		}
+	}
+}
+
+//将所有线路加入线路列表
+monitorHWCLine.prototype.loadLineToTableEx = function(lineList) {
+	this.gpsLineTableObj.flexAppendRowJson(lineList, true);
+	for (var i = 0; i < lineList.length; i++) {
+		if(this.mapLineId.get(lineList[i].id.toString()) == null) {
+			this.mapLineId.put(lineList[i].id.toString(), false);
+		}
+		lineList[i].isStatusChange = false;
+		var rowObj = this.gpsLineTableObj.find(this.gpsLineTableObj.flexGetRowid(lineList[i].id));
+		if(rowObj && rowObj.length > 0) {//列表存在
+			rowObj.find('td').each(function() {
+				$(this).css('background-color', '#'+lineList[i].color);
+			});
+			rowObj.find('.cleaning').css('background-color', '#'+lineList[i].cleaningColor);
+			rowObj.find('.watering').css('background-color', '#'+lineList[i].wateringColor);
+			rowObj.find('.sweeping').css('background-color', '#'+lineList[i].sweepingColor);
+		}
+	}
+	var that = this;
+	this.mapLineId.each(function(lineId, flag) {
+		if(flag) {
+			var rowObj = that.gpsLineTableObj.find(that.gpsLineTableObj.flexGetRowid(lineId));
+			rowObj.click();
+		}else {
+			that.selectLine(lineId, false, false);
+//			that.initLine(lineId, false);
+		}
+	});
+}
+
+monitorHWCLine.prototype.getColumnTitle = function(value) {
+	return '<span title="'+value+'">'+value+'</span>';
+}
+
+monitorHWCLine.prototype.fillLineTable = function(p, row, idx, index){
+	var name = p.colModel[idx].name;
+	var ret = "";
+	if(name == 'name') {
+		if(row.name) {
+			ret = row.name;
+		}
+	} else if(name == 'abbr') {
+		if(row.abbr) {
+			ret = row.abbr;
+		}
+	} else if(name == 'company') {
+		if(row.parentId) {
+			var company = parent.vehicleManager.getTeam(row.parentId);
+			if(company) {
+				ret = company.getName();
+			}
+		}
+	}else if(name == 'cleaning') {
+		ret = this.getSanitationWorkStatusStr(row.cleaningVehicle, row.stationSum);
+	}else if(name == 'watering') {
+		ret = this.getSanitationWorkStatusStr(row.wateringVehicle, row.stationSum);
+	}else if(name == 'sweeping') {
+		ret = this.getSanitationWorkStatusStr(row.sweepingVehicle, row.stationSum);
+	}
+	return this.getColumnTitle(ret);
+};
+
+//获取完成百分比
+monitorHWCLine.prototype.getCompletePercentage = function(curNumber, totalNumber) {
+	return parseInt(parseFloat((curNumber/totalNumber).toFixed(2)) * 100 ) + '%';
+}
+
+//获取环卫车状态
+monitorHWCLine.prototype.getSanitationWorkStatusStr = function(vehicle, stationSum) {
+	if(vehicle != null) {
+		var number = vehicle.workNumber; //已作业次数
+		if(vehicle.status) { //作业中
+			if(vehicle.totalNumber) {
+				return "执行第"+number+'遍,完成率'+ this.getCompletePercentage(vehicle.stationIndex+1, stationSum);
+			}else {
+				return "执行第"+number+'遍,未设置任务';	
+			}
+		}else {//空闲
+			if(number) {
+				if(vehicle.totalNumber) {
+					return "完成第"+ number +'遍,完成率'+ this.getCompletePercentage(vehicle.stationIndex+1, stationSum);
+				}else {
+					return "完成第"+number+'遍,未设置任务';	
+				}
+			}else {
+				if(vehicle.totalNumber) {
+					return '未执行,完成率0%';
+				}else {
+					return '未执行,未设置任务';
+				}
+			}
+		}
+	}
+	return "无";
+}
+
+//选中事件列表
+monitorHWCLine.prototype.selectMonitorRowProp = function(obj, selRow) {
+	var lineId = $(obj).attr('data-id');
+	if(selRow && selRow == 'delAll') {
+		if(lineId) {
+			var team = parent.vehicleManager.getTeam(lineId);
+			if(team && team.isOnMonitor()) {//如果线路已经监控
+				this.selectLine(lineId, false, false);
+			}
+		}
+	}else {
+		$(obj).addClass('trSelected');
+		$(obj).find("td .selectItem")[0].checked = true;
+		var checkAll = true;
+		$('tbody tr .selectItem', this.gpsLineTableObj.parent().parent()).each(function(){
+			if($(this).val() != "" && !this.checked)	{
+				checkAll = false;
+			}
+		});
+		if (checkAll) {
+			$('table tr .selectAllItem', this.gpsLineTableObj.parent().parent())[0].checked = true;
+		}
+		this.selectLine(lineId, true, false);
+	}
+}
+
+//点击选择线路信息
+monitorHWCLine.prototype.clickLineRowCheckbox = function(obj) {
+	var lineId = $(obj).val();
+	var team = parent.vehicleManager.getTeam(lineId);
+	if(team) {
+		this.selectLine(lineId, obj.checked, false);
+	}
+}
+
+
+/**
+ * 选中线路节点
+ * @param isOnMonitor 显示监控
+ * @param isShowTable 显示到列表
+ */
+monitorHWCLine.prototype.selectLine = function(lineId, isOnMonitor, isShowTable){
+	if (this.isClickEventTable) {
+		var team = parent.vehicleManager.getTeam(lineId);
+		if(team) {
+			if(isOnMonitor) {
+				if(!team.isOnMonitor()) {//如果线路没有监控
+					var that = this;
+					setTimeout(function() {
+						that.initLine(lineId, isOnMonitor);
+					}, 50);
+				}else {
+					if ((typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+						if(team.isOnShowUpMap()) {
+							monitorMapTip.selectLineOnMap(lineId, '');
+						}else if(team.isOnShowDownMap()) {
+							monitorMapTip.selectLineOnMap(lineId, 1);
+						}
+					}
+				}
+			}else {
+				this.initLine(lineId, isOnMonitor);
+			}
+		}
+	}
+	
+	if (isShowTable) {
+		//在监控列表中，也将车辆置为选中状态，并使车辆结点处理可见状态
+		this.isClickEventTable = false;
+		this.gpsLineTableObj.find(this.gpsLineTableObj.flexGetRowid(lineId)).find('.selectItem').click();
+	}else {
+		this.isClickEventTable = true;
+	}
+};
+
+/**
+ * 显示线路信息到地图
+ * @param isOnShowMap true 显示 false 删除
+ * @param isContainStation 是否操作站点
+ */
+monitorHWCLine.prototype.displayHWCLineOnMap = function(lineId, isOnShowMap, isContainStation) {
+	//显示到地图
+	if ((typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+		monitorMapTip.displayHWCLineOnMap(lineId, isOnShowMap, isContainStation, this.isShowLineName);
+		this.mapLineId.put(lineId.toString(), isOnShowMap);
+	}
+}
+
+//初始化线路图
+//isOnMonitor 是否监控  true是 flase删除监控
+monitorHWCLine.prototype.initLine = function(vehiTeamId, isOnMonitor) {
+	var team = parent.vehicleManager.getTeam(vehiTeamId);
+	if(team != null) {
+		if(isOnMonitor) {
+			team.setOnMonitor(true);
+			this.displayHWCLineOnMap(vehiTeamId, true, false);
+		}else {
+			team.setOnMonitor(false);
+			this.displayHWCLineOnMap(vehiTeamId, false, false);
+		}
+	}
+}
+
+//更新环卫车辆状态
+monitorHWCLine.prototype.updateLineVehicleStatus = function(vehicleStatusList) {
+	//数据格式[{id,lid,vid,stu,num,time,index}]
+	//更新之前，先把以前的数据清空
+	var mapLineStatus = new Hashtable();
+	for (var i = 0; i < vehicleStatusList.length; i++) {
+		var lineInfo = parent.vehicleManager.getLineInfo(vehicleStatusList[i].lid);//线路信息
+		if(lineInfo) {
+			if(mapLineStatus.get(vehicleStatusList[i].lid) == null ||
+					mapLineStatus.get(vehicleStatusList[i].lid) != 1) {
+				lineInfo.clearLineVehicleStatus();
+			}
+			lineInfo.updateVehicleStatus(vehicleStatusList[i]);
+			mapLineStatus.put(vehicleStatusList[i].lid, 1);
+		}
+	}
+} 
+
+/**
+ * 更新线路状态
+ */
+monitorHWCLine.prototype.updateLineStatus = function() {
+	var lineList = parent.vehicleManager.getAllLineInfo();
+	if(lineList && lineList.length > 0) {
+		for (var i = 0; i < lineList.length; i++) {
+			lineList[i].getStatus(); //更新线路状态
+			var rowObj = this.gpsLineTableObj.find(this.gpsLineTableObj.flexGetRowid(lineList[i].id));
+			if(rowObj && rowObj.length > 0) {//列表存在
+				rowObj.find('td').each(function() {
+					$(this).css('background-color', '#'+lineList[i].color);
+				});
+				
+				this.modifyColumnTitle(rowObj.find('.cleaning div span'), this.getSanitationWorkStatusStr(lineList[i].cleaningVehicle, lineList[i].stationSum));
+				this.modifyColumnTitle(rowObj.find('.watering div span'), this.getSanitationWorkStatusStr(lineList[i].wateringVehicle, lineList[i].stationSum));
+				this.modifyColumnTitle(rowObj.find('.sweeping div span'), this.getSanitationWorkStatusStr(lineList[i].sweepingVehicle, lineList[i].stationSum));
+				
+				rowObj.find('.cleaning').css('background-color', '#'+lineList[i].cleaningColor);
+				rowObj.find('.watering').css('background-color', '#'+lineList[i].wateringColor);
+				rowObj.find('.sweeping').css('background-color', '#'+lineList[i].sweepingColor);
+			}
+			
+			if(lineList[i].isStatusChange) {//如果线路状态改变
+				//先删除线路
+				this.displayHWCLineOnMap(lineList[i].id, false, false);
+				//再添加线路
+				this.displayHWCLineOnMap(lineList[i].id, true, false);
+				lineList[i].isStatusChange = false;
+			}
+			//进行车辆画线，按索引从大到小开始画，完成一次后就不画了。
+			//如果线路完成，则不画车辆运行线路
+			if(lineList[i].status != 2) {
+				this.drowHWCVehicleLine(lineList[i].id);
+			}else if(lineList[i].status == 2) {//如果已完成，则删除线路下所有车辆的轨迹
+				this.deleteHWCVehicleLine(lineList[i].id);
+			}
+		}
+	}
+}
+
+//进行车辆画线，按索引从大到小开始画，完成一次后就不画了。
+monitorHWCLine.prototype.drowHWCVehicleLine = function(lineId) {
+	if ((typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+		monitorMapTip.drowHWCVehicleLine(lineId, this.isShowLineName);
+	}
+}
+
+//删除线路下所有车辆的轨迹
+monitorHWCLine.prototype.deleteHWCVehicleLine = function(lineId) {
+	if ((typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+		monitorMapTip.deleteHWCVehicleLine(lineId);
+	}
+}
+
+//修改具体信息
+//object 要修改的对象
+monitorHWCLine.prototype.modifyColumnTitle = function(object, value) {
+	if(value) {
+		object.attr('title', value);
+		object.text(value);
+	}else {
+		object.attr('title', '');
+		object.text('');
+	}
+}
+
+//获取所有线路下的车辆
+monitorHWCLine.prototype.getAllLineVehiIdnos = function() {
+	var lineList = parent.vehicleManager.getAllLineInfo();
+	var vehiIdnos = [];
+	if(lineList && lineList.length > 0) {
+		for (var i = 0; i < lineList.length; i++) {
+			var lineInfo = lineList[i];//线路信息
+			if(lineInfo) {
+				//线路下所有车辆
+				var vehiIdnos_ = lineInfo.getVehiIdnoList();
+				if(vehiIdnos_ && vehiIdnos_.length > 0) {
+					vehiIdnos = vehiIdnos.concat(vehiIdnos_);
+				}
+			}
+		}
+	}
+	return vehiIdnos;
+}
+
+//获取所有线路下的设备,去状态刷新
+monitorHWCLine.prototype.getAllLineDevIdnos = function() {
+	var devIdnos = [];
+	//获取所有线路下的车辆
+	var vehiIdnos = this.getAllLineVehiIdnos();
+	if(vehiIdnos && vehiIdnos.length > 0) {
+		for (var i = 0; i < vehiIdnos.length; i++) {
+			var vehicle = parent.vehicleManager.getVehicle(vehiIdnos[i]);
+			if(vehicle) {
+				devIdnos.push(vehicle.getDevIdnos().toString());
+			}
+		}
+	}
+	return devIdnos.toString();
+}
+
+/**
+ * 地图上添加复选框
+ */
+monitorHWCLine.prototype.addCheckboxToMapTool = function() {
+	if ((typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+		var that = this;
+		//添加显示和隐藏线路名称的复选框
+		monitorMapTip.addCheckBoxToMapTool(true, "showLineName", "显示线路名称", false, function(obj) {
+			that.isShowLineName = obj.checked;
+			var lineList = parent.vehicleManager.getAllLineInfo();
+			if(lineList && lineList.length > 0) {
+				for (var i = 0; i < lineList.length; i++) {
+					var name = "";
+					if(that.isShowLineName) {
+						name = lineList[i].name;
+					}
+					monitorMapTip.editMarkerName(monitorMapTip.defaultLineId + lineList[i].id, name);
+					//隐藏车辆画线名称  最多三辆车
+					for (var j = 0; j < 3; j++) {
+						var markerId_ = monitorMapTip.defaultVehicleDriverId + lineList[i].id.toString() + j.toString();
+						monitorMapTip.editMarkerName(markerId_, name);
+					}
+					
+				}
+			}
+		});
+		//添加显示和隐藏不同类型车辆的复选框
+		monitorMapTip.addCheckBoxToMapTool(true, "showCleaningVehicle", "显示清洗车", true, function(obj) {
+			that.isShowCleaningVehicle = obj.checked; //地图上是否显示清洗车
+			that.displayVehicleOnMap(1, that.isShowCleaningVehicle);
+		});
+		monitorMapTip.addCheckBoxToMapTool(true, "showWateringVehicle", "显示洒水车", true, function(obj) {
+			that.isShowWateringVehicle = obj.checked; //地图上是否显示洒水车
+			that.displayVehicleOnMap(2, that.isShowWateringVehicle);
+		});
+		monitorMapTip.addCheckBoxToMapTool(true, "showSweepingVehicle", "显示扫地车", true, function(obj) {
+			that.isShowSweepingVehicle = obj.checked; //地图上是否显示扫地车
+			that.displayVehicleOnMap(3, that.isShowSweepingVehicle);
+		});
+	}
+ }
+
+/**
+ * 显示或者隐藏指定类型的车辆到地图
+ * @param vehiType 车辆类型
+ * @param flag 显示或者隐藏
+ */
+monitorHWCLine.prototype.displayVehicleOnMap = function(vehiType, flag) {
+	if ((typeof monitorMapTip) != 'undefined' && monitorMapTip != null) {
+		//获取已经监控的车辆
+		if(typeof monitorStatus != 'undefined' && monitorStatus != null) {
+			var mapVehicleList = monitorStatus.mapVehicleList;
+			if(mapVehicleList != null && mapVehicleList.size() > 0) {
+				mapVehicleList.each(function(key, value) {
+					var vehicle = parent.vehicleManager.getVehicle(key);
+					if(vehicle != null) {
+						if(vehicle.getVehiType() == vehiType || (vehicle.getVehiType() != 2 && vehicle.getVehiType() != 3 && vehiType == 1 )) {
+							if(flag) {
+								var data = monitorStatus.mapVehicleStatusList.get(key);
+								monitorMapTip.addVehicleToMap(vehicle, data, true);
+							}else {
+								monitorMapTip.removeVehicleInMap(key);
+							}
+						}
+					}
+				});
+			}
+		}
+	}
+}
