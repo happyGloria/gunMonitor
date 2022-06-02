@@ -17,7 +17,7 @@
     "jquery": "^3.4.1",
     "js-cookie": "^2.2.0",
     "promise": "^8.0.3",
-    "protobufjs": "^6.8.8",
+    "protobufjs": "^6.11.3",
     "qs.js": "^0.1.12",
     "vant": "^2.0.2",
     "vue": "^2.6.10",
